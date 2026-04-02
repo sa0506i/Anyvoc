@@ -1,98 +1,393 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useState, useCallback, useMemo } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import {
+  getAllVocabulary,
+  updateVocabularyReview,
+  getVocabularyStats,
+  getAllReviewDays,
+} from '../../lib/database';
+import { getCardsForReview, selectRound, getStreakDays, getBestStreak, getAveragePerDay } from '../../lib/leitner';
+import { useTrainerStore } from '../../hooks/useTrainer';
+import { useSettingsStore } from '../../hooks/useSettings';
+import FlashCard from '../../components/FlashCard';
+import LearningMaturity from '../../components/LearningMaturity';
+import RecentDays from '../../components/ReviewCalendar';
+import { useTheme } from '../../hooks/useTheme';
+import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from '../../constants/theme';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+export default function TrainerScreen() {
+  const db = useSQLiteContext();
+  const quizDirection = useSettingsStore((s) => s.quizDirection);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
 
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
+  const {
+    currentRound,
+    currentIndex,
+    isFlipped,
+    missedCards,
+    isRetryPhase,
+    roundComplete,
+    roundResults,
+    startRound,
+    flipCard,
+    markCorrect,
+    markIncorrect,
+    nextCard,
+    startRetry,
+    reset,
+    roundDirection,
+  } = useTrainerStore();
+
+  const [stats, setStats] = useState<ReturnType<typeof getVocabularyStats> | null>(null);
+  const [streak, setStreak] = useState(0);
+  const [bestStreakVal, setBestStreakVal] = useState(0);
+  const [avgPerDay, setAvgPerDay] = useState(0);
+  const [dueCount, setDueCount] = useState(0);
+  const [inSession, setInSession] = useState(false);
+  const [allReviewDaysList, setAllReviewDaysList] = useState<string[]>([]);
+
+  const refreshStats = useCallback(() => {
+    const allVocab = getAllVocabulary(db);
+    const vocabStats = getVocabularyStats(db);
+    const dueCards = getCardsForReview(allVocab);
+    const reviewDays = getAllReviewDays(db);
+    setStats(vocabStats);
+    setStreak(getStreakDays(allVocab));
+    setBestStreakVal(getBestStreak(reviewDays));
+    setAvgPerDay(getAveragePerDay(allVocab, reviewDays.length));
+    setDueCount(dueCards.length);
+    setAllReviewDaysList(reviewDays);
+  }, [db]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!inSession) refreshStats();
+    }, [inSession, refreshStats])
+  );
+
+  const handleStartRound = () => {
+    const allVocab = getAllVocabulary(db);
+    const dueCards = getCardsForReview(allVocab);
+    const round = selectRound(dueCards, 20);
+    if (round.length === 0) return;
+    startRound(round, quizDirection);
+    setInSession(true);
+  };
+
+  const handleMark = (correct: boolean) => {
+    const result = correct ? markCorrect() : markIncorrect();
+    updateVocabularyReview(db, result.vocabId, result.newBox, correct);
+    nextCard();
+  };
+
+  const handleEndSession = () => {
+    reset();
+    setInSession(false);
+    refreshStats();
+  };
+
+  // Active training session
+  if (inSession && !roundComplete && currentRound.length > 0) {
+    const card = currentRound[currentIndex];
+    const front = roundDirection === 'original' ? card.original : card.translation;
+    const back = roundDirection === 'original' ? card.translation : card.original;
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.progressBar}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressText}>
+              {currentIndex + 1} / {currentRound.length}
+              {isRetryPhase ? ' (Retry)' : ''}
+            </Text>
+            <Pressable onPress={handleEndSession} hitSlop={8}>
+              <Ionicons name="close" size={24} color={colors.textSecondary} />
+            </Pressable>
+          </View>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${((currentIndex + 1) / currentRound.length) * 100}%` },
+              ]}
             />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+          </View>
+        </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+        <View style={styles.cardArea}>
+          <FlashCard
+            front={front}
+            back={back}
+            isRevealed={isFlipped}
+            onReveal={flipCard}
+            onCorrect={() => handleMark(true)}
+            onIncorrect={() => handleMark(false)}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // Round complete
+  if (inSession && roundComplete) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.resultsContainer}>
+          <Ionicons name="trophy-outline" size={64} color={colors.primary} />
+          <Text style={styles.resultsTitle}>Round Complete!</Text>
+          <View style={styles.resultsRow}>
+            <View style={styles.resultBox}>
+              <Text style={[styles.resultNumber, { color: colors.success }]}>
+                {roundResults.correct}
+              </Text>
+              <Text style={styles.resultLabel}>Correct</Text>
+            </View>
+            <View style={styles.resultBox}>
+              <Text style={[styles.resultNumber, { color: colors.error }]}>
+                {roundResults.incorrect}
+              </Text>
+              <Text style={styles.resultLabel}>Wrong</Text>
+            </View>
+          </View>
+
+          {missedCards.length > 0 && (
+            <Pressable style={styles.retryButton} onPress={startRetry}>
+              <Text style={styles.retryButtonText}>
+                Retry {missedCards.length} missed words
+              </Text>
+            </Pressable>
+          )}
+
+          <Pressable style={styles.endButton} onPress={handleEndSession}>
+            <Text style={styles.endButtonText}>Back to Overview</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // Home / stats view
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.homeContent}>
+      {/* Statistics */}
+      {stats && stats.total > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Statistics</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{stats.learnedToday}</Text>
+              <Text style={styles.statLabel}>Learned Today</Text>
+              {avgPerDay > 0 && (
+                <Text style={styles.statSubtitle}>Avg: {avgPerDay}/day</Text>
+              )}
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{streak}</Text>
+              <Text style={styles.statLabel}>Day Streak</Text>
+              {bestStreakVal > 0 && (
+                <Text style={styles.statSubtitle}>Best: {bestStreakVal}</Text>
+              )}
+            </View>
+          </View>
+
+          <RecentDays reviewDays={allReviewDaysList} />
+
+          <Text style={styles.sectionTitle}>Learning Maturity</Text>
+          <LearningMaturity boxCounts={stats.byBox} />
+        </>
+      )}
+
+      {/* Start button */}
+      {dueCount > 0 ? (
+        <Pressable style={styles.startButton} onPress={handleStartRound}>
+          <Ionicons name="play" size={24} color="#FFFFFF" />
+          <Text style={styles.startButtonText}>Start Training ({dueCount} due)</Text>
+        </Pressable>
+      ) : stats && stats.total > 0 ? (
+        <View style={styles.caughtUp}>
+          <Ionicons name="checkmark-circle-outline" size={48} color={colors.success} />
+          <Text style={styles.caughtUpText}>All Caught Up!</Text>
+          <Text style={styles.caughtUpSubtext}>No vocabulary is due right now</Text>
+        </View>
+      ) : (
+        <View style={styles.caughtUp}>
+          <Ionicons name="book-outline" size={48} color={colors.border} />
+          <Text style={styles.caughtUpText}>No Vocabulary Yet</Text>
+          <Text style={styles.caughtUpSubtext}>Add content to start learning</Text>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+const createStyles = (c: ThemeColors) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: c.background,
+    },
+    homeContent: {
+      padding: spacing.md,
+      gap: spacing.lg,
+      paddingBottom: 100,
+    },
+    startButton: {
+      backgroundColor: c.primary,
+      borderRadius: borderRadius.full,
+      padding: spacing.lg,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: spacing.sm,
+      ...marineShadow,
+    },
+    startButtonText: {
+      color: '#FFFFFF',
+      fontSize: fontSize.lg,
+      fontWeight: '600',
+    },
+    caughtUp: {
+      alignItems: 'center',
+      padding: spacing.xl,
+      gap: spacing.sm,
+    },
+    caughtUpText: {
+      fontSize: fontSize.lg,
+      fontWeight: '600',
+      color: c.text,
+    },
+    caughtUpSubtext: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      fontWeight: '300',
+    },
+    sectionTitle: {
+      fontSize: fontSize.md,
+      fontWeight: '600',
+      color: c.text,
+    },
+    statsGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    statCard: {
+      flex: 1,
+      minWidth: '45%',
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      borderRadius: borderRadius.md,
+      padding: spacing.md,
+      alignItems: 'center',
+      gap: spacing.xs,
+      overflow: 'hidden',
+    },
+    statNumber: {
+      fontSize: fontSize.xxl,
+      fontWeight: '700',
+      color: c.text,
+    },
+    statLabel: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+      fontWeight: '300',
+    },
+    statSubtitle: {
+      fontSize: 10,
+      color: c.textSecondary,
+      fontWeight: '400',
+      marginTop: 2,
+    },
+    // Training session
+    progressBar: {
+      padding: spacing.md,
+      gap: spacing.xs,
+    },
+    progressHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    progressText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      textAlign: 'center',
+      fontWeight: '300',
+    },
+    progressTrack: {
+      height: 4,
+      backgroundColor: 'rgba(100, 150, 255, 0.15)',
+      borderRadius: 2,
+    },
+    progressFill: {
+      height: 4,
+      backgroundColor: c.primary,
+      borderRadius: 2,
+    },
+    cardArea: {
+      flex: 1,
+      justifyContent: 'center',
+      padding: spacing.md,
+    },
+    // Results
+    resultsContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: spacing.xl,
+      gap: spacing.lg,
+    },
+    resultsTitle: {
+      fontSize: fontSize.xl,
+      fontWeight: '700',
+      color: c.text,
+    },
+    resultsRow: {
+      flexDirection: 'row',
+      gap: spacing.xl,
+    },
+    resultBox: {
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    resultNumber: {
+      fontSize: 48,
+      fontWeight: '700',
+    },
+    resultLabel: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      fontWeight: '300',
+    },
+    retryButton: {
+      backgroundColor: 'rgba(255, 184, 77, 0.2)',
+      borderWidth: 1,
+      borderColor: 'rgba(255, 184, 77, 0.4)',
+      borderRadius: borderRadius.full,
+      padding: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    retryButtonText: {
+      color: c.warning,
+      fontSize: fontSize.md,
+      fontWeight: '600',
+    },
+    endButton: {
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      borderRadius: borderRadius.full,
+      padding: spacing.md,
+      paddingHorizontal: spacing.lg,
+    },
+    endButtonText: {
+      fontSize: fontSize.md,
+      color: c.textSecondary,
+      fontWeight: '300',
+    },
+  });
