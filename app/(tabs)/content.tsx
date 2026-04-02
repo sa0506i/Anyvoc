@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useShareIntentContext } from 'expo-share-intent';
+import { parseShareIntent } from '../../lib/shareHandler';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -52,6 +54,7 @@ export default function ContentsScreen() {
 
   const addMenuRequested = useUIStore((s) => s.addMenuRequested);
   const clearAddMenuRequest = useUIStore((s) => s.clearAddMenuRequest);
+  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
 
   const [contents, setContents] = useState<ContentWithCount[]>([]);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -77,6 +80,43 @@ export default function ContentsScreen() {
     }
   }, [addMenuRequested]);
 
+  // Handle shared content from other apps
+  useEffect(() => {
+    if (!hasShareIntent) return;
+
+    const parsed = parseShareIntent(shareIntent);
+    if (!parsed) {
+      resetShareIntent();
+      return;
+    }
+
+    const handleSharedContent = async () => {
+      setLoading(true);
+      try {
+        if (parsed.type === 'link' && parsed.url) {
+          setLoadingMessage('Fetching article...');
+          const { title, text } = await fetchArticleContent(parsed.url);
+          const fullText = title !== parsed.url ? `${title}\n\n${text}` : text;
+          await processTextWithKey(fullText, title, 'link', parsed.url);
+        } else if (parsed.type === 'text' && parsed.text) {
+          await processTextWithKey(parsed.text, '', 'text');
+        }
+      } catch (error) {
+        if (error instanceof ClaudeAPIError) {
+          Alert.alert('API Error', error.message);
+        } else {
+          const msg = error instanceof Error ? error.message : String(error);
+          Alert.alert('Error', msg);
+        }
+      } finally {
+        setLoading(false);
+        setLoadingMessage('');
+        resetShareIntent();
+      }
+    };
+
+    handleSharedContent();
+  }, [hasShareIntent]);
 
   const processTextWithKey = async (text: string, title: string, sourceType: Content['source_type'], sourceUrl?: string) => {
     const contentId = generateUUID();

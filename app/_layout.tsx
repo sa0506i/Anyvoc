@@ -6,6 +6,7 @@ import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native
 import { SQLiteProvider } from 'expo-sqlite';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ShareIntentProvider } from 'expo-share-intent';
 import { initDatabase } from '../lib/database';
 import { useSettings } from '../hooks/useSettings';
 import { useTheme } from '../hooks/useTheme';
@@ -52,6 +53,7 @@ function RootNavigator() {
   }, []);
 
   return (
+    <ShareIntentProvider>
     <ThemeProvider value={navigationTheme}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
@@ -63,6 +65,7 @@ function RootNavigator() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="+not-found" options={{ headerShown: false }} />
         <Stack.Screen
           name="settings"
           options={{
@@ -84,6 +87,7 @@ function RootNavigator() {
       </Stack>
 
     </ThemeProvider>
+    </ShareIntentProvider>
   );
 }
 
