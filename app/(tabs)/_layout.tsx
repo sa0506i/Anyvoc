@@ -21,9 +21,9 @@ const TAB_ICONS: Record<string, { active: IoniconsName; inactive: IoniconsName }
 };
 
 function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const styles = createTabBarStyles(colors, isDark);
+  const styles = createTabBarStyles(colors);
   const requestAddMenu = useUIStore((s) => s.requestAddMenu);
 
   const handleAdd = () => {
@@ -35,9 +35,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
   return (
     <LinearGradient
-      colors={isDark
-        ? ['rgba(10, 22, 40, 0)', 'rgba(10, 22, 40, 0.5)', 'rgba(10, 22, 40, 1)']
-        : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 1)']}
+      colors={['rgba(10, 22, 40, 0)', 'rgba(10, 22, 40, 0.5)', 'rgba(10, 22, 40, 1)']}
       locations={[0, 0.35, 0.7]}
       style={[styles.wrapper, { paddingBottom: insets.bottom }]}
     >
@@ -83,7 +81,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   );
 }
 
-const createTabBarStyles = (c: ThemeColors, isDark: boolean) =>
+const createTabBarStyles = (c: ThemeColors) =>
   StyleSheet.create({
     wrapper: {
       position: 'absolute',

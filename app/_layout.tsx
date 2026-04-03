@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
-import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { ThemeProvider, DarkTheme } from '@react-navigation/native';
 import { SQLiteProvider } from 'expo-sqlite';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -28,25 +28,22 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { loadSettings } = useSettings();
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const navigationTheme = useMemo(() => {
-    const base = isDark ? DarkTheme : DefaultTheme;
-    return {
-      ...base,
-      dark: isDark,
-      colors: {
-        ...base.colors,
-        primary: colors.primary,
-        background: colors.background,
-        card: colors.backgroundMid,
-        text: colors.text,
-        border: colors.glassBorder,
-        notification: colors.primary,
-      },
-    };
-  }, [colors, isDark]);
+  const navigationTheme = useMemo(() => ({
+    ...DarkTheme,
+    dark: true,
+    colors: {
+      ...DarkTheme.colors,
+      primary: colors.primary,
+      background: colors.background,
+      card: colors.backgroundMid,
+      text: colors.text,
+      border: colors.glassBorder,
+      notification: colors.primary,
+    },
+  }), [colors]);
 
   useEffect(() => {
     loadSettings();
@@ -55,7 +52,7 @@ function RootNavigator() {
   return (
     <ShareIntentProvider>
     <ThemeProvider value={navigationTheme}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="light" />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.backgroundMid },

@@ -14,7 +14,7 @@ import { useSettings, QuizDirection } from '../hooks/useSettings';
 import { useTheme } from '../hooks/useTheme';
 import { languages, getLanguageName } from '../constants/languages';
 import { CEFR_LEVELS } from '../constants/levels';
-import { spacing, fontSize, borderRadius, marineShadow, type ColorScheme } from '../constants/theme';
+import { spacing, fontSize, borderRadius, marineShadow } from '../constants/theme';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -23,7 +23,6 @@ export default function SettingsScreen() {
     learningLanguage,
     level,
     quizDirection,
-    colorScheme,
     updateSetting,
     resetApp,
   } = useSettings();
@@ -36,12 +35,6 @@ export default function SettingsScreen() {
     { value: 'native-to-learning', label: 'Native → Learning' },
     { value: 'learning-to-native', label: 'Learning → Native' },
     { value: 'random', label: 'Random' },
-  ];
-
-  const appearanceOptions: { value: ColorScheme; label: string }[] = [
-    { value: 'system', label: 'System' },
-    { value: 'light', label: 'Light' },
-    { value: 'dark', label: 'Dark' },
   ];
 
   const handleReset = () => {
@@ -153,22 +146,6 @@ export default function SettingsScreen() {
         ))}
       </View>
 
-      {/* Appearance */}
-      <Text style={styles.sectionTitle}>Appearance</Text>
-      <View style={styles.chipRow}>
-        {appearanceOptions.map((opt) => (
-          <Pressable
-            key={opt.value}
-            style={[styles.levelChip, colorScheme === opt.value && styles.levelChipActive]}
-            onPress={() => updateSetting('colorScheme', opt.value)}
-          >
-            <Text style={[styles.levelChipText, colorScheme === opt.value && styles.levelChipTextActive]}>
-              {opt.label}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
       {/* Reset */}
       <View style={styles.resetSection}>
         <Pressable style={styles.resetButton} onPress={handleReset}>
@@ -180,7 +157,7 @@ export default function SettingsScreen() {
   );
 }
 
-function createStyles(c: typeof import('../constants/theme').lightColors) {
+function createStyles(c: typeof import('../constants/theme').darkColors) {
   return StyleSheet.create({
     container: {
       flex: 1,

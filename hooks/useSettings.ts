@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { useSQLiteContext } from 'expo-sqlite';
 import { getAllSettings, setSetting as dbSetSetting, clearAllSettings } from '../lib/database';
-import type { ColorScheme } from '../constants/theme';
 
 export type QuizDirection = 'native-to-learning' | 'learning-to-native' | 'random';
 
@@ -10,7 +9,6 @@ interface SettingsState {
   learningLanguage: string;
   level: string;
   quizDirection: QuizDirection;
-  colorScheme: ColorScheme;
   loaded: boolean;
 
   loadSettings: () => void;
@@ -22,7 +20,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   learningLanguage: 'en',
   level: 'A2',
   quizDirection: 'random',
-  colorScheme: 'system',
   loaded: false,
 
   loadSettings: () => {
@@ -35,7 +32,6 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       learningLanguage: settings['learningLanguage'] ?? 'en',
       level: settings['level'] ?? 'A2',
       quizDirection: (settings['quizDirection'] as QuizDirection) ?? 'random',
-      colorScheme: (settings['colorScheme'] as ColorScheme) ?? 'system',
       loaded: true,
     }),
 }));
@@ -63,7 +59,6 @@ export function useSettings() {
       learningLanguage: 'en',
       level: 'A2',
       quizDirection: 'random',
-      colorScheme: 'system',
     });
   };
 

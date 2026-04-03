@@ -1,5 +1,3 @@
-export type ColorScheme = 'light' | 'dark' | 'system';
-
 export interface ThemeColors {
   primary: string;
   primaryLight: string;
@@ -29,36 +27,6 @@ export interface ThemeColors {
   box4: string;
   box5: string;
 }
-
-const marineLightColors: ThemeColors = {
-  primary: '#1E6FFF',
-  primaryLight: 'rgba(30, 111, 255, 0.1)',
-  background: '#F0F4FA',
-  backgroundMid: '#E4EAF4',
-  surface: '#FFFFFF',
-  glass: 'rgba(255, 255, 255, 0.75)',
-  glassBorder: 'rgba(30, 111, 255, 0.15)',
-  text: '#0A1628',
-  textSecondary: 'rgba(10, 22, 40, 0.55)',
-  border: 'rgba(30, 111, 255, 0.1)',
-  error: '#DC3545',
-  success: '#0A8754',
-  warning: '#D4860A',
-  highlight: 'rgba(30, 111, 255, 0.15)',
-
-  levelA1: '#2D7AE0',
-  levelA2: '#3B8AF0',
-  levelB1: '#4D94FF',
-  levelB2: '#1E6FFF',
-  levelC1: '#1557CC',
-  levelC2: '#0D3F99',
-
-  box1: '#1A4D99',
-  box2: '#2260B3',
-  box3: '#2D73CC',
-  box4: '#3B8AE6',
-  box5: '#4D9FFF',
-};
 
 const marineColors: ThemeColors = {
   primary: '#1E6FFF',
@@ -90,7 +58,6 @@ const marineColors: ThemeColors = {
   box5: '#4D9FFF',
 };
 
-export const lightColors: ThemeColors = marineLightColors;
 export const darkColors: ThemeColors = marineColors;
 
 // Default export for backward compat
