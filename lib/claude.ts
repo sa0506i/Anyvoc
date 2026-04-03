@@ -136,8 +136,10 @@ function buildVocabSystemPrompt(
 Die Lernsprache ist ${learningLanguageName}, die Muttersprache ist ${nativeLanguageName}.
 
 Regeln für die Formatierung:
-- Substantive: immer im Singular mit indirektem Artikel (ein/eine/un/una etc. je nach Sprache) – sowohl im "original"-Feld (Lernsprache) als auch im "translation"-Feld (Muttersprache). Falls eine weibliche Sonderform existiert, diese mit Komma dahinter angeben (z.B. original: "un médecin, une médecin" / translation: "ein Arzt, eine Ärztin")
-- Verben: immer im Infinitiv. Reflexive Verben immer mit Reflexivpronomen angeben (z.B. "sich erinnern", "se souvenir", "acordarse")
+- Substantive: immer im Singular mit direktem Artikel (der/die/das, le/la, o/a etc. je nach Sprache) – sowohl im "original"-Feld (Lernsprache) als auch im "translation"-Feld (Muttersprache). Falls eine weibliche Sonderform existiert, diese mit Komma dahinter angeben (z.B. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Eigennamen ignorieren.
+- In allen Sprachen außer Deutsch Substantive konsequent klein schreiben, auch wenn sie im Quelltext großgeschrieben waren (z.B. Satzanfang).
+- Bindestriche aus Zeilenumbrüchen entfernen (z.B. "Wort-\\ntrennung" → "Worttrennung").
+- Verben: immer im Infinitiv. Reflexive Verben immer mit Reflexivpronomen angeben (z.B. "sich erinnern", "se souvenir", "acordar-se")
 - Adjektive: maskuline und feminine Form angeben, falls es Unterschiede gibt (z.B. "beau, belle" / "schön" oder "petit, petite" / "klein")
 
 Zusätzlich: Gib im Feld "source_forms" alle exakten Wortformen an, die im Quelltext vorkommen (flektierte Formen, Plurale, Konjugationen etc.). Beispiel: Wenn im Text "rivais" steht und die Grundform "um rival" ist, dann source_forms: ["rivais"].
@@ -228,8 +230,10 @@ export async function translateSingleWord(
   const systemPrompt = `Du bist ein Sprachlehrer-Assistent. Übersetze das folgende Wort/die folgende Phrase von ${fromLanguageName} nach ${toLanguageName} und bestimme das CEFR-Niveau und die Wortart.
 
 Regeln für die Formatierung:
-- Substantive: immer im Singular mit indirektem Artikel (ein/eine/un/una etc. je nach Sprache) – sowohl im "original"-Feld (${fromLanguageName}) als auch im "translation"-Feld (${toLanguageName}). Falls eine weibliche Sonderform existiert, diese mit Komma dahinter angeben (z.B. original: "un médecin, une médecin" / translation: "ein Arzt, eine Ärztin")
-- Verben: immer im Infinitiv. Reflexive Verben immer mit Reflexivpronomen angeben (z.B. "sich erinnern", "se souvenir", "acordarse")
+- Substantive: immer im Singular mit direktem Artikel (der/die/das, le/la, o/a etc. je nach Sprache) – sowohl im "original"-Feld (${fromLanguageName}) als auch im "translation"-Feld (${toLanguageName}). Falls eine weibliche Sonderform existiert, diese mit Komma dahinter angeben (z.B. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Eigennamen ignorieren.
+- In allen Sprachen außer Deutsch Substantive konsequent klein schreiben, auch wenn sie im Quelltext großgeschrieben waren (z.B. Satzanfang).
+- Bindestriche aus Zeilenumbrüchen entfernen (z.B. "Wort-\\ntrennung" → "Worttrennung").
+- Verben: immer im Infinitiv. Reflexive Verben immer mit Reflexivpronomen angeben (z.B. "sich erinnern", "se souvenir", "acordar-se")
 - Adjektive: maskuline und feminine Form angeben, falls es Unterschiede gibt (z.B. "beau, belle" / "schön" oder "petit, petite" / "klein")
 
 Regeln für die CEFR-Einstufung:

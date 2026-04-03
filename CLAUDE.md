@@ -76,9 +76,12 @@ review_days  (day PK)  -- 'YYYY-MM-DD', written by recordReviewDay()
 - Web/URL content: extracted via `lib/urlExtractor.ts` using Claude API — NOT Cheerio or regex
 
 ## Vocabulary Formatting Rules (system prompt)
-- **Nouns:** indirect article + singular; feminine form after comma if exists
-  `"un médecin, une médecin"` / `"ein Arzt, eine Ärztin"`
-- **Verbs:** infinitive; reflexive with pronoun: `"se souvenir"`, `"sich erinnern"`
+- **Nouns:** direct article + singular; feminine form after comma if exists
+  `"le médecin, la médecin"` / `"der Arzt, die Ärztin"`
+  Proper nouns (Eigennamen) are ignored.
+  Lowercase in all languages except German (even if capitalised in source text).
+  Hyphens from line breaks are removed (e.g. "Wort-\ntrennung" → "Worttrennung").
+- **Verbs:** infinitive; reflexive with pronoun: `"se souvenir"`, `"sich erinnern"`, `"acordar-se"`
 - **Adjectives:** m + f if different: `"beau, belle"` / `"petit, petite"`
 - `translateSingleWord()` now also returns `original` (formatted base form), not just translation
 

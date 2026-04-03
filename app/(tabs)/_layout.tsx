@@ -1,6 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Pressable, Text, View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import type { ComponentProps } from 'react';
@@ -8,7 +9,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useSettingsStore } from '../../hooks/useSettings';
 import { useUIStore } from '../../hooks/useUIStore';
 import { getLanguageFlag } from '../../constants/languages';
-import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from '../../constants/theme';
+import { spacing, type ThemeColors } from '../../constants/theme';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 
@@ -33,8 +34,14 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   };
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: insets.bottom + spacing.sm }]}>
-      <View style={styles.pill}>
+    <LinearGradient
+      colors={isDark
+        ? ['rgba(10, 22, 40, 0)', 'rgba(10, 22, 40, 0.5)', 'rgba(10, 22, 40, 1)']
+        : ['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 1)']}
+      locations={[0, 0.35, 0.7]}
+      style={[styles.wrapper, { paddingBottom: insets.bottom }]}
+    >
+      <View style={styles.bar}>
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
@@ -52,7 +59,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             <Pressable
               key={route.key}
               onPress={onPress}
-              style={[styles.tabItem, isFocused && styles.tabItemActive]}
+              style={styles.tabItem}
             >
               <Ionicons
                 name={isFocused ? icons.active : icons.inactive}
@@ -66,12 +73,13 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           );
         })}
 
-        {/* FAB as 4th element */}
-        <Pressable onPress={handleAdd} style={styles.fabItem}>
-          <Ionicons name="add" size={26} color='rgba(77, 255, 181, 0.9)' />
+        {/* Add as 4th tab item */}
+        <Pressable onPress={handleAdd} style={styles.tabItem}>
+          <Ionicons name="add-outline" size={22} color={colors.textSecondary} />
+          <Text style={styles.tabLabel}>Add</Text>
         </Pressable>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -82,33 +90,17 @@ const createTabBarStyles = (c: ThemeColors, isDark: boolean) =>
       bottom: 0,
       left: 0,
       right: 0,
-      alignItems: 'center',
-      paddingHorizontal: spacing.sm,
-      pointerEvents: 'box-none',
     },
-    pill: {
+    bar: {
       flexDirection: 'row',
-      backgroundColor: isDark ? 'rgba(10, 22, 40, 0.92)' : 'rgba(255, 255, 255, 0.92)',
-      borderRadius: borderRadius.full,
-      borderWidth: 1,
-      borderColor: c.glassBorder,
-      paddingVertical: spacing.xs,
-      paddingHorizontal: spacing.xs,
-      gap: spacing.xs,
-      width: '100%',
-      ...marineShadow,
+      paddingTop: spacing.sm,
     },
     tabItem: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: spacing.sm,
-      borderRadius: borderRadius.full,
+      paddingVertical: spacing.sm,
       gap: 3,
-    },
-    tabItemActive: {
-      backgroundColor: c.primary,
     },
     tabLabel: {
       fontSize: 10,
@@ -119,17 +111,6 @@ const createTabBarStyles = (c: ThemeColors, isDark: boolean) =>
     tabLabelActive: {
       color: '#FFFFFF',
       fontWeight: '600',
-    },
-    fabItem: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: spacing.sm,
-      borderRadius: borderRadius.full,
-      backgroundColor: 'rgba(77, 255, 181, 0.18)',
-      borderWidth: 1,
-      borderColor: 'rgba(77, 255, 181, 0.35)',
-      aspectRatio: 1,
     },
   });
 
