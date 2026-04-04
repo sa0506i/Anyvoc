@@ -9,6 +9,7 @@ interface SettingsState {
   learningLanguage: string;
   level: string;
   quizDirection: QuizDirection;
+  cardsPerRound: string;
   loaded: boolean;
 
   loadSettings: () => void;
@@ -20,6 +21,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   learningLanguage: 'en',
   level: 'A2',
   quizDirection: 'random',
+  cardsPerRound: '20',
   loaded: false,
 
   loadSettings: () => {
@@ -32,6 +34,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       learningLanguage: settings['learningLanguage'] ?? 'en',
       level: settings['level'] ?? 'A2',
       quizDirection: (settings['quizDirection'] as QuizDirection) ?? 'random',
+      cardsPerRound: settings['cardsPerRound'] ?? '20',
       loaded: true,
     }),
 }));
@@ -59,6 +62,7 @@ export function useSettings() {
       learningLanguage: 'en',
       level: 'A2',
       quizDirection: 'random',
+      cardsPerRound: '20',
     });
   };
 

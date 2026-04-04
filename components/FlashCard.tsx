@@ -11,6 +11,7 @@ interface FlashCardProps {
   onReveal: () => void;
   onCorrect: () => void;
   onIncorrect: () => void;
+  onDelete?: () => void;
 }
 
 export default function FlashCard({
@@ -20,6 +21,7 @@ export default function FlashCard({
   onReveal,
   onCorrect,
   onIncorrect,
+  onDelete,
 }: FlashCardProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -29,6 +31,11 @@ export default function FlashCard({
       <Pressable style={styles.card} onPress={!isRevealed ? onReveal : undefined}>
         <View style={styles.cardHighlight} />
         <Text style={styles.label}>{isRevealed ? 'Antwort' : 'Frage'}</Text>
+        {onDelete && (
+          <Pressable style={styles.deleteButton} onPress={onDelete} hitSlop={8}>
+            <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
+          </Pressable>
+        )}
         <Text style={styles.cardText}>{isRevealed ? back : front}</Text>
         {!isRevealed && (
           <Text style={styles.tapHint}>Tippen zum Aufdecken</Text>
@@ -76,6 +83,12 @@ const createStyles = (c: ThemeColors) =>
       height: 1,
       backgroundColor: 'rgba(255, 255, 255, 0.08)',
       zIndex: 1,
+    },
+    deleteButton: {
+      position: 'absolute',
+      top: spacing.md,
+      right: spacing.md,
+      zIndex: 2,
     },
     label: {
       position: 'absolute',

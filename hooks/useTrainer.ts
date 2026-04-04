@@ -20,6 +20,7 @@ interface TrainerState {
   markCorrect: () => { vocabId: string; newBox: number };
   markIncorrect: () => { vocabId: string; newBox: number };
   nextCard: () => void;
+  deleteCurrentCard: () => string;
   startRetry: () => void;
   reset: () => void;
 }
@@ -83,6 +84,22 @@ export const useTrainerStore = create<TrainerState>((set, get) => ({
     } else {
       set({ currentIndex: currentIndex + 1, isFlipped: false });
     }
+  },
+
+  deleteCurrentCard: () => {
+    const { currentRound, currentIndex, missedCards } = get();
+    const vocab = currentRound[currentIndex];
+    const newRound = currentRound.filter((_, i) => i !== currentIndex);
+    const newMissed = missedCards.filter((c) => c.id !== vocab.id);
+
+    if (newRound.length === 0) {
+      set({ currentRound: newRound, missedCards: newMissed, roundComplete: true });
+    } else if (currentIndex >= newRound.length) {
+      set({ currentRound: newRound, missedCards: newMissed, roundComplete: true });
+    } else {
+      set({ currentRound: newRound, missedCards: newMissed, isFlipped: false });
+    }
+    return vocab.id;
   },
 
   startRetry: () => {

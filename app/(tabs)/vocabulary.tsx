@@ -10,10 +10,11 @@ import {
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getAllVocabulary, deleteVocabulary, type Vocabulary } from '../../lib/database';
+import { getAllVocabulary, deleteVocabulary, updateVocabularyFields, type Vocabulary } from '../../lib/database';
 import { useVocabularyList, SortOption } from '../../hooks/useVocabulary';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
+import EditVocabModal from '../../components/EditVocabModal';
 import { CEFR_LEVELS } from '../../constants/levels';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
@@ -33,6 +34,7 @@ export default function VocabularyScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [vocabulary, setVocabulary] = useState<Vocabulary[]>([]);
+  const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
 
   const loadData = useCallback(() => {
     setVocabulary(getAllVocabulary(db));
@@ -74,6 +76,15 @@ export default function VocabularyScreen() {
   const handleDelete = (vocab: Vocabulary) => {
     deleteVocabulary(db, vocab.id);
     setVocabulary((prev) => prev.filter((v) => v.id !== vocab.id));
+  };
+
+  const handleSaveEdit = (original: string, translation: string) => {
+    if (!editingVocab) return;
+    updateVocabularyFields(db, editingVocab.id, original, translation);
+    setVocabulary((prev) =>
+      prev.map((v) => v.id === editingVocab.id ? { ...v, original, translation } : v)
+    );
+    setEditingVocab(null);
   };
 
   return (
@@ -126,7 +137,7 @@ export default function VocabularyScreen() {
               level={item.level}
               wordType={item.word_type}
               leitnerBox={item.leitner_box}
-              onPress={() => router.push(`/content/${item.content_id}`)}
+              onPress={() => setEditingVocab(item)}
             />
           </SwipeToDelete>
         )}
@@ -148,6 +159,14 @@ export default function VocabularyScreen() {
           </Text>
         </View>
       )}
+
+      <EditVocabModal
+        visible={editingVocab !== null}
+        original={editingVocab?.original ?? ''}
+        translation={editingVocab?.translation ?? ''}
+        onSave={handleSaveEdit}
+        onCancel={() => setEditingVocab(null)}
+      />
     </View>
   );
 }

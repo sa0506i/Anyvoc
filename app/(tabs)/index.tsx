@@ -1,11 +1,12 @@
 import { useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getAllVocabulary,
   updateVocabularyReview,
+  deleteVocabulary,
   getVocabularyStats,
   getAllReviewDays,
 } from '../../lib/database';
@@ -21,6 +22,7 @@ import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from 
 export default function TrainerScreen() {
   const db = useSQLiteContext();
   const quizDirection = useSettingsStore((s) => s.quizDirection);
+  const cardsPerRound = useSettingsStore((s) => s.cardsPerRound);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -37,6 +39,7 @@ export default function TrainerScreen() {
     markCorrect,
     markIncorrect,
     nextCard,
+    deleteCurrentCard,
     startRetry,
     reset,
     roundDirection,
@@ -72,7 +75,7 @@ export default function TrainerScreen() {
   const handleStartRound = () => {
     const allVocab = getAllVocabulary(db);
     const dueCards = getCardsForReview(allVocab);
-    const round = selectRound(dueCards, 20);
+    const round = selectRound(dueCards, parseInt(cardsPerRound || '20', 10));
     if (round.length === 0) return;
     startRound(round, quizDirection);
     setInSession(true);
@@ -88,6 +91,24 @@ export default function TrainerScreen() {
     reset();
     setInSession(false);
     refreshStats();
+  };
+
+  const handleDeleteDuringTraining = () => {
+    Alert.alert(
+      'Delete Card',
+      'Remove this word from your vocabulary?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const vocabId = deleteCurrentCard();
+            deleteVocabulary(db, vocabId);
+          },
+        },
+      ]
+    );
   };
 
   // Active training session
@@ -126,6 +147,7 @@ export default function TrainerScreen() {
             onReveal={flipCard}
             onCorrect={() => handleMark(true)}
             onIncorrect={() => handleMark(false)}
+            onDelete={handleDeleteDuringTraining}
           />
         </View>
       </View>

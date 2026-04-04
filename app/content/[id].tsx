@@ -18,6 +18,7 @@ import {
   insertVocabulary,
   vocabularyExists,
   deleteVocabulary,
+  updateVocabularyFields,
   type Content,
   type Vocabulary,
 } from '../../lib/database';
@@ -28,6 +29,7 @@ import { generateUUID } from '../../lib/uuid';
 import HighlightedText from '../../components/HighlightedText';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
+import EditVocabModal from '../../components/EditVocabModal';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
@@ -47,6 +49,7 @@ export default function ContentDetailScreen() {
   const [vocabulary, setVocabulary] = useState<Vocabulary[]>(() =>
     id ? getVocabularyByContentId(db, id) : []
   );
+  const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('original');
   const [loading, setLoading] = useState(false);
 
@@ -167,6 +170,15 @@ export default function ContentDetailScreen() {
     handleRemoveHighlight(vocabId);
   };
 
+  const handleSaveEdit = (original: string, translation: string) => {
+    if (!editingVocab) return;
+    updateVocabularyFields(db, editingVocab.id, original, translation);
+    setVocabulary((prev) =>
+      prev.map((v) => v.id === editingVocab.id ? { ...v, original, translation } : v)
+    );
+    setEditingVocab(null);
+  };
+
   if (!content) {
     return (
       <View style={styles.centered}>
@@ -230,6 +242,7 @@ export default function ContentDetailScreen() {
                 level={item.level}
                 wordType={item.word_type}
                 leitnerBox={item.leitner_box}
+                onPress={() => setEditingVocab(item)}
               />
             </SwipeToDelete>
           )}
@@ -244,6 +257,14 @@ export default function ContentDetailScreen() {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       )}
+
+      <EditVocabModal
+        visible={editingVocab !== null}
+        original={editingVocab?.original ?? ''}
+        translation={editingVocab?.translation ?? ''}
+        onSave={handleSaveEdit}
+        onCancel={() => setEditingVocab(null)}
+      />
     </View>
   );
 }

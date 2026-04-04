@@ -239,6 +239,18 @@ export function updateVocabularyReview(
   recordReviewDay(db);
 }
 
+export function updateVocabularyFields(
+  db: SQLiteDatabase,
+  id: string,
+  original: string,
+  translation: string
+): void {
+  db.runSync(
+    'UPDATE vocabulary SET original = ?, translation = ? WHERE id = ?',
+    [original, translation, id]
+  );
+}
+
 export function deleteVocabulary(db: SQLiteDatabase, id: string): void {
   db.runSync('DELETE FROM vocabulary WHERE id = ?', [id]);
 }

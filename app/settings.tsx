@@ -23,6 +23,7 @@ export default function SettingsScreen() {
     learningLanguage,
     level,
     quizDirection,
+    cardsPerRound,
     updateSetting,
     resetApp,
   } = useSettings();
@@ -141,6 +142,25 @@ export default function SettingsScreen() {
           >
             <Text style={[styles.levelChipText, quizDirection === opt.value && styles.levelChipTextActive]}>
               {opt.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* Cards Per Round */}
+      <Text style={styles.sectionTitle}>Cards Per Round</Text>
+      <Text style={styles.sectionHint}>
+        Number of cards in each training session
+      </Text>
+      <View style={styles.chipRow}>
+        {[5, 10, 15, 20, 30].map((n) => (
+          <Pressable
+            key={n}
+            style={[styles.levelChip, cardsPerRound === String(n) && styles.levelChipActive]}
+            onPress={() => updateSetting('cardsPerRound', String(n))}
+          >
+            <Text style={[styles.levelChipText, cardsPerRound === String(n) && styles.levelChipTextActive]}>
+              {n}
             </Text>
           </Pressable>
         ))}
