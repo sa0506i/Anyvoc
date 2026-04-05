@@ -131,7 +131,7 @@ function buildVocabSystemPrompt(
   learningLanguageName: string,
   level: string
 ): string {
-  return `Du bist ein Sprachlehrer-Assistent. Deine Aufgabe ist es, aus einem gegebenen Text Vokabeln zu extrahieren, die für einen Lernenden auf Niveau ${level} und höher relevant sind.
+  return `Du bist ein Sprachlehrer-Assistent. Deine Aufgabe ist es, aus einem gegebenen Text Vokabeln zu extrahieren, deren CEFR-Niveau ${level} oder höher ist. Ignoriere Wörter unter Niveau ${level} (z.B. bei ${level}: keine ${level === 'A2' ? 'A1' : level === 'B1' ? 'A1/A2' : level === 'B2' ? 'A1-B1' : level === 'C1' ? 'A1-B2' : level === 'C2' ? 'A1-C1' : 'niedrigeren'}-Wörter).
 
 Die Lernsprache ist ${learningLanguageName}, die Muttersprache ist ${nativeLanguageName}.
 
@@ -183,15 +183,29 @@ export async function extractVocabulary(
     const responseText = await callClaude(
       [{ role: 'user', content: chunk }],
       systemPrompt,
-      4096,
+      8192,
       { temperature: 0 }
     );
 
     try {
       // Extract JSON array from response (handle potential markdown wrapping)
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as ExtractedVocab[];
+      let jsonStr = responseText.match(/\[[\s\S]*\]/)?.[0];
+
+      // If no complete array found, try to repair truncated JSON
+      if (!jsonStr) {
+        const arrayStart = responseText.indexOf('[');
+        if (arrayStart !== -1) {
+          jsonStr = responseText.substring(arrayStart);
+          // Remove last incomplete object (after last '}')
+          const lastComplete = jsonStr.lastIndexOf('}');
+          if (lastComplete !== -1) {
+            jsonStr = jsonStr.substring(0, lastComplete + 1) + ']';
+          }
+        }
+      }
+
+      if (jsonStr) {
+        const parsed = JSON.parse(jsonStr) as ExtractedVocab[];
         allVocabs.push(...parsed);
       }
     } catch {

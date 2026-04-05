@@ -172,7 +172,11 @@ export default function ContentsScreen() {
     insertVocabularyBatch(db, vocabEntries);
     loadContents();
 
-    Alert.alert('Done', `${vocabEntries.length} vocabulary items extracted.`);
+    if (vocabs.length > 0 && vocabEntries.length === 0) {
+      Alert.alert('Done', `${vocabs.length} vocabulary items found, but all were below your level (${level}). Try lowering your level in settings.`);
+    } else {
+      Alert.alert('Done', `${vocabEntries.length} vocabulary items extracted.`);
+    }
   };
 
   const processText = async (text: string, title: string, sourceType: Content['source_type'], sourceUrl?: string) => {
