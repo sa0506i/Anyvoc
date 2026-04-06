@@ -22,7 +22,7 @@ import {
   type Content,
   type Vocabulary,
 } from '../../lib/database';
-import { translateSingleWord, ClaudeAPIError } from '../../lib/claude';
+import { translateSingleWord, ClaudeAPIError, type SupportedLanguage } from '../../lib/claude';
 import { useSettings } from '../../hooks/useSettings';
 import { getLanguageName } from '../../constants/languages';
 import { generateUUID } from '../../lib/uuid';
@@ -125,7 +125,12 @@ export default function ContentDetailScreen() {
     try {
       const nativeName = getLanguageName(nativeLanguage);
       const learningName = getLanguageName(learningLanguage);
-      const result = await translateSingleWord(word, learningName, nativeName);
+      const result = await translateSingleWord(
+        word,
+        learningName,
+        nativeName,
+        learningLanguage as SupportedLanguage
+      );
 
       if (!result.translation) {
         Alert.alert('Error', 'Translation could not be determined.');

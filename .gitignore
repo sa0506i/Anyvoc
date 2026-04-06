@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Classifier dev-only artefacts: gold-CEFR sources and intermediate files.
+# Inputs to scripts/build-gold.ts + the calibration pipeline. The trained
+# thresholds end up committed in lib/classifier/score.ts; the raw sources
+# (KELLY, CEFRLex) are NOT redistributed because their licenses
+# (CC BY-NC-SA / various) don't permit it.
+tmp/

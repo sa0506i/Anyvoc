@@ -33,6 +33,7 @@ import {
   translateText,
   detectLanguage,
   ClaudeAPIError,
+  type SupportedLanguage,
 } from '../../lib/claude';
 import { extractTextFromImageLocal } from '../../lib/ocr';
 import { useSettings } from '../../hooks/useSettings';
@@ -136,7 +137,12 @@ export default function ContentsScreen() {
     }
 
     setLoadingMessage('Extracting vocabulary...');
-    const vocabs = await extractVocabulary(text, nativeName, learningName, level);
+    const vocabs = await extractVocabulary(
+      text,
+      nativeName,
+      learningName,
+      learningLanguage as SupportedLanguage
+    );
 
     setLoadingMessage('Translating text...');
     const translation = await translateText(text, learningName, nativeName);

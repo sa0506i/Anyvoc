@@ -1,3 +1,5 @@
+import { classifyWord, type SupportedLanguage } from './classifier';
+
 const API_URL = 'https://anyvoc-backend.fly.dev/api/chat';
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_CHARS_PER_CHUNK = 15000;
@@ -128,10 +130,12 @@ export function chunkText(text: string, maxChars: number = MAX_CHARS_PER_CHUNK):
 
 function buildVocabSystemPrompt(
   nativeLanguageName: string,
-  learningLanguageName: string,
-  level: string
+  learningLanguageName: string
 ): string {
-  return `Du bist ein Sprachlehrer-Assistent. Deine Aufgabe ist es, aus einem gegebenen Text Vokabeln zu extrahieren, deren CEFR-Niveau ${level} oder höher ist. Ignoriere Wörter unter Niveau ${level} (z.B. bei ${level}: keine ${level === 'A2' ? 'A1' : level === 'B1' ? 'A1/A2' : level === 'B2' ? 'A1-B1' : level === 'C1' ? 'A1-B2' : level === 'C2' ? 'A1-C1' : 'niedrigeren'}-Wörter).
+  // CEFR classification is no longer the LLM's job — it is handled
+  // deterministically by lib/classifier after extraction. The LLM only
+  // needs to extract and format the words.
+  return `Du bist ein Sprachlehrer-Assistent. Deine Aufgabe ist es, aus einem gegebenen Text alle bedeutungstragenden Vokabeln zu extrahieren (Substantive, Verben, Adjektive, feste Wendungen). Ignoriere Funktionswörter, Artikel alleine, Pronomen, Eigennamen und Zahlen.
 
 Die Lernsprache ist ${learningLanguageName}, die Muttersprache ist ${nativeLanguageName}.
 
@@ -144,25 +148,12 @@ Regeln für die Formatierung:
 
 Zusätzlich: Gib im Feld "source_forms" alle exakten Wortformen an, die im Quelltext vorkommen (flektierte Formen, Plurale, Konjugationen etc.). Beispiel: Wenn im Text "rivais" steht und die Grundform "um rival" ist, dann source_forms: ["rivais"].
 
-Regeln für die CEFR-Einstufung:
-- A1: Sehr häufige Alltagswörter (Zahlen, Farben, Familie, Essen, einfache Verben wie "sein", "haben", "gehen")
-- A2: Häufige, aber etwas spezifischere Wörter (Berufe, Hobbys, Einkaufen, Wetter, Wegbeschreibung)
-- B1: Mittelstufe-Wortschatz – gebräuchlich, aber nicht elementar (Meinungsäußerung, Gefühle, Reisen, Gesundheit)
-- B2: Abstrakterer oder weniger häufiger Wortschatz (Politik, Umwelt, differenzierte Beschreibungen, idiomatische Wendungen)
-- C1: Fortgeschrittener, akademischer oder fachspezifischer Wortschatz (Fachbegriffe, formelle Sprache, Nuancen)
-- C2: Seltene, hochspezialisierte oder literarische Wörter (archaische Ausdrücke, fachliche Terminologie, stilistisch gehobene Sprache)
-
-Wichtige Einstufungsregeln:
-- Häufigkeitsprinzip: Hochfrequente Wörter → niedrigeres CEFR-Niveau; seltene Wörter → höheres Niveau
-- Konservative Einstufung: Im Zweifelsfall zwischen zwei Niveaus IMMER das niedrigere wählen
-- Konsistenz: Gleiche Eingabe muss immer die gleiche Einstufung ergeben
-
-Antworte ausschließlich als JSON-Array ohne weiteren Text:
+Antworte ausschließlich als JSON-Array ohne weiteren Text. Lass das level-Feld auf "" — es wird nach der Extraktion lokal gesetzt:
 [
   {
     "original": "...",
     "translation": "...",
-    "level": "A1|A2|B1|B2|C1|C2",
+    "level": "",
     "type": "noun|verb|adjective|phrase|other",
     "source_forms": ["..."]
   }
@@ -173,13 +164,13 @@ export async function extractVocabulary(
   text: string,
   nativeLanguageName: string,
   learningLanguageName: string,
-  level: string
+  learningLanguageCode: SupportedLanguage
 ): Promise<ExtractedVocab[]> {
   const chunks = chunkText(text);
   const allVocabs: ExtractedVocab[] = [];
 
   for (const chunk of chunks) {
-    const systemPrompt = buildVocabSystemPrompt(nativeLanguageName, learningLanguageName, level);
+    const systemPrompt = buildVocabSystemPrompt(nativeLanguageName, learningLanguageName);
     const responseText = await callClaude(
       [{ role: 'user', content: chunk }],
       systemPrompt,
@@ -213,6 +204,20 @@ export async function extractVocabulary(
     }
   }
 
+  // Deterministic CEFR classification via lib/classifier — the LLM no longer
+  // assigns levels. High/medium-confidence words resolve synchronously.
+  for (const vocab of allVocabs) {
+    try {
+      vocab.level = await classifyWord(vocab.original, learningLanguageCode);
+    } catch (err) {
+      console.warn(
+        `[claude] classifyWord failed for "${vocab.original}" (${learningLanguageCode}):`,
+        (err as Error).message
+      );
+      vocab.level = 'B1';
+    }
+  }
+
   return allVocabs;
 }
 
@@ -239,9 +244,12 @@ export async function translateText(
 export async function translateSingleWord(
   word: string,
   fromLanguageName: string,
-  toLanguageName: string
+  toLanguageName: string,
+  fromLanguageCode: SupportedLanguage
 ): Promise<{ original: string; translation: string; level: string; type: string }> {
-  const systemPrompt = `Du bist ein Sprachlehrer-Assistent. Übersetze das folgende Wort/die folgende Phrase von ${fromLanguageName} nach ${toLanguageName} und bestimme das CEFR-Niveau und die Wortart.
+  // CEFR level is determined locally after the translation comes back —
+  // the LLM is only responsible for formatting + translation.
+  const systemPrompt = `Du bist ein Sprachlehrer-Assistent. Übersetze das folgende Wort/die folgende Phrase von ${fromLanguageName} nach ${toLanguageName} und bestimme die Wortart.
 
 Regeln für die Formatierung:
 - Substantive: immer im Singular mit direktem Artikel (der/die/das, le/la, o/a etc. je nach Sprache) – sowohl im "original"-Feld (${fromLanguageName}) als auch im "translation"-Feld (${toLanguageName}). Falls eine weibliche Sonderform existiert, diese mit Komma dahinter angeben (z.B. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Eigennamen ignorieren.
@@ -250,24 +258,11 @@ Regeln für die Formatierung:
 - Verben: immer im Infinitiv. Reflexive Verben immer mit Reflexivpronomen angeben (z.B. "sich erinnern", "se souvenir", "acordar-se")
 - Adjektive: maskuline und feminine Form angeben, falls es Unterschiede gibt (z.B. "beau, belle" / "schön" oder "petit, petite" / "klein")
 
-Regeln für die CEFR-Einstufung:
-- A1: Sehr häufige Alltagswörter (Zahlen, Farben, Familie, Essen, einfache Verben wie "sein", "haben", "gehen")
-- A2: Häufige, aber etwas spezifischere Wörter (Berufe, Hobbys, Einkaufen, Wetter, Wegbeschreibung)
-- B1: Mittelstufe-Wortschatz – gebräuchlich, aber nicht elementar (Meinungsäußerung, Gefühle, Reisen, Gesundheit)
-- B2: Abstrakterer oder weniger häufiger Wortschatz (Politik, Umwelt, differenzierte Beschreibungen, idiomatische Wendungen)
-- C1: Fortgeschrittener, akademischer oder fachspezifischer Wortschatz (Fachbegriffe, formelle Sprache, Nuancen)
-- C2: Seltene, hochspezialisierte oder literarische Wörter (archaische Ausdrücke, fachliche Terminologie, stilistisch gehobene Sprache)
-
-Wichtige Einstufungsregeln:
-- Häufigkeitsprinzip: Hochfrequente Wörter → niedrigeres CEFR-Niveau; seltene Wörter → höheres Niveau
-- Konservative Einstufung: Im Zweifelsfall zwischen zwei Niveaus IMMER das niedrigere wählen
-- Konsistenz: Gleiche Eingabe muss immer die gleiche Einstufung ergeben
-
-Antworte ausschließlich als JSON-Objekt ohne weiteren Text:
+Antworte ausschließlich als JSON-Objekt ohne weiteren Text. Lass das level-Feld auf "" — es wird nach der Übersetzung lokal gesetzt:
 {
   "original": "... (formatierte Grundform in ${fromLanguageName})",
   "translation": "... (formatierte Übersetzung in ${toLanguageName})",
-  "level": "A1|A2|B1|B2|C1|C2",
+  "level": "",
   "type": "noun|verb|adjective|phrase|other"
 }`;
 
@@ -275,17 +270,37 @@ Antworte ausschließlich als JSON-Objekt ohne weiteren Text:
     [{ role: 'user', content: word }],
     systemPrompt,
     4096,
-    { temperature: 0, top_p: 1 }
+    { temperature: 0 }
   );
 
+  let parsed: { original: string; translation: string; level: string; type: string } = {
+    original: word,
+    translation: '',
+    level: 'B1',
+    type: 'other',
+  };
   try {
     const jsonMatch = result.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      parsed = JSON.parse(jsonMatch[0]);
     }
   } catch {
-    // fallback
+    // fallback to default above
   }
 
-  return { original: word, translation: '', level: 'B1', type: 'other' };
+  // Local deterministic CEFR assignment.
+  try {
+    parsed.level = await classifyWord(parsed.original || word, fromLanguageCode);
+  } catch (err) {
+    console.warn(
+      `[claude] classifyWord failed for "${parsed.original || word}" (${fromLanguageCode}):`,
+      (err as Error).message
+    );
+    if (!parsed.level) parsed.level = 'B1';
+  }
+
+  return parsed;
 }
+
+// Re-export for callers that need the classifier's supported-language type.
+export type { SupportedLanguage } from './classifier';

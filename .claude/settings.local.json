@@ -2,7 +2,36 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(node -e \":*)",
+      "Bash(npx tsx -e \":*)",
+      "Bash(npx tsx:*)",
+      "Bash(ls -la lib/data/*.json)",
+      "Bash(node:*)",
+      "Bash(npm test:*)",
+      "Bash(npx jest:*)",
+      "Bash(find D:/dev/Claude-React/Anyvoc -maxdepth 3 -iname *aoa* -o -iname *kuperman*)",
+      "Bash(cd /tmp)",
+      "Bash(curl -sSL -o AoA_51715_words.zip \"http://crr.ugent.be/papers/AoA_51715_words.zip\")",
+      "Bash(unzip -l AoA_51715_words.zip)",
+      "Bash(for url:*)",
+      "Bash(do echo:*)",
+      "WebFetch(domain:crr.ugent.be)",
+      "WebSearch",
+      "Bash(curl -sSL \"https://web.archive.org/web/2020/http://crr.ugent.be/papers/AoA_51715_words.zip\" -o AoA_51715_words.zip)",
+      "Bash(unzip -o AoA_51715_words.zip)",
+      "Bash(ls -la AoA_51715_words*)",
+      "Bash(python -c \"import openpyxl; print\\(''ok''\\)\")",
+      "WebFetch(domain:ssharoff.github.io)",
+      "WebFetch(domain:cental.uclouvain.be)",
+      "Bash(for r:*)",
+      "Bash(python -m pip install --user --upgrade pip statsmodels scipy pandas openpyxl scikit-learn)",
+      "Bash(python -c \"import statsmodels, scipy, pandas, numpy; from statsmodels.miscmodels.ordinal_model import OrderedModel; print\\(''statsmodels'', statsmodels.__version__, ''scipy'', scipy.__version__, ''pandas'', pandas.__version__, ''numpy'', numpy.__version__\\)\")",
+      "Bash(node -e \"console.log\\(require.resolve\\(''''pdfjs-dist''''\\)\\)\")"
     ]
   }
 }
