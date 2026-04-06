@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { useSQLiteContext } from 'expo-sqlite';
 import { getAllSettings, setSetting as dbSetSetting, clearAllSettings } from '../lib/database';
+import { languages } from '../constants/languages';
 
 export type QuizDirection = 'native-to-learning' | 'learning-to-native' | 'random';
 
@@ -46,6 +47,18 @@ export function useSettings() {
 
   const loadSettings = async () => {
     const settings = getAllSettings(db);
+
+    // Migrate any stored language codes that are no longer in the supported list.
+    const validCodes = new Set(languages.map((l) => l.code));
+    if (settings['nativeLanguage'] && !validCodes.has(settings['nativeLanguage'])) {
+      settings['nativeLanguage'] = 'en';
+      dbSetSetting(db, 'nativeLanguage', 'en');
+    }
+    if (settings['learningLanguage'] && !validCodes.has(settings['learningLanguage'])) {
+      settings['learningLanguage'] = 'en';
+      dbSetSetting(db, 'learningLanguage', 'en');
+    }
+
     store._setFromDb(settings);
   };
 
