@@ -33,6 +33,10 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Claude Code machine-local permission allowlist (auto-generated per machine).
+# .claude/settings.json (without .local) is the place for shared team config.
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 

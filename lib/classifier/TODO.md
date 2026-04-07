@@ -18,27 +18,7 @@ change.
 classifier is a few percentage points less accurate on cognate-heavy
 Germanic/Romance vocabulary.
 
-### 2. Non-English AoA via offline LLM estimates (in progress)
-**File:** `scripts/build-aoa-llm.ts`
-**Current state:** The build script exists and generates per-language
-`lib/data/aoa_{lang}.json` via a direct Anthropic Messages API call
-(Haiku, temperature 0). `features.ts` loads all 12 languages through a
-static require switch and degrades gracefully to `1 - zipfNorm` when a
-word is missing from the AoA map. Empty placeholders are committed so
-Metro can resolve the requires before any language is actually rated.
-
-**Remaining work:**
-  - Run `ANTHROPIC_API_KEY=... npm run build:aoa-llm -- --lang=de` and
-    commit the resulting `aoa_de.json`. Repeat for the other 10 non-EN
-    languages (`fr es it pt nl sv no da pl cs`).
-  - Optional: cross-validate the EN estimates against Kuperman norms
-    (target r ≈ 0.80) to sanity-check the prompt/model combo before
-    committing all 11 languages.
-
-**Impact:** non-EN languages currently match the pre-change behaviour
-(Zipf-based fallback) because the committed placeholders are empty.
-Once the LLM-generated data lands, classification will have a real AoA
-signal for all 12 supported languages.
+_(No further open items — see "Resolved" below for completed work.)_
 
 ## Resolved
 
@@ -78,19 +58,19 @@ into the `X_cols` list in `calibrate-model.py`. No architectural
 change needed.
 
 ### ✅ Threshold recalibration via logistic regression
-
-### ✅ Threshold recalibration via logistic regression
 **Resolved by:** the calibration pipeline at
 `scripts/build-gold.ts` → `scripts/build-gold-llm.ts` →
 `scripts/export-features.ts` → `scripts/calibrate-model.py`. The pipeline
-parses ~64 700 CEFR-labelled words from KELLY (en, it, sv), CEFRLex
-(FLELex/ELELex/NT2Lex for fr, es, nl) and Goethe-Institut PDFs (de
-A1/A2/B1), runs them through `extractFeatures()`, fits an ordinal logit
-in `statsmodels.OrderedModel`, and writes `tmp/gold/model.json` with the
-learned weights and quantile-derived cut points. The numbers in
-`lib/classifier/score.ts` (W_ZIPF, W_AOA, THETA_*) are copied from that
-file. Re-run `npm run calibrate` whenever the gold set or feature
-extractor changes; copy the new constants into `score.ts` in one commit.
+parses ~84 700 CEFR-labelled words from KELLY (en, it, sv), CEFRLex
+(FLELex/ELELex/NT2Lex for fr, es, nl), Goethe-Institut PDFs (de
+A1/A2/B1), Aspekte neu B2/C1 (de), Oxford-5000 (en B2/C1), and
+LLM-oracle rows for pt/da/cs/no/pl, runs them through `extractFeatures()`,
+fits an ordinal logit in `statsmodels.OrderedModel`, and writes
+`tmp/gold/model.json` with the learned weights and quantile-derived cut
+points. The numbers in `lib/classifier/score.ts` (W_ZIPF, W_AOA, THETA_*)
+are copied from that file. Re-run `npm run calibrate` whenever the gold
+set or feature extractor changes; copy the new constants into `score.ts`
+in one commit.
 
 Why quantile-overridden cuts: the raw OrderedModel cuts pushed θ_0 below
 the achievable η range and θ_4 above it, so the model never predicted
@@ -103,14 +83,31 @@ the learned weights' RANKING intact.
 Un-skipped after TODO #2 was resolved. Current model puts `philosophy`
 at C1.
 
-## Open follow-ups for the gold pipeline
+### ✅ Non-English AoA via offline LLM estimates
+**Resolved by:** `scripts/build-aoa-llm.ts` has been run for all 11
+non-English languages. All `lib/data/aoa_{lang}.json` files are
+populated (~200 KB each) and committed. `features.ts` consumes them
+through the static require switch. Re-run the script per language if
+the frequency table or prompt changes.
 
-- LLM-oracle (`npm run build:gold-llm -- --lang=...`) for the 5
-  languages with no open CEFR list: `pt da cs no pl`. Norwegian's KELLY
-  file is unusable (no CEFR column). Adding these will rebalance the
-  per-language coverage from 7 to all 12 supported languages and should
-  improve the cut points further when re-fitted.
-- The German Goethe data only covers A1/A2/B1, so the model has no
-  native German signal at B2/C1/C2. Either add a Goethe C-level source
-  if one becomes available, or rely on the cross-lingual signal from
-  the other 6 languages plus the LLM-oracle additions.
+### ✅ LLM-oracle for pt/da/cs/no/pl
+**Resolved by:** `npm run build:gold-llm -- --lang=...` has been run
+for all 5 languages with no open CEFR list. The oracle rows are
+merged into `tmp/gold/gold-cefr.jsonl` and preserved across
+`build-gold` re-runs. Note: validating the model against these rows
+is circular (the oracle that trained the model can't judge it), so
+`validate-gold-all.ts` skips `no` and the benchmark script excludes
+all 5 from the reference-gold comparison.
+
+### ✅ German B2/C1 gold coverage
+**Resolved by:** Aspekte neu B2 (~2300 rows) and Aspekte neu C1
+(~3000 rows) are now parsed by `build-gold.ts` and feed directly into
+the calibration. DE now has native signal across A1–C1. C2 is still
+uncovered (no open Goethe-C2 wordlist exists); the cross-lingual
+C2 signal from KELLY-it / FLELex / Oxford-5000-adjacent fills in.
+
+### ✅ Oxford-5000 for English B2/C1
+**Resolved by:** `build-gold.ts` parses Oxford 5000 American English
+and contributes ~1970 EN B2/C1 rows. KELLY-en B2/C1/C2 are explicitly
+dropped in `calibrate-model.py` as gold noise (feature-overlap); the
+Oxford rows replace them as the primary EN upper-level signal.
