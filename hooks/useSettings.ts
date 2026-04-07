@@ -1,7 +1,19 @@
 import { create } from 'zustand';
 import { useSQLiteContext } from 'expo-sqlite';
+import * as Localization from 'expo-localization';
 import { getAllSettings, setSetting as dbSetSetting, clearAllSettings } from '../lib/database';
 import { languages } from '../constants/languages';
+
+/** Returns the device's primary language code if it's a supported language, otherwise 'en'. */
+function getDeviceNativeLanguage(): string {
+  const supported = new Set(languages.map((l) => l.code));
+  const locales = Localization.getLocales();
+  for (const loc of locales) {
+    const code = loc.languageCode?.toLowerCase();
+    if (code && supported.has(code)) return code;
+  }
+  return 'en';
+}
 
 export type QuizDirection = 'native-to-learning' | 'learning-to-native' | 'random';
 
@@ -18,7 +30,7 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
-  nativeLanguage: 'de',
+  nativeLanguage: 'en',
   learningLanguage: 'en',
   level: 'A2',
   quizDirection: 'random',
@@ -31,7 +43,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   _setFromDb: (settings) =>
     set({
-      nativeLanguage: settings['nativeLanguage'] ?? 'de',
+      nativeLanguage: settings['nativeLanguage'] ?? getDeviceNativeLanguage(),
       learningLanguage: settings['learningLanguage'] ?? 'en',
       level: settings['level'] ?? 'A2',
       quizDirection: (settings['quizDirection'] as QuizDirection) ?? 'random',
@@ -59,6 +71,13 @@ export function useSettings() {
       dbSetSetting(db, 'learningLanguage', 'en');
     }
 
+    // First launch: derive nativeLanguage from device locale and persist it.
+    if (!settings['nativeLanguage']) {
+      const deviceLang = getDeviceNativeLanguage();
+      settings['nativeLanguage'] = deviceLang;
+      dbSetSetting(db, 'nativeLanguage', deviceLang);
+    }
+
     store._setFromDb(settings);
   };
 
@@ -70,8 +89,10 @@ export function useSettings() {
   const resetApp = async () => {
     const { clearAllData } = await import('../lib/database');
     clearAllData(db);
+    const deviceLang = getDeviceNativeLanguage();
+    dbSetSetting(db, 'nativeLanguage', deviceLang);
     useSettingsStore.setState({
-      nativeLanguage: 'de',
+      nativeLanguage: deviceLang,
       learningLanguage: 'en',
       level: 'A2',
       quizDirection: 'random',

@@ -28,6 +28,7 @@ import {
   type Vocabulary,
 } from '../../lib/database';
 import SwipeToDelete from '../../components/SwipeToDelete';
+import EmptyState from '../../components/EmptyState';
 import {
   extractVocabulary,
   translateText,
@@ -339,13 +340,7 @@ export default function ContentsScreen() {
   return (
     <View style={styles.container}>
       {contents.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="document-text-outline" size={64} color={colors.border} />
-          <Text style={styles.emptyTitle}>No Content</Text>
-          <Text style={styles.emptySubtitle}>
-            Add texts, images, or links to extract vocabulary
-          </Text>
-        </View>
+        <EmptyState />
       ) : (
         <FlatList
           data={contents}
@@ -484,25 +479,6 @@ const createStyles = (c: ThemeColors) =>
     list: {
       padding: spacing.md,
       paddingBottom: 130,
-    },
-    emptyState: {
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: spacing.xl,
-      gap: spacing.sm,
-    },
-    emptyTitle: {
-      fontSize: fontSize.lg,
-      fontWeight: '600',
-      color: c.text,
-      marginTop: spacing.md,
-    },
-    emptySubtitle: {
-      fontSize: fontSize.sm,
-      fontWeight: '300',
-      color: c.textSecondary,
-      textAlign: 'center',
     },
     contentCard: {
       backgroundColor: c.glass,

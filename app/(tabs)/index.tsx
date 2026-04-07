@@ -16,6 +16,7 @@ import { useSettingsStore } from '../../hooks/useSettings';
 import FlashCard from '../../components/FlashCard';
 import LearningMaturity from '../../components/LearningMaturity';
 import RecentDays from '../../components/ReviewCalendar';
+import EmptyState from '../../components/EmptyState';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from '../../constants/theme';
 
@@ -192,6 +193,15 @@ export default function TrainerScreen() {
     );
   }
 
+  // No vocabulary at all → unified empty state, flex-centred
+  if (stats && stats.total === 0) {
+    return (
+      <View style={styles.container}>
+        <EmptyState />
+      </View>
+    );
+  }
+
   // Home / stats view
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.homeContent}>
@@ -229,17 +239,11 @@ export default function TrainerScreen() {
           <Ionicons name="play" size={24} color="#FFFFFF" />
           <Text style={styles.startButtonText}>Start Training ({dueCount} due)</Text>
         </Pressable>
-      ) : stats && stats.total > 0 ? (
+      ) : (
         <View style={styles.caughtUp}>
           <Ionicons name="checkmark-circle-outline" size={48} color={colors.success} />
           <Text style={styles.caughtUpText}>All Caught Up!</Text>
           <Text style={styles.caughtUpSubtext}>No vocabulary is due right now</Text>
-        </View>
-      ) : (
-        <View style={styles.caughtUp}>
-          <Ionicons name="book-outline" size={48} color={colors.border} />
-          <Text style={styles.caughtUpText}>No Vocabulary Yet</Text>
-          <Text style={styles.caughtUpSubtext}>Add content to start learning</Text>
         </View>
       )}
     </ScrollView>

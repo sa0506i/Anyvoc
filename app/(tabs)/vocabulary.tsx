@@ -7,6 +7,7 @@ import {
   Pressable,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,8 +15,10 @@ import { getAllVocabulary, deleteVocabulary, updateVocabularyFields, type Vocabu
 import { useVocabularyList, SortOption } from '../../hooks/useVocabulary';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
+import EmptyState from '../../components/EmptyState';
 import EditVocabModal from '../../components/EditVocabModal';
 import { CEFR_LEVELS } from '../../constants/levels';
+import { sortKey } from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
@@ -31,6 +34,7 @@ export default function VocabularyScreen() {
   const router = useRouter();
   const { searchQuery, sortBy, setSearchQuery, setSortBy } = useVocabularyList();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [vocabulary, setVocabulary] = useState<Vocabulary[]>([]);
@@ -59,7 +63,7 @@ export default function VocabularyScreen() {
     result = [...result].sort((a, b) => {
       switch (sortBy) {
         case 'alphabetical':
-          return a.original.localeCompare(b.original);
+          return sortKey(a.original).localeCompare(sortKey(b.original));
         case 'level':
           return CEFR_LEVELS.indexOf(a.level as any) - CEFR_LEVELS.indexOf(b.level as any);
         case 'box':
@@ -86,6 +90,15 @@ export default function VocabularyScreen() {
     );
     setEditingVocab(null);
   };
+
+  // No vocabulary at all → unified empty state, flex-centred (no search/sort UI)
+  if (vocabulary.length === 0) {
+    return (
+      <View style={styles.container}>
+        <EmptyState />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -128,37 +141,38 @@ export default function VocabularyScreen() {
       <FlatList
         data={filteredAndSorted}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[
+          styles.list,
+          { paddingBottom: spacing.xl + 60 + insets.bottom },
+        ]}
         renderItem={({ item }) => (
-          <SwipeToDelete onDelete={() => handleDelete(item)}>
+          <SwipeToDelete
+            onDelete={() => handleDelete(item)}
+            onEdit={() => setEditingVocab(item)}
+          >
             <VocabCard
               original={item.original}
               translation={item.translation}
               level={item.level}
               wordType={item.word_type}
               leitnerBox={item.leitner_box}
-              onPress={() => setEditingVocab(item)}
             />
           </SwipeToDelete>
         )}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
+          <View style={styles.searchEmptyState}>
             <Ionicons name="list-outline" size={48} color={colors.textSecondary} />
-            <Text style={styles.emptyText}>
-              {searchQuery ? 'No results' : 'No vocabulary yet'}
-            </Text>
+            <Text style={styles.emptyText}>No results</Text>
           </View>
         }
+        ListFooterComponent={
+          filteredAndSorted.length > 0 ? (
+            <Text style={styles.swipeHint}>
+              Swipe right to edit  ·  Swipe left to delete
+            </Text>
+          ) : null
+        }
       />
-
-      {/* Count */}
-      {filteredAndSorted.length > 0 && (
-        <View style={styles.countBar}>
-          <Text style={styles.countText}>
-            {filteredAndSorted.length} word{filteredAndSorted.length !== 1 ? 's' : ''}
-          </Text>
-        </View>
-      )}
 
       <EditVocabModal
         visible={editingVocab !== null}
@@ -227,9 +241,9 @@ const createStyles = (c: ThemeColors) =>
     list: {
       padding: spacing.md,
       paddingTop: 0,
-      paddingBottom: 100,
+      paddingBottom: 0,
     },
-    emptyState: {
+    searchEmptyState: {
       alignItems: 'center',
       padding: spacing.xxl,
       gap: spacing.sm,
@@ -239,16 +253,11 @@ const createStyles = (c: ThemeColors) =>
       fontWeight: '300' as const,
       color: c.textSecondary,
     },
-    countBar: {
-      backgroundColor: c.backgroundMid,
-      borderTopWidth: 1,
-      borderTopColor: c.glassBorder,
-      padding: spacing.sm,
-      alignItems: 'center',
-    },
-    countText: {
+    swipeHint: {
+      textAlign: 'center',
       fontSize: fontSize.xs,
       fontWeight: '300' as const,
       color: c.textSecondary,
+      paddingTop: spacing.lg,
     },
   });

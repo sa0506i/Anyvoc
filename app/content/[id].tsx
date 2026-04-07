@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
@@ -30,6 +31,7 @@ import HighlightedText from '../../components/HighlightedText';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EditVocabModal from '../../components/EditVocabModal';
+import { STRIP_PREFIX } from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
@@ -40,6 +42,7 @@ export default function ContentDetailScreen() {
   const db = useSQLiteContext();
   const { nativeLanguage, learningLanguage } = useSettings();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   // Load data synchronously on first render to avoid flash
@@ -211,7 +214,13 @@ export default function ContentDetailScreen() {
 
       {/* Tab Content */}
       {activeTab === 'original' && (
-        <ScrollView style={styles.scrollContent} contentContainerStyle={styles.textContent}>
+        <ScrollView
+          style={styles.scrollContent}
+          contentContainerStyle={[
+            styles.textContent,
+            { paddingBottom: spacing.xxl + insets.bottom },
+          ]}
+        >
           <HighlightedText
             text={content.original_text}
             highlights={highlights}
@@ -238,21 +247,33 @@ export default function ContentDetailScreen() {
         <FlatList
           data={vocabulary}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: spacing.xl + insets.bottom },
+          ]}
           renderItem={({ item }) => (
-            <SwipeToDelete onDelete={() => handleDeleteVocab(item.id)}>
+            <SwipeToDelete
+              onDelete={() => handleDeleteVocab(item.id)}
+              onEdit={() => setEditingVocab(item)}
+            >
               <VocabCard
                 original={item.original}
                 translation={item.translation}
                 level={item.level}
                 wordType={item.word_type}
                 leitnerBox={item.leitner_box}
-                onPress={() => setEditingVocab(item)}
               />
             </SwipeToDelete>
           )}
           ListEmptyComponent={
             <Text style={styles.emptyText}>No vocabulary yet</Text>
+          }
+          ListFooterComponent={
+            vocabulary.length > 0 ? (
+              <Text style={styles.swipeHint}>
+                Swipe right to edit  ·  Swipe left to delete
+              </Text>
+            ) : null
           }
         />
       )}
@@ -277,9 +298,6 @@ export default function ContentDetailScreen() {
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-
-// Articles and reflexive pronouns to strip from vocab entries for text matching
-const STRIP_PREFIX = /^(ein|eine|einen|einem|einer|der|die|das|dem|den|des|un|une|des|du|le|la|les|l'|el|la|los|las|un|una|unos|unas|il|lo|la|i|gli|le|un|uno|una|un'|the|a|an|o|os|a|as|um|uma|uns|umas|de|het|een|en|ett|się|se|si|s'|sich)\s+/i;
 
 /**
  * Extract search terms from a vocab entry's "original" field.
@@ -378,11 +396,19 @@ const createStyles = (c: ThemeColors) =>
       marginTop: spacing.xl,
     },
     hint: {
-      fontSize: fontSize.xs,
+      fontSize: fontSize.sm,
       color: c.textSecondary,
-      marginTop: spacing.lg,
+      marginTop: spacing.xl,
+      textAlign: 'center',
       fontStyle: 'italic',
       fontWeight: '300',
+    },
+    swipeHint: {
+      textAlign: 'center',
+      fontSize: fontSize.xs,
+      fontWeight: '300',
+      color: c.textSecondary,
+      paddingTop: spacing.lg,
     },
     loadingOverlay: {
       ...StyleSheet.absoluteFillObject,

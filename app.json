@@ -46,7 +46,8 @@
           },
           "iosExtensionName": "ShareExtension"
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "extra": {
       "eas": {

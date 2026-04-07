@@ -101,7 +101,7 @@ const createStyles = (c: ThemeColors) =>
     },
     card: {
       width: '85%',
-      backgroundColor: c.glass,
+      backgroundColor: c.backgroundMid,
       borderWidth: 1,
       borderColor: c.glassBorder,
       borderRadius: borderRadius.md,
