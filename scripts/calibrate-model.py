@@ -88,12 +88,26 @@ def main() -> int:
     # which corrupts the ordinal fit and causes the model to collapse all
     # predictions into the A2..B1 middle. We drop them outright.
     #
+    # KELLY-en B2 and C1 are ALSO dropped: feature-level analysis
+    # (scripts/validate-gold-all.ts, Variant C) showed that KELLY-en's
+    # B2/C1 zipf medians are only 0.16 apart, and the aoaNorm medians
+    # only 0.03 apart — well below what a linear ordinal model can
+    # separate. Keeping these rows pulls the pooled model's B2|C1
+    # threshold into a compromise that hurts every other language.
+    # The A1/A2/B1 portion of KELLY-en is clean and stays in the fit.
+    #
     # KELLY-it has only 137 C2 rows, so we keep them — too few to skew
-    # the fit.
+    # the fit. We keep all KELLY-it levels for now (Italian does not
+    # show the same feature-overlap pathology).
     before = len(informative)
-    drop_mask = (informative["source"] == "KELLY-en") & (informative["cefr"] == "C2")
+    drop_mask = (informative["source"] == "KELLY-en") & (
+        informative["cefr"].isin(["B2", "C1", "C2"])
+    )
     informative = informative[~drop_mask].copy()
-    print(f"[calibrate] dropped {before - len(informative)} KELLY-en C2 rows (gold noise)")
+    print(
+        f"[calibrate] dropped {before - len(informative)} KELLY-en B2/C1/C2 rows "
+        f"(gold noise — B2/C1 feature overlap, C2 catch-all)"
+    )
 
     # Also drop any row whose features are obviously inconsistent with its
     # label: a "C2" word that occurs >= Zipf 5.5 in the news corpus is

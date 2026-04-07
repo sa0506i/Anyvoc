@@ -120,15 +120,26 @@ function detectKellyColumns(
   const sample = rows.slice(0, 200);
 
   // For each column, count how many sampled values look like CEFR / lemma.
-  const stats: Record<string, { cefr: number; lemma: number; nonNull: number }> = {};
+  // We also track the distinct-value count so we can distinguish a real
+  // vocabulary column (thousands of unique lemmas) from a grammar/marker
+  // column that only contains a handful of repeating tokens. KELLY-sv has
+  // a `Gram-\nmar` column whose values are just "en" / "ett" / "att" — all
+  // of which pass looksLikeLemma, so without uniqueness we'd pick that
+  // column as the word column and every gold row would collapse to three
+  // Swedish articles. See lib/classifier/TODO.md "SV KELLY collapse" bug.
+  const stats: Record<
+    string,
+    { cefr: number; lemma: number; nonNull: number; unique: Set<string> }
+  > = {};
   for (const h of headers) {
-    stats[h] = { cefr: 0, lemma: 0, nonNull: 0 };
+    stats[h] = { cefr: 0, lemma: 0, nonNull: 0, unique: new Set() };
   }
   for (const row of sample) {
     for (const h of headers) {
       const v = cleanCellString(row[h]);
       if (!v) continue;
       stats[h].nonNull++;
+      stats[h].unique.add(v.toLowerCase());
       if (looksLikeCefr(v)) stats[h].cefr++;
       if (looksLikeLemma(v)) stats[h].lemma++;
     }
@@ -148,16 +159,24 @@ function detectKellyColumns(
   }
   if (!cefrCol) return null;
 
-  // Word column = highest lemma-hit ratio above 0.7, distinct from CEFR col.
+  // Word column = highest lemma-hit ratio above 0.7, distinct from CEFR col,
+  // AND a uniqueness ratio above 0.5 so we don't pick a grammar/marker
+  // column with a handful of repeating tokens (see KELLY-sv Gram-\nmar).
+  // Ties broken by whichever column has the most distinct values.
   let wordCol: string | null = null;
   let wordBest = 0.7;
+  let wordBestUnique = 0;
   for (const h of headers) {
     if (h === cefrCol) continue;
     const s = stats[h];
     if (s.nonNull < 5) continue;
     const ratio = s.lemma / s.nonNull;
-    if (ratio > wordBest) {
+    if (ratio <= wordBest) continue;
+    const uniqueRatio = s.unique.size / s.nonNull;
+    if (uniqueRatio < 0.5) continue;
+    if (ratio > wordBest || (ratio === wordBest && s.unique.size > wordBestUnique)) {
       wordBest = ratio;
+      wordBestUnique = s.unique.size;
       wordCol = h;
     }
   }
@@ -507,14 +526,237 @@ async function parseGoethePdf(filePath: string): Promise<GoldRow[]> {
 }
 
 // ----------------------------------------------------------------------------
+// Aspekte neu B2/C1 (Klett) Kapitelwortschatz parser
+//
+// Input: pre-extracted UTF-8 text dumps of the publisher's chapter-vocabulary
+// PDFs, produced with `pdftotext -enc UTF-8 -layout de_b2.pdf de_b2.txt`.
+// Place the .txt files at tmp/gold/aspekt/de_b2.txt and tmp/gold/aspekt/de_c1.txt.
+//
+// The PDFs use a two-column layout that pdftotext preserves via runs of
+// whitespace. Each entry is one of:
+//
+//   die Vorstellung, -en (Meine Vorstellung von Heimat ist …)
+//   der/die Grafiker/in, -/-nen
+//   empfinden, empfand, hat empfunden
+//   abenteuerlich
+//   geben, gibt, gab, hat gegeben (einen Kuss geben)
+//
+// Lines may be prefixed by an exercise marker like "1a", "2b", "3", which
+// only sits in front of the first entry of an exercise block. Section
+// headers (Kapitel N, Modul N, Auftakt, Porträt, Grammatik, Redemittel)
+// and running page footers (Aspekte neu B2 / Kapitelwortschatz / Seite N)
+// are skipped. Wrapped continuation lines (e.g. the tail of a parenthesised
+// example that broke across a line break) are detected via paren-balance
+// and dropped. Acceptable noise: a handful of stray past-participle forms
+// like "eingegangen" that survived the wrap detection — calibration uses
+// thousands of rows so the impact is negligible.
+// ----------------------------------------------------------------------------
+
+const ASPEKT_SKIP_RE =
+  /^(Kapitelwortschatz|Kapitel\s+\d|Modul\s+\d|Auftakt|Porträt|Grammatik|Redemittel|Aspekte\s+neu|Seite\s+\d|Der\s+Wortschatz\s+von|B1plus)/i;
+
+const ASPEKT_EXERCISE_PREFIX_RE = /^\d+[a-z]?\s+/;
+
+function extractAspektLemma(rawCell: string): string | null {
+  let s = rawCell.trim();
+  if (!s) return null;
+
+  // Strip leading exercise marker like "1a ", "2b ", "3 ".
+  s = s.replace(ASPEKT_EXERCISE_PREFIX_RE, '');
+
+  // Drop balanced parenthesised content (examples / grammar markers).
+  // Repeat in case of nested or sequential parens.
+  for (let i = 0; i < 4; i++) {
+    const next = s.replace(/\([^()]*\)/g, ' ');
+    if (next === s) break;
+    s = next;
+  }
+  s = s.replace(/\s+/g, ' ').trim();
+  if (!s) return null;
+
+  // Drop everything from the first comma onwards (plural marker for nouns,
+  // principal parts for verbs, alternative forms for adjectives).
+  s = s.split(',')[0].trim();
+  if (!s) return null;
+
+  // Article + slash form: "der/die Grafiker/in" → "der Grafiker"
+  const slashArt = s.match(/^(der|die|das)\/(?:der|die|das)\s+(.+)$/);
+  if (slashArt) {
+    const noun = slashArt[2].split('/')[0].trim();
+    s = `${slashArt[1]} ${noun}`;
+  }
+
+  // Generic slash collapse on the trailing token: "Pate/Patin" → "Pate".
+  const tokens = s.split(/\s+/).filter(Boolean);
+  if (tokens.length > 0) {
+    const last = tokens[tokens.length - 1];
+    if (last.includes('/')) {
+      tokens[tokens.length - 1] = last.split('/')[0];
+    }
+    s = tokens.join(' ');
+  }
+
+  // Strip trailing punctuation (a stray "." from a wrapped example).
+  s = s.replace(/[.;:!?"'„“”]+$/u, '').trim();
+  if (!s) return null;
+
+  // Validate: either a single word or "article noun".
+  if (!/^[A-Za-zÄÖÜäöüß][\wÄÖÜäöüß-]*( [A-Za-zÄÖÜäöüß][\wÄÖÜäöüß-]*)?$/u.test(s)) {
+    return null;
+  }
+  if (s.length < 2 || s.length > 50) return null;
+
+  return s.toLowerCase();
+}
+
+function parseAspektTxt(filePath: string, level: CEFR): GoldRow[] {
+  const text = fs.readFileSync(filePath, 'utf8');
+  const out: GoldRow[] = [];
+  const seen = new Set<string>();
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.replace(/\s+$/, '');
+    if (!line.trim()) continue;
+    if (ASPEKT_SKIP_RE.test(line.trim())) continue;
+
+    // Split into column cells at runs of 3+ spaces (pdftotext -layout
+    // preserves the column gutter as ≥3 spaces).
+    const cells = line.split(/ {3,}/).map((c) => c.trim()).filter(Boolean);
+
+    for (const cell of cells) {
+      if (ASPEKT_SKIP_RE.test(cell)) continue;
+
+      // Skip wrapped-continuation cells: a closing paren without a matching
+      // opener means the cell is the tail of a parens example that broke
+      // across a line.
+      const opens = (cell.match(/\(/g) ?? []).length;
+      const closes = (cell.match(/\)/g) ?? []).length;
+      if (closes > opens) continue;
+
+      const lemma = extractAspektLemma(cell);
+      if (!lemma) continue;
+
+      // The article-stripped form is what runtime extractFeatures() will
+      // look up, so we mirror that for dedupe AND we emit the article-
+      // stripped variant (consistent with KELLY/CEFRLex normalisation).
+      const tokens = lemma.split(/\s+/);
+      const stripped =
+        tokens.length > 1 && ARTICLE_PREFIXES.has(tokens[0])
+          ? tokens.slice(1).join(' ')
+          : lemma;
+      if (!/^[\p{L}][\p{L}'\- ]*[\p{L}]?$/u.test(stripped)) continue;
+      if (stripped.length < 2 || stripped.length > 40) continue;
+
+      if (seen.has(stripped)) continue;
+      seen.add(stripped);
+      out.push({
+        word: stripped,
+        language: 'de',
+        cefr: level,
+        source: `Aspekte-${level}`,
+      });
+    }
+  }
+
+  return out;
+}
+
+// ----------------------------------------------------------------------------
+// Oxford 5000 (American English) parser
+//
+// Input: pre-extracted UTF-8 text from Oxford University Press's
+// "The Oxford 5000™ (American English)" PDF, dumped via
+//   pdftotext -layout -enc UTF-8 American_Oxford_5000.pdf American_Oxford_5000.txt
+// Place the .txt at tmp/gold/oxford/American_Oxford_5000.txt.
+//
+// The PDF contains the 2000 additional B2/C1 words on top of the Oxford 3000
+// (so only B2 and C1 levels appear). Each entry has the form:
+//
+//   abolish v. C1
+//   acid n. B2, adj. C1          ← multi-POS with split CEFRs
+//   bow1 v., n. C1               ← homonym disambiguation digit
+//   wrist n.B2                   ← occasional missing space
+//   viable adj., C1              ← stray comma before CEFR
+//
+// 4-column layout preserved by `-layout`. We split cells at runs of ≥3
+// spaces, then for each cell extract the headword and the LOWEST CEFR
+// label observed (so a B2/C1 split → B2, the level at which the word
+// first becomes worth knowing). Used as an EN-only B2/C1 supplement to
+// the existing KELLY-en A1/A2/B1 portion. Gives the calibrator clean,
+// unambiguous B2/C1 EN gold for the first time.
+// ----------------------------------------------------------------------------
+
+const OXFORD_CEFR_RE = /\b(A1|A2|B1|B2|C1|C2)\b/g;
+const OXFORD_HEADWORD_RE = /^([a-zA-Z][a-zA-Z-]*)\d?(?=\s|$)/;
+
+function extractOxfordEntry(rawCell: string): { word: string; cefr: CEFR } | null {
+  const cell = rawCell.trim();
+  if (!cell) return null;
+
+  // Find headword (first letters-only token, optionally followed by a
+  // single homonym digit which we strip).
+  const wm = cell.match(OXFORD_HEADWORD_RE);
+  if (!wm) return null;
+  const word = wm[1].toLowerCase();
+  if (word.length < 2 || word.length > 40) return null;
+
+  // Collect every CEFR label in the cell. The Oxford 5000 cell may carry
+  // two (one per POS); we keep the lowest level — the earliest CEFR at
+  // which the headword is worth knowing.
+  const matches = [...cell.matchAll(OXFORD_CEFR_RE)].map((m) => m[1]);
+  if (matches.length === 0) return null;
+  const order: CEFR[] = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  const lowest = order.find((lvl) => matches.includes(lvl));
+  if (!lowest) return null;
+
+  return { word, cefr: lowest };
+}
+
+function parseOxford5000Txt(filePath: string): GoldRow[] {
+  const text = fs.readFileSync(filePath, 'utf8');
+  const out: GoldRow[] = [];
+  const seen = new Set<string>();
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.replace(/\s+$/, '');
+    if (!line.trim()) continue;
+    // Skip the title block, the explanation paragraph, and the footer.
+    if (/^(The Oxford 5000|©|The Oxford 3000)/i.test(line.trim())) continue;
+    // Skip the wrap of the explanation paragraph (lines without any CEFR).
+    if (!OXFORD_CEFR_RE.test(line)) {
+      OXFORD_CEFR_RE.lastIndex = 0;
+      continue;
+    }
+    OXFORD_CEFR_RE.lastIndex = 0;
+
+    const cells = line.split(/ {3,}/).map((c) => c.trim()).filter(Boolean);
+    for (const cell of cells) {
+      const entry = extractOxfordEntry(cell);
+      if (!entry) continue;
+      if (seen.has(entry.word)) continue;
+      seen.add(entry.word);
+      out.push({
+        word: entry.word,
+        language: 'en',
+        cefr: entry.cefr,
+        source: 'Oxford-5000',
+      });
+    }
+  }
+
+  return out;
+}
+
+// ----------------------------------------------------------------------------
 // Discovery
 // ----------------------------------------------------------------------------
 
 interface SourceFile {
-  kind: 'kelly' | 'cefrlex' | 'goethe';
+  kind: 'kelly' | 'cefrlex' | 'goethe' | 'aspekt' | 'oxford';
   language: string;
   filePath: string;
   source: string;
+  level?: CEFR;
 }
 
 function discoverSources(rootDir: string): SourceFile[] {
@@ -545,6 +787,35 @@ function discoverSources(rootDir: string): SourceFile[] {
         language: 'de',
         filePath: path.join(goetheDir, entry),
         source: `Goethe-${level}`,
+      });
+    }
+  }
+
+  const oxfordDir = path.join(rootDir, 'oxford');
+  if (fs.existsSync(oxfordDir)) {
+    for (const entry of fs.readdirSync(oxfordDir)) {
+      if (!/\.txt$/i.test(entry)) continue;
+      out.push({
+        kind: 'oxford',
+        language: 'en',
+        filePath: path.join(oxfordDir, entry),
+        source: 'Oxford-5000',
+      });
+    }
+  }
+
+  const aspektDir = path.join(rootDir, 'aspekt');
+  if (fs.existsSync(aspektDir)) {
+    for (const entry of fs.readdirSync(aspektDir)) {
+      const m = entry.match(/^de_(b2|c1)\.txt$/i);
+      if (!m) continue;
+      const level = m[1].toUpperCase() as CEFR;
+      out.push({
+        kind: 'aspekt',
+        language: 'de',
+        filePath: path.join(aspektDir, entry),
+        source: `Aspekte-${level}`,
+        level,
       });
     }
   }
@@ -595,6 +866,41 @@ async function main() {
     console.log(`  - ${s.kind.padEnd(7)} ${s.language}  ${path.basename(s.filePath)}`);
   }
 
+  // Preserve previously-appended LLM-oracle rows. build-gold-llm.ts appends
+  // to the same gold-cefr.jsonl file for languages where no reference-grade
+  // CEFR list exists (currently pt/da/cs/no/pl). Re-running build-gold would
+  // otherwise truncate that file and silently delete those rows, forcing the
+  // user to re-spend API budget on a rebuild. We read the existing file,
+  // keep only rows whose `source === 'LLM-oracle'`, and merge them back into
+  // the output after the reference-data sources have been parsed.
+  let preservedOracleRows: GoldRow[] = [];
+  if (fs.existsSync(outPath)) {
+    const existing = fs
+      .readFileSync(outPath, 'utf8')
+      .split('\n')
+      .filter((l) => l.length > 0);
+    for (const line of existing) {
+      try {
+        const r = JSON.parse(line) as GoldRow;
+        if (r.source === 'LLM-oracle') preservedOracleRows.push(r);
+      } catch {
+        // ignore malformed lines
+      }
+    }
+    if (preservedOracleRows.length > 0) {
+      const byLang: Record<string, number> = {};
+      for (const r of preservedOracleRows) {
+        byLang[r.language] = (byLang[r.language] ?? 0) + 1;
+      }
+      console.log(
+        `[build:gold] preserving ${preservedOracleRows.length} LLM-oracle rows from existing file: ` +
+          Object.entries(byLang)
+            .map(([l, n]) => `${l}=${n}`)
+            .join('  ')
+      );
+    }
+  }
+
   // Per-(language, word) deduplication. If KELLY and CEFRLex disagree on a
   // lemma's level, we keep BOTH rows so the regression sees the conflict
   // honestly — they will tend to cancel out in the fit.
@@ -608,6 +914,12 @@ async function main() {
         rows = parseKellyXls(s.filePath, s.language);
       } else if (s.kind === 'cefrlex') {
         rows = parseCefrLexCsv(s.filePath, s.language, s.source);
+      } else if (s.kind === 'aspekt') {
+        rows = parseAspektTxt(s.filePath, s.level!);
+        console.log(`  [${s.source}] → ${rows.length} rows`);
+      } else if (s.kind === 'oxford') {
+        rows = parseOxford5000Txt(s.filePath);
+        console.log(`  [${s.source}] → ${rows.length} rows`);
       } else {
         rows = await parseGoethePdf(s.filePath);
         console.log(`  [${s.source}] → ${rows.length} rows`);
@@ -621,6 +933,21 @@ async function main() {
     const perLevel: Record<string, number> = {};
     for (const r of rows) perLevel[r.cefr] = (perLevel[r.cefr] ?? 0) + 1;
     stats[key] = { rows: rows.length, perLevel };
+  }
+
+  // Merge preserved LLM-oracle rows back in (after the reference sources so
+  // their per-language stats line up with the build-gold-llm log output).
+  all.push(...preservedOracleRows);
+  if (preservedOracleRows.length > 0) {
+    const perLang: Record<string, Record<string, number>> = {};
+    for (const r of preservedOracleRows) {
+      const p = (perLang[r.language] ??= {});
+      p[r.cefr] = (p[r.cefr] ?? 0) + 1;
+    }
+    for (const [lang, perLevel] of Object.entries(perLang)) {
+      const n = Object.values(perLevel).reduce((a, b) => a + b, 0);
+      stats[`${lang}/LLM-oracle`] = { rows: n, perLevel };
+    }
   }
 
   // Write JSONL.

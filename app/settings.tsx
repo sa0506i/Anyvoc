@@ -13,7 +13,7 @@ import { useRouter } from 'expo-router';
 import { useSettings, QuizDirection } from '../hooks/useSettings';
 import { useTheme } from '../hooks/useTheme';
 import { languages, getLanguageName } from '../constants/languages';
-import { CEFR_LEVELS } from '../constants/levels';
+import { CEFR_LEVELS_UI, displayLevel, uiToInternalLevel } from '../constants/levels';
 import { spacing, fontSize, borderRadius, marineShadow } from '../constants/theme';
 
 export default function SettingsScreen() {
@@ -118,17 +118,20 @@ export default function SettingsScreen() {
         Vocabulary below this level will be ignored
       </Text>
       <View style={styles.levelRow}>
-        {CEFR_LEVELS.map((l) => (
-          <Pressable
-            key={l}
-            style={[styles.levelChip, l === level && styles.levelChipActive]}
-            onPress={() => updateSetting('level', l)}
-          >
-            <Text style={[styles.levelChipText, l === level && styles.levelChipTextActive]}>
-              {l}
-            </Text>
-          </Pressable>
-        ))}
+        {CEFR_LEVELS_UI.map((ui) => {
+          const active = displayLevel(level) === ui;
+          return (
+            <Pressable
+              key={ui}
+              style={[styles.levelChip, active && styles.levelChipActive]}
+              onPress={() => updateSetting('level', uiToInternalLevel(ui))}
+            >
+              <Text style={[styles.levelChipText, active && styles.levelChipTextActive]}>
+                {ui}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* Quiz Direction */}

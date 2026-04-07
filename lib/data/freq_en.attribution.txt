@@ -1,4 +1,4 @@
 // Word frequency data: Leipzig Corpora Collection
 // Goldhahn, Eckart & Quasthoff (2012), LREC, CC BY 4.0
 // https://wortschatz.uni-leipzig.de
-// Corpus: eng_news_2025_300K
+// Corpus: eng_news_2025_1M

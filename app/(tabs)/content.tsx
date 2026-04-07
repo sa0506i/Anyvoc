@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { isAtOrAboveLevel } from '../../constants/levels';
+import { isAtOrAboveLevel, displayLevel } from '../../constants/levels';
 import {
   View,
   Text,
@@ -179,7 +179,7 @@ export default function ContentsScreen() {
     loadContents();
 
     if (vocabs.length > 0 && vocabEntries.length === 0) {
-      Alert.alert('Done', `${vocabs.length} vocabulary items found, but all were below your level (${level}). Try lowering your level in settings.`);
+      Alert.alert('Done', `${vocabs.length} vocabulary items found, but all were below your level (${displayLevel(level)}). Try lowering your level in settings.`);
     } else {
       Alert.alert('Done', `${vocabEntries.length} vocabulary items extracted.`);
     }

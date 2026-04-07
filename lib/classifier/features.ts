@@ -165,14 +165,31 @@ export function extractFeatures(word: string, language: SupportedLanguage): Feat
   // --- AoA (all 12 languages share the same scale 2-18) ---
   // EN  : Kuperman et al. 2012 (real human norms)
   // non-EN: LLM-generated estimates (scripts/build-aoa-llm.ts)
-  // Missing → Zipf-based fallback.
+  // Missing → Zipf-based fallback, UNLESS zipf also fell back, in
+  // which case we use a fixed neutral default (see below).
   let aoaNorm: number;
   const aoaRaw = getAoa(language)[key];
   if (typeof aoaRaw === 'number' && Number.isFinite(aoaRaw)) {
     aoaNorm = Math.max(0, Math.min(1, (aoaRaw - 2) / 16));
   } else {
-    aoaNorm = 1 - zipfNorm;
     usedFallback.aoa = true;
+    if (usedFallback.zipf) {
+      // Double-fallback trap: the naive `1 - zipfNorm` default yields
+      // aoaNorm=1 when zipfNorm=0, which forces η ≈ +4.33 and a
+      // guaranteed C2 label — a mathematical corner, not a real
+      // classification. NT2Lex surfaced this: 24.4 % of its rows
+      // (separable-verb infinitives, MWEs, compounds) hit both
+      // fallbacks and were all force-classified C2.
+      //
+      // In production these words are already routed to the Claude
+      // API via confidence='low' (see fallback.ts), so this value is
+      // only consulted when the API is rate-limited, offline, or
+      // erroring. 0.4 puts η near the B2|C1 boundary (η ≈ 1.73) —
+      // a plausible neutral guess for "word we know nothing about".
+      aoaNorm = 0.4;
+    } else {
+      aoaNorm = 1 - zipfNorm;
+    }
   }
 
   const fallbackCount =

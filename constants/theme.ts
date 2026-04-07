@@ -48,8 +48,10 @@ const marineColors: ThemeColors = {
   levelA2: '#3B8AF0',
   levelB1: '#4D94FF',
   levelB2: '#6BA5FF',
+  // C1 and C2 share the same color because the UI collapses them to
+  // a single "C" bucket (see constants/levels.ts `displayLevel`).
   levelC1: '#8AB8FF',
-  levelC2: '#A8CBFF',
+  levelC2: '#8AB8FF',
 
   box1: '#1A4D99',
   box2: '#2260B3',

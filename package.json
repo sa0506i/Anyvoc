@@ -15,7 +15,9 @@
     "build:gold-llm": "tsx scripts/build-gold-llm.ts",
     "build:export-features": "tsx scripts/export-features.ts",
     "calibrate": "python scripts/calibrate-model.py",
-    "test:classifier": "jest"
+    "test:classifier": "jest",
+    "validate:en-cefrj": "tsx scripts/validate-words-cefr-en.ts",
+    "validate:gold-all": "tsx scripts/validate-gold-all.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

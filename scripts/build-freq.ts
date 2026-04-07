@@ -45,6 +45,22 @@ export const LANGUAGES = [
 ] as const;
 
 const SIZES = ['300K', '100K', '30K', '10K'] as const;
+
+/**
+ * Per-language size override. Languages listed here probe a larger
+ * tier before falling through the default SIZES cascade. Rationale:
+ * English is the most common learning language, and a bigger corpus
+ * reduces the rare-word coverage gap that drove 58 % misses in the
+ * independent CEFR-J validation. Other languages stay at 300K to keep
+ * the APK bundle reasonable.
+ *
+ * Leipzig hosts eng_news_{year}_1M for most recent years. If a 1M
+ * archive is unavailable the usual 300K→10K fallback kicks in.
+ */
+const SIZE_OVERRIDES: Record<string, readonly string[]> = {
+  en: ['1M', '300K', '100K', '30K', '10K'],
+};
+
 const MAX_YEAR_FALLBACK = 5;
 
 const BASE = 'https://downloads.wortschatz-leipzig.de/corpora';
@@ -70,15 +86,17 @@ export interface ResolvedCorpus {
 }
 
 /**
- * Probes Leipzig URLs in size order (300K → 100K → 30K → 10K) for the given
- * year. Returns the first that responds 200, or null if none do.
+ * Probes Leipzig URLs in size order (300K → 100K → 30K → 10K by default,
+ * or a per-language override like ['1M', '300K', ...] for English) for
+ * the given year. Returns the first that responds 200, or null if none do.
  */
 export async function resolveCorpusUrl(
   leipzig: string,
-  year: number
+  year: number,
+  sizes: readonly string[] = SIZES
 ): Promise<ResolvedCorpus | null> {
   const tried: string[] = [];
-  for (const size of SIZES) {
+  for (const size of sizes) {
     tried.push(size);
     const url = corpusUrl(leipzig, year, size);
     if (await urlExists(url)) {
@@ -93,12 +111,14 @@ export async function resolveCorpusUrl(
  * is available for the requested year. Throws if nothing is found.
  */
 async function resolveWithYearFallback(
+  bcp47: string,
   leipzig: string,
   startYear: number
 ): Promise<ResolvedCorpus> {
+  const sizes = SIZE_OVERRIDES[bcp47] ?? SIZES;
   for (let i = 0; i < MAX_YEAR_FALLBACK; i++) {
     const year = startYear - i;
-    const r = await resolveCorpusUrl(leipzig, year);
+    const r = await resolveCorpusUrl(leipzig, year, sizes);
     if (r) return r;
   }
   throw new Error(
@@ -196,9 +216,12 @@ async function buildLanguage(
   startYear: number,
   outDataDir: string
 ): Promise<void> {
-  const resolved = await resolveWithYearFallback(leipzig, startYear);
+  const resolved = await resolveWithYearFallback(bcp47, leipzig, startYear);
+  const expectedSize = (SIZE_OVERRIDES[bcp47] ?? SIZES)[0];
   const usedFallback =
-    resolved.size !== '300K' || resolved.year !== startYear ? ' ⚠ Fallback' : ' ✓';
+    resolved.size !== expectedSize || resolved.year !== startYear
+      ? ' ⚠ Fallback'
+      : ' ✓';
   const fallbackDetails =
     resolved.triedSizes.length > 1
       ? ` von ${resolved.triedSizes.slice(0, -1).join(', ')}`

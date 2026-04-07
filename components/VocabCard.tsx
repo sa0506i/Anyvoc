@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../constants/theme';
+import { displayLevel } from '../constants/levels';
 
 interface VocabCardProps {
   original: string;
@@ -34,7 +35,7 @@ export default function VocabCard({
         </View>
         <View style={styles.badges}>
           <View style={[styles.levelBadge, { backgroundColor: levelColors[level] ?? colors.border }]}>
-            <Text style={styles.levelText}>{level}</Text>
+            <Text style={styles.levelText}>{displayLevel(level)}</Text>
           </View>
           {leitnerBox !== undefined && (
             <View style={[styles.boxBadge, { backgroundColor: boxColors[leitnerBox] ?? colors.border }]}>

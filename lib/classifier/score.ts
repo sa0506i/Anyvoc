@@ -2,7 +2,7 @@
  * score.ts — turns extracted features into a CEFR difficulty score and label.
  *
  * The score is the linear predictor (η) of an ordinal logistic regression
- * model fitted to ~48 800 CEFR-labelled words across all 12 supported
+ * model fitted to ~67 300 CEFR-labelled words across all 12 supported
  * languages (English, German, French, Spanish, Italian, Dutch, Swedish,
  * Portuguese, Danish, Czech, Norwegian, Polish). Sources of the gold
  * dataset:
@@ -46,36 +46,44 @@ import type { Features } from './features';
 
 // ----------------------------------------------------------------------------
 // Learned coefficients — copied from tmp/gold/model.json (npm run calibrate).
-// Last fit: ordinal logit on 48 796 train rows across 12 languages, with
+// Last fit: ordinal logit on 52 190 train rows across 12 languages, with
 // quantile-overridden cut points (see calibrate-model.py for the rationale:
 // the raw OrderedModel cuts left A1 and C2 unreachable in practice).
-// Eval: exact 34.9 %, ±1 level 73.0 %, MAE 1.03 levels — distribution
-// covers all six CEFR levels in roughly the same proportions as the gold.
+// Eval: exact 35.0 %, ±1 level 75.0 %, MAE 1.013 levels.
 //
-// Note: W_ZIPF is positive in this fit (~+0.83) which is semantically
-// "the wrong direction" (higher Zipf = more frequent should LOWER η). The
-// quantile cut-point override absorbs this — the empirical η-quantiles
-// preserve the pairwise RANKING that the regression got right, even
-// though the raw signs are off due to collinearity between zipfNorm and
-// aoaNorm in the gold data. Don't try to "fix" the sign by hand; re-run
-// the calibration pipeline if you want different numbers.
+// Two changes drove the jump from the previous fit:
+//   1. English frequency data was upgraded from Leipzig's 300K news tier
+//      to the 1M tier (see scripts/build-freq.ts SIZE_OVERRIDES). This
+//      roughly halves the rare-word miss rate that previously forced
+//      advanced EN vocabulary into the zipf-fallback bucket.
+//   2. KELLY-en B2 AND C1 rows are now dropped from the training set
+//      (in addition to the long-standing C2 drop). Feature-level analysis
+//      showed KELLY-en's B2/C1 zipf medians were only 0.16 apart and the
+//      aoaNorm medians only 0.03 apart — below what a linear ordinal
+//      model can separate. Keeping them pulled the pooled B2|C1 threshold
+//      into a compromise that hurt every other language. EN per-language
+//      exact accuracy climbed from ~30 % → 50.2 % after the drop.
+//
+// W_ZIPF is negative (higher Zipf = more frequent → LOWER η → easier),
+// which is the semantically expected direction.
 // ----------------------------------------------------------------------------
 
-const W_ZIPF = 0.8317;
-const W_AOA = 4.6121;
+const W_ZIPF = -1.9267;
+const W_AOA = 4.7804;
 
-const THETA_A1_A2 = 1.4812;
-const THETA_A2_B1 = 2.2558;
-const THETA_B1_B2 = 2.9212;
-const THETA_B2_C1 = 3.2111;
-const THETA_C1_C2 = 3.4689;
+const THETA_A1_A2 = -0.1559;
+const THETA_A2_B1 = 0.6753;
+const THETA_B1_B2 = 1.5918;
+const THETA_B2_C1 = 2.0130;
+const THETA_C1_C2 = 2.6026;
 
 /**
  * Computes the linear predictor η for a word. Higher = more advanced /
- * harder. Range is roughly [−0.1, 3.0] given that zipfNorm and aoaNorm are
- * both in [0,1]. This used to return a [0,1] difficulty score; the range
- * is now wider (and signed) but the SEMANTICS (higher = harder) are
- * unchanged, so cognates.ts and the rest of the pipeline keep working.
+ * harder. Range is roughly [−2.3, +4.3] given that zipfNorm and aoaNorm
+ * are both in [0,1] and w_zipf < 0 < w_aoa. This used to return a [0,1]
+ * difficulty score; the range is now wider (and signed) but the SEMANTICS
+ * (higher = harder) are unchanged, so cognates.ts and the rest of the
+ * pipeline keep working.
  */
 export function scoreDifficulty(f: Features): number {
   return W_ZIPF * f.zipfNorm + W_AOA * f.aoaNorm;

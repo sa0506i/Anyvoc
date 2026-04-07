@@ -63,4 +63,23 @@ describe('resolveCorpusUrl', () => {
     const r = await resolveCorpusUrl('eng', 2024);
     expect(r).toBeNull();
   });
+
+  it('honors a per-language size override (1M first for English)', async () => {
+    mockedHead.mockResolvedValueOnce({ status: 200 }); // 1M
+    const r = await resolveCorpusUrl('eng', 2024, ['1M', '300K', '100K', '30K', '10K']);
+    expect(r).not.toBeNull();
+    expect(r!.size).toBe('1M');
+    expect(r!.url).toContain('eng_news_2024_1M');
+    expect(r!.triedSizes).toEqual(['1M']);
+  });
+
+  it('falls back from 1M to 300K when 1M is not available', async () => {
+    mockedHead
+      .mockResolvedValueOnce({ status: 404 }) // 1M
+      .mockResolvedValueOnce({ status: 200 }); // 300K
+    const r = await resolveCorpusUrl('eng', 2024, ['1M', '300K', '100K', '30K', '10K']);
+    expect(r).not.toBeNull();
+    expect(r!.size).toBe('300K');
+    expect(r!.triedSizes).toEqual(['1M', '300K']);
+  });
 });
