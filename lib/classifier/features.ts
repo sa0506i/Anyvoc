@@ -15,22 +15,41 @@
 import type { SupportedLanguage } from './index';
 
 // Metro requires static, literal require() paths — no template strings.
-// Each frequency JSON has shape { __corpus, __attribution, words: { word: zipf } }.
-function loadFreq(language: SupportedLanguage): Record<string, number> {
+// Each frequency JSON has shape { __corpus, __attribution, keys: string[],
+// values: number[] } — parallel arrays. We deliberately do NOT use a single
+// { word: zipf } object because Hermes caps object property count at 196607
+// (PropStorage::MAX_PROPERTY_COUNT = 0x2FFFF), and 10 of our 12 languages
+// exceed that limit (en has 579k entries). Arrays have no such cap. The
+// loader below materialises the parallel arrays into a Map<string, number>
+// at first access, cached in getFreq.
+interface FreqPayload {
+  keys: string[];
+  values: number[];
+}
+function loadFreq(language: SupportedLanguage): Map<string, number> {
+  let payload: FreqPayload;
   switch (language) {
-    case 'en': return require('../data/freq_en.json').words;
-    case 'de': return require('../data/freq_de.json').words;
-    case 'fr': return require('../data/freq_fr.json').words;
-    case 'es': return require('../data/freq_es.json').words;
-    case 'it': return require('../data/freq_it.json').words;
-    case 'pt': return require('../data/freq_pt.json').words;
-    case 'nl': return require('../data/freq_nl.json').words;
-    case 'sv': return require('../data/freq_sv.json').words;
-    case 'no': return require('../data/freq_no.json').words;
-    case 'da': return require('../data/freq_da.json').words;
-    case 'pl': return require('../data/freq_pl.json').words;
-    case 'cs': return require('../data/freq_cs.json').words;
+    case 'en': payload = require('../data/freq_en.json'); break;
+    case 'de': payload = require('../data/freq_de.json'); break;
+    case 'fr': payload = require('../data/freq_fr.json'); break;
+    case 'es': payload = require('../data/freq_es.json'); break;
+    case 'it': payload = require('../data/freq_it.json'); break;
+    case 'pt': payload = require('../data/freq_pt.json'); break;
+    case 'nl': payload = require('../data/freq_nl.json'); break;
+    case 'sv': payload = require('../data/freq_sv.json'); break;
+    case 'no': payload = require('../data/freq_no.json'); break;
+    case 'da': payload = require('../data/freq_da.json'); break;
+    case 'pl': payload = require('../data/freq_pl.json'); break;
+    case 'cs': payload = require('../data/freq_cs.json'); break;
   }
+  const map = new Map<string, number>();
+  const keys = payload.keys;
+  const values = payload.values;
+  const n = keys.length;
+  for (let i = 0; i < n; i++) {
+    map.set(keys[i]!, values[i]!);
+  }
+  return map;
 }
 
 // Metro requires static require paths. Empty-placeholder shape is
@@ -53,10 +72,10 @@ function loadAoa(language: SupportedLanguage): Record<string, number> {
 }
 
 // Cache module-level so we hit the require() once per language.
-const freqCache: Partial<Record<SupportedLanguage, Record<string, number>>> = {};
+const freqCache: Partial<Record<SupportedLanguage, Map<string, number>>> = {};
 const aoaCache: Partial<Record<SupportedLanguage, Record<string, number>>> = {};
 
-function getFreq(language: SupportedLanguage): Record<string, number> {
+function getFreq(language: SupportedLanguage): Map<string, number> {
   if (!freqCache[language]) freqCache[language] = loadFreq(language);
   return freqCache[language]!;
 }
@@ -150,7 +169,7 @@ export function extractFeatures(word: string, language: SupportedLanguage): Feat
 
   // --- Zipf ---
   const freq = getFreq(language);
-  const zipfRaw = freq[key];
+  const zipfRaw = freq.get(key);
   let zipf: number;
   let zipfNorm: number;
   if (typeof zipfRaw === 'number' && Number.isFinite(zipfRaw)) {

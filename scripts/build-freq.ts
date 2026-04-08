@@ -244,10 +244,24 @@ async function buildLanguage(
     // JSON files cannot have comments, so we emit a sibling .txt with attribution
     // and put the same metadata as a magic key in the JSON. Metro can require()
     // the JSON cleanly, and the attribution stays alongside it.
+    //
+    // Payload shape: parallel arrays { keys, values }, NOT a { word: zipf } map.
+    // Hermes caps object property count at 196607; 10 of our 12 languages
+    // exceed that (en ≈ 580k), so a single big object would crash the runtime
+    // with "Property storage exceeds 196607 properties" at require() time.
+    // See lib/classifier/features.ts loadFreq() for the matching reader.
+    const entries = Object.entries(zipf);
+    const keys = new Array<string>(entries.length);
+    const values = new Array<number>(entries.length);
+    for (let i = 0; i < entries.length; i++) {
+      keys[i] = entries[i]![0];
+      values[i] = entries[i]![1];
+    }
     const payload = {
       __attribution: 'Leipzig Corpora Collection (CC BY 4.0) — see ATTRIBUTION.md',
       __corpus: `${leipzig}_news_${resolved.year}_${resolved.size}`,
-      words: zipf,
+      keys,
+      values,
     };
     fs.writeFileSync(outFile, JSON.stringify(payload));
     fs.writeFileSync(
@@ -255,7 +269,7 @@ async function buildLanguage(
       header + '\n'
     );
     console.log(
-      `[build:freq] ${bcp47}: wrote ${Object.keys(zipf).length} words → ${path.relative(
+      `[build:freq] ${bcp47}: wrote ${entries.length} words → ${path.relative(
         process.cwd(),
         outFile
       )}`

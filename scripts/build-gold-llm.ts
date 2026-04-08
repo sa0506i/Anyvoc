@@ -45,8 +45,24 @@ const LANG_NAME: Record<string, string> = {
 type CEFR = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 const VALID_CEFR = new Set<string>(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
 
-interface FreqFile {
+// Freq files are stored as parallel arrays { keys, values }. Legacy
+// { words } shape also accepted. See lib/classifier/features.ts for why.
+interface FreqFileArrays {
+  keys: string[];
+  values: number[];
+}
+interface FreqFileLegacy {
   words: Record<string, number>;
+}
+type FreqFile = FreqFileArrays | FreqFileLegacy;
+
+function freqWords(f: FreqFile): Record<string, number> {
+  if ('words' in f) return f.words;
+  const out: Record<string, number> = {};
+  for (let i = 0; i < f.keys.length; i++) {
+    out[f.keys[i]!] = f.values[i]!;
+  }
+  return out;
 }
 
 interface GoldRow {
@@ -71,7 +87,7 @@ function isUsableWord(w: string): boolean {
 }
 
 function topWords(freq: FreqFile, top: number): string[] {
-  const entries = Object.entries(freq.words).filter(([w]) => isUsableWord(w));
+  const entries = Object.entries(freqWords(freq)).filter(([w]) => isUsableWord(w));
   entries.sort((a, b) => b[1] - a[1]);
   return entries.slice(0, top).map(([w]) => w);
 }

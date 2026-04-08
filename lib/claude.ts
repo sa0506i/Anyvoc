@@ -52,39 +52,54 @@ export async function callClaude(
   maxTokens: number = 4096,
   options?: CallClaudeOptions
 ): Promise<string> {
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages,
-      ...(options?.temperature !== undefined && { temperature: options.temperature }),
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60_000);
 
-  if (!response.ok) {
-    const status = response.status;
-    if (status === 401) {
-      throw new ClaudeAPIError('Service authentication error. Please try again later.', status);
+  try {
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: maxTokens,
+        system: systemPrompt,
+        messages,
+        ...(options?.temperature !== undefined && { temperature: options.temperature }),
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const status = response.status;
+      if (status === 401) {
+        throw new ClaudeAPIError('Service authentication error. Please try again later.', status);
+      }
+      if (status === 429) {
+        throw new ClaudeAPIError('API rate limit reached. Please wait a moment and try again.', status);
+      }
+      const errorBody = await response.text().catch(() => '');
+      throw new ClaudeAPIError(`API error (${status}): ${errorBody || 'Unknown error'}`, status);
     }
-    if (status === 429) {
-      throw new ClaudeAPIError('API rate limit reached. Please wait a moment and try again.', status);
+
+    const data: ClaudeResponse = await response.json();
+    if (data.error) {
+      throw new ClaudeAPIError(data.error.message);
     }
-    const errorBody = await response.text().catch(() => '');
-    throw new ClaudeAPIError(`API error (${status}): ${errorBody || 'Unknown error'}`, status);
-  }
 
-  const data: ClaudeResponse = await response.json();
-  if (data.error) {
-    throw new ClaudeAPIError(data.error.message);
+    const textBlock = data.content.find((b) => b.type === 'text');
+    return textBlock?.text ?? '';
+  } catch (err) {
+    if (err instanceof ClaudeAPIError) throw err;
+    if ((err as { name?: string })?.name === 'AbortError') {
+      throw new ClaudeAPIError('Request timed out. Please check your connection and try again.');
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new ClaudeAPIError(`Network error: ${msg}`);
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const textBlock = data.content.find((b) => b.type === 'text');
-  return textBlock?.text ?? '';
 }
 
 export async function detectLanguage(text: string): Promise<string> {

@@ -48,10 +48,30 @@ const LANG_NAME: Record<string, string> = {
   nl: 'Dutch', sv: 'Swedish', no: 'Norwegian', da: 'Danish', pl: 'Polish', cs: 'Czech',
 };
 
-interface FreqFile {
+// Freq files are stored as parallel arrays { keys, values } — see
+// lib/classifier/features.ts for the rationale (Hermes 196607-property cap).
+// Older files used { words: { k: v, ... } }; we still accept both here so
+// this dev script keeps working during the migration window.
+interface FreqFileArrays {
+  __corpus?: string;
+  __attribution?: string;
+  keys: string[];
+  values: number[];
+}
+interface FreqFileLegacy {
   __corpus?: string;
   __attribution?: string;
   words: Record<string, number>;
+}
+type FreqFile = FreqFileArrays | FreqFileLegacy;
+
+function freqWords(f: FreqFile): Record<string, number> {
+  if ('words' in f) return f.words;
+  const out: Record<string, number> = {};
+  for (let i = 0; i < f.keys.length; i++) {
+    out[f.keys[i]!] = f.values[i]!;
+  }
+  return out;
 }
 
 interface AoaFile {
@@ -80,7 +100,7 @@ function isUsableWord(w: string): boolean {
 }
 
 function topWords(freq: FreqFile, top: number): string[] {
-  const entries = Object.entries(freq.words).filter(([w]) => isUsableWord(w));
+  const entries = Object.entries(freqWords(freq)).filter(([w]) => isUsableWord(w));
   entries.sort((a, b) => b[1] - a[1]);
   return entries.slice(0, top).map(([w]) => w);
 }
