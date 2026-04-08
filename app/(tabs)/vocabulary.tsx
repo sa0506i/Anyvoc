@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllVocabulary, deleteVocabulary, updateVocabularyFields, type Vocabulary } from '../../lib/database';
 import { useVocabularyList, SortOption } from '../../hooks/useVocabulary';
@@ -17,6 +17,7 @@ import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import EditVocabModal from '../../components/EditVocabModal';
+import { MATURITY_LABELS } from '../../components/LearningMaturity';
 import { CEFR_LEVELS } from '../../constants/levels';
 import { sortKey } from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
@@ -26,12 +27,18 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: 'date', label: 'Date' },
   { value: 'alphabetical', label: 'A\u2013Z' },
   { value: 'level', label: 'Level' },
-  { value: 'box', label: 'Box' },
+  { value: 'box', label: 'Maturity' },
 ];
+
+type ActiveFilter =
+  | { type: 'box'; box: number }
+  | { type: 'learnedToday' }
+  | null;
 
 export default function VocabularyScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const params = useLocalSearchParams<{ box?: string; filter?: string }>();
   const { searchQuery, sortBy, setSearchQuery, setSortBy } = useVocabularyList();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -39,6 +46,7 @@ export default function VocabularyScreen() {
 
   const [vocabulary, setVocabulary] = useState<Vocabulary[]>([]);
   const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter>(null);
 
   const loadData = useCallback(() => {
     setVocabulary(getAllVocabulary(db));
@@ -46,8 +54,36 @@ export default function VocabularyScreen() {
 
   useFocusEffect(loadData);
 
+  // Apply filter from URL params (box, filter=learnedToday)
+  // When params are cleared (e.g. direct tab tap), activeFilter resets too.
+  useEffect(() => {
+    if (params.box) {
+      const boxNum = parseInt(params.box, 10);
+      if (!isNaN(boxNum)) setActiveFilter({ type: 'box', box: boxNum });
+    } else if (params.filter === 'learnedToday') {
+      setActiveFilter({ type: 'learnedToday' });
+    } else {
+      setActiveFilter(null);
+    }
+  }, [params.box, params.filter]);
+
+  const clearFilter = useCallback(() => {
+    setActiveFilter(null);
+    router.setParams({ box: undefined, filter: undefined });
+  }, [router]);
+
   const filteredAndSorted = useMemo(() => {
     let result = vocabulary;
+
+    // Active filter (from URL params)
+    if (activeFilter?.type === 'box') {
+      result = result.filter((v) => v.leitner_box === activeFilter.box);
+    } else if (activeFilter?.type === 'learnedToday') {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const startMs = startOfDay.getTime();
+      result = result.filter((v) => v.last_reviewed != null && v.last_reviewed >= startMs);
+    }
 
     // Filter
     if (searchQuery.trim()) {
@@ -75,7 +111,7 @@ export default function VocabularyScreen() {
     });
 
     return result;
-  }, [vocabulary, searchQuery, sortBy]);
+  }, [vocabulary, searchQuery, sortBy, activeFilter]);
 
   const handleDelete = (vocab: Vocabulary) => {
     deleteVocabulary(db, vocab.id);
@@ -136,6 +172,22 @@ export default function VocabularyScreen() {
           </Pressable>
         ))}
       </View>
+
+      {/* Active filter badge */}
+      {activeFilter && (
+        <View style={styles.filterBadgeRow}>
+          <View style={styles.filterBadge}>
+            <Text style={styles.filterBadgeText}>
+              {activeFilter.type === 'box'
+                ? `Maturity: ${MATURITY_LABELS[activeFilter.box - 1] ?? activeFilter.box}`
+                : 'Learned today'}
+            </Text>
+            <Pressable onPress={clearFilter} hitSlop={8}>
+              <Ionicons name="close" size={14} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {/* List */}
       <FlatList
@@ -259,5 +311,24 @@ const createStyles = (c: ThemeColors) =>
       fontWeight: '300' as const,
       color: c.textSecondary,
       paddingTop: spacing.lg,
+    },
+    filterBadgeRow: {
+      flexDirection: 'row',
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.sm,
+    },
+    filterBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      backgroundColor: c.primary,
+      borderRadius: borderRadius.full,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 4,
+    },
+    filterBadgeText: {
+      fontSize: fontSize.xs,
+      fontWeight: '600' as const,
+      color: '#FFFFFF',
     },
   });

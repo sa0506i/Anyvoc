@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getAllVocabulary,
@@ -22,6 +22,7 @@ import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from 
 
 export default function TrainerScreen() {
   const db = useSQLiteContext();
+  const router = useRouter();
   const quizDirection = useSettingsStore((s) => s.quizDirection);
   const cardsPerRound = useSettingsStore((s) => s.cardsPerRound);
   const { colors } = useTheme();
@@ -35,6 +36,7 @@ export default function TrainerScreen() {
     isRetryPhase,
     roundComplete,
     roundResults,
+    practiceMode,
     startRound,
     flipCard,
     markCorrect,
@@ -73,18 +75,27 @@ export default function TrainerScreen() {
     }, [inSession, refreshStats])
   );
 
-  const handleStartRound = () => {
+  const handleStartRound = (practice = false) => {
     const allVocab = getAllVocabulary(db);
-    const dueCards = getCardsForReview(allVocab);
-    const round = selectRound(dueCards, parseInt(cardsPerRound || '20', 10));
+    let pool;
+    if (practice) {
+      // Continue-Mode: random selection from entire vocabulary
+      pool = [...allVocab].sort(() => Math.random() - 0.5);
+    } else {
+      pool = getCardsForReview(allVocab);
+    }
+    const round = selectRound(pool, parseInt(cardsPerRound || '20', 10));
     if (round.length === 0) return;
-    startRound(round, quizDirection);
+    startRound(round, quizDirection, practice);
     setInSession(true);
   };
 
   const handleMark = (correct: boolean) => {
     const result = correct ? markCorrect() : markIncorrect();
-    updateVocabularyReview(db, result.vocabId, result.newBox, correct);
+    // In practice mode, Leitner boxes and review history are not touched
+    if (!practiceMode) {
+      updateVocabularyReview(db, result.vocabId, result.newBox, correct);
+    }
     nextCard();
   };
 
@@ -210,13 +221,16 @@ export default function TrainerScreen() {
         <>
           <Text style={styles.sectionTitle}>Statistics</Text>
           <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
+            <Pressable
+              style={styles.statCard}
+              onPress={() => router.push('/(tabs)/vocabulary?filter=learnedToday')}
+            >
               <Text style={styles.statNumber}>{stats.learnedToday}</Text>
               <Text style={styles.statLabel}>Learned Today</Text>
               {avgPerDay > 0 && (
                 <Text style={styles.statSubtitle}>Avg: {avgPerDay}/day</Text>
               )}
-            </View>
+            </Pressable>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{streak}</Text>
               <Text style={styles.statLabel}>Day Streak</Text>
@@ -229,22 +243,24 @@ export default function TrainerScreen() {
           <RecentDays reviewDays={allReviewDaysList} />
 
           <Text style={styles.sectionTitle}>Learning Maturity</Text>
-          <LearningMaturity boxCounts={stats.byBox} />
+          <LearningMaturity
+            boxCounts={stats.byBox}
+            onBoxPress={(box) => router.push(`/(tabs)/vocabulary?box=${box}`)}
+          />
         </>
       )}
 
       {/* Start button */}
       {dueCount > 0 ? (
-        <Pressable style={styles.startButton} onPress={handleStartRound}>
+        <Pressable style={styles.startButton} onPress={() => handleStartRound(false)}>
           <Ionicons name="play" size={24} color="#FFFFFF" />
           <Text style={styles.startButtonText}>Start Training ({dueCount} due)</Text>
         </Pressable>
       ) : (
-        <View style={styles.caughtUp}>
-          <Ionicons name="checkmark-circle-outline" size={48} color={colors.success} />
-          <Text style={styles.caughtUpText}>All Caught Up!</Text>
-          <Text style={styles.caughtUpSubtext}>No vocabulary is due right now</Text>
-        </View>
+        <Pressable style={styles.continueButton} onPress={() => handleStartRound(true)}>
+          <Ionicons name="play" size={24} color={colors.textSecondary} />
+          <Text style={styles.continueButtonText}>Continue Training (0 due)</Text>
+        </Pressable>
       )}
     </ScrollView>
   );
@@ -276,20 +292,21 @@ const createStyles = (c: ThemeColors) =>
       fontSize: fontSize.lg,
       fontWeight: '600',
     },
-    caughtUp: {
+    continueButton: {
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      borderRadius: borderRadius.full,
+      padding: spacing.lg,
+      flexDirection: 'row',
+      justifyContent: 'center',
       alignItems: 'center',
-      padding: spacing.xl,
       gap: spacing.sm,
     },
-    caughtUpText: {
+    continueButtonText: {
+      color: c.textSecondary,
       fontSize: fontSize.lg,
       fontWeight: '600',
-      color: c.text,
-    },
-    caughtUpSubtext: {
-      fontSize: fontSize.sm,
-      color: c.textSecondary,
-      fontWeight: '300',
     },
     sectionTitle: {
       fontSize: fontSize.md,

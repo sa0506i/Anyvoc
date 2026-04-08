@@ -89,9 +89,10 @@ const createStyles = (c: ThemeColors) =>
       gap: spacing.xs,
     },
     levelBadge: {
-      paddingHorizontal: spacing.sm,
       paddingVertical: 2,
       borderRadius: borderRadius.sm,
+      width: 34,
+      alignItems: 'center',
     },
     levelText: {
       fontSize: fontSize.xs,

@@ -1,27 +1,33 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../constants/theme';
 
 interface LearningMaturityProps {
   boxCounts: Record<number, number>;
+  onBoxPress?: (box: number) => void;
 }
 
-const LABELS = ['New', 'Learning', 'Familiar', 'Known', 'Mastered'];
+export const MATURITY_LABELS = ['New', 'Learning', 'Familiar', 'Known', 'Mastered'];
 
-export default function LearningMaturity({ boxCounts }: LearningMaturityProps) {
+export default function LearningMaturity({ boxCounts, onBoxPress }: LearningMaturityProps) {
   const { colors, boxColors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.container}>
       {[1, 2, 3, 4, 5].map((box, index) => (
-        <View key={box} style={styles.box}>
+        <Pressable
+          key={box}
+          style={styles.box}
+          onPress={onBoxPress ? () => onBoxPress(box) : undefined}
+          disabled={!onBoxPress}
+        >
           <View style={[styles.boxVisual, { backgroundColor: boxColors[box] }]}>
             <Text style={styles.boxCount}>{boxCounts[box] ?? 0}</Text>
           </View>
-          <Text style={styles.boxLabel}>{LABELS[index]}</Text>
-        </View>
+          <Text style={styles.boxLabel}>{MATURITY_LABELS[index]}</Text>
+        </Pressable>
       ))}
     </View>
   );

@@ -11,6 +11,8 @@ import { initDatabase } from '../lib/database';
 import { useSettings } from '../hooks/useSettings';
 import { useTheme } from '../hooks/useTheme';
 import { darkColors, type ThemeColors } from '../constants/theme';
+import ShareIntentHandler from '../components/ShareIntentHandler';
+import GlobalLoadingOverlay from '../components/GlobalLoadingOverlay';
 
 export default function RootLayout() {
   return (
@@ -66,23 +68,21 @@ function RootNavigator() {
         <Stack.Screen
           name="settings"
           options={{
-            title: 'Settings',
             presentation: 'modal',
-            headerStyle: { backgroundColor: colors.backgroundMid },
-            headerTintColor: colors.text,
+            headerShown: false,
           }}
         />
         <Stack.Screen
           name="content/[id]"
           options={{
-            title: 'Content',
             presentation: 'modal',
-            headerStyle: { backgroundColor: colors.backgroundMid },
-            headerTintColor: colors.text,
+            headerShown: false,
           }}
         />
       </Stack>
 
+      <ShareIntentHandler />
+      <GlobalLoadingOverlay />
     </ThemeProvider>
     </ShareIntentProvider>
   );

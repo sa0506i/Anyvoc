@@ -9,11 +9,13 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSettings, QuizDirection } from '../hooks/useSettings';
 import { useTheme } from '../hooks/useTheme';
 import { languages, getLanguageName } from '../constants/languages';
 import { CEFR_LEVELS_UI, displayLevel, uiToInternalLevel } from '../constants/levels';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, fontSize, borderRadius, marineShadow } from '../constants/theme';
 
 export default function SettingsScreen() {
@@ -28,7 +30,25 @@ export default function SettingsScreen() {
     resetApp,
   } = useSettings();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const Header = () => (
+    <View style={[styles.header, { paddingTop: insets.top / 2 + spacing.xs }]}>
+      <View style={styles.headerSide} />
+      <Text style={styles.headerTitle}>Settings</Text>
+      <View style={styles.headerSide}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
+          <Ionicons
+            name="close"
+            size={20}
+            color={colors.text}
+            style={styles.closeIcon}
+          />
+        </Pressable>
+      </View>
+    </View>
+  );
 
   const [showLanguagePicker, setShowLanguagePicker] = useState<'native' | 'learning' | null>(null);
 
@@ -60,6 +80,7 @@ export default function SettingsScreen() {
     const isNative = showLanguagePicker === 'native';
     return (
       <View style={styles.container}>
+        <Header />
         <Pressable style={styles.pickerBack} onPress={() => setShowLanguagePicker(null)}>
           <Text style={styles.pickerBackText}>← Back</Text>
         </Pressable>
@@ -98,6 +119,7 @@ export default function SettingsScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
+    <Header />
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Languages */}
       <Text style={styles.sectionTitle}>Languages</Text>
@@ -123,7 +145,7 @@ export default function SettingsScreen() {
           return (
             <Pressable
               key={ui}
-              style={[styles.levelChip, active && styles.levelChipActive]}
+              style={[styles.levelChip, styles.cefrChip, active && styles.levelChipActive]}
               onPress={() => updateSetting('level', uiToInternalLevel(ui))}
             >
               <Text style={[styles.levelChipText, active && styles.levelChipTextActive]}>
@@ -156,7 +178,7 @@ export default function SettingsScreen() {
         Number of cards in each training session
       </Text>
       <View style={styles.chipRow}>
-        {[5, 10, 15, 20, 30].map((n) => (
+        {[5, 10, 15, 20, 25, 30].map((n) => (
           <Pressable
             key={n}
             style={[styles.levelChip, cardsPerRound === String(n) && styles.levelChipActive]}
@@ -172,6 +194,7 @@ export default function SettingsScreen() {
       {/* Reset */}
       <View style={styles.resetSection}>
         <Pressable style={styles.resetButton} onPress={handleReset}>
+          <Ionicons name="trash-outline" size={16} color={colors.error} />
           <Text style={styles.resetText}>Reset App</Text>
         </Pressable>
       </View>
@@ -185,6 +208,40 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
     container: {
       flex: 1,
       backgroundColor: c.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.sm,
+      backgroundColor: c.backgroundMid,
+    },
+    headerSide: {
+      width: 40,
+      alignItems: 'flex-end',
+    },
+    headerTitle: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: fontSize.lg,
+      fontWeight: '600',
+      color: c.text,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    closeIcon: {
+      lineHeight: 20,
+      textAlign: 'center',
+      textAlignVertical: 'center',
+      includeFontPadding: false,
+      width: 20,
+      height: 20,
     },
     content: {
       padding: spacing.md,
@@ -242,6 +299,10 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       borderWidth: 1,
       borderColor: c.glassBorder,
     },
+    cefrChip: {
+      minWidth: 52,
+      alignItems: 'center',
+    },
     levelChipActive: {
       backgroundColor: c.primary,
       borderColor: c.primary,
@@ -297,16 +358,20 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       marginTop: spacing.xxl,
     },
     resetButton: {
+      flexDirection: 'row',
+      alignSelf: 'center',
+      alignItems: 'center',
+      gap: spacing.xs,
       backgroundColor: 'rgba(255, 77, 106, 0.2)',
       borderWidth: 1,
       borderColor: 'rgba(255, 77, 106, 0.4)',
       borderRadius: borderRadius.full,
-      padding: spacing.md,
-      alignItems: 'center',
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
     },
     resetText: {
       color: c.error,
-      fontSize: fontSize.md,
+      fontSize: fontSize.sm,
       fontWeight: '600',
     },
     pickerBack: {

@@ -21,6 +21,7 @@ const TAB_ICONS: Record<string, { active: IoniconsName; inactive: IoniconsName }
 };
 
 function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+  const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = createTabBarStyles(colors);
@@ -48,7 +49,11 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
           const onPress = () => {
             const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-            if (!isFocused && !event.defaultPrevented) {
+            if (event.defaultPrevented) return;
+            if (route.name === 'vocabulary') {
+              // Always clear filter params when vocabulary tab is tapped directly
+              router.replace('/(tabs)/vocabulary');
+            } else if (!isFocused) {
               navigation.navigate(route.name);
             }
           };

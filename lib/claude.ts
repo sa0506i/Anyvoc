@@ -135,20 +135,20 @@ function buildVocabSystemPrompt(
   // CEFR classification is no longer the LLM's job — it is handled
   // deterministically by lib/classifier after extraction. The LLM only
   // needs to extract and format the words.
-  return `Du bist ein Sprachlehrer-Assistent. Deine Aufgabe ist es, aus einem gegebenen Text alle bedeutungstragenden Vokabeln zu extrahieren (Substantive, Verben, Adjektive, feste Wendungen). Ignoriere Funktionswörter, Artikel alleine, Pronomen, Eigennamen und Zahlen.
+  return `You are a language teacher assistant. Your task is to extract all meaningful vocabulary (nouns, verbs, adjectives, fixed expressions) from a given text. Ignore function words, standalone articles, pronouns, proper nouns, and numbers.
 
-Die Lernsprache ist ${learningLanguageName}, die Muttersprache ist ${nativeLanguageName}.
+The learning language is ${learningLanguageName}; the native language is ${nativeLanguageName}.
 
-Regeln für die Formatierung:
-- Substantive: immer im Singular mit direktem Artikel (der/die/das, le/la, o/a etc. je nach Sprache) – sowohl im "original"-Feld (Lernsprache) als auch im "translation"-Feld (Muttersprache). Falls eine weibliche Sonderform existiert, diese mit Komma dahinter angeben (z.B. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Eigennamen ignorieren.
-- In allen Sprachen außer Deutsch Substantive konsequent klein schreiben, auch wenn sie im Quelltext großgeschrieben waren (z.B. Satzanfang).
-- Bindestriche aus Zeilenumbrüchen entfernen (z.B. "Wort-\\ntrennung" → "Worttrennung").
-- Verben: immer im Infinitiv. Reflexive Verben immer mit Reflexivpronomen angeben (z.B. "sich erinnern", "se souvenir", "acordar-se")
-- Adjektive: maskuline und feminine Form angeben, falls es Unterschiede gibt (z.B. "beau, belle" / "schön" oder "petit, petite" / "klein")
+Formatting rules:
+- Nouns: always singular with their direct article (der/die/das, le/la, o/a, etc., depending on the language) — in both the "original" field (learning language) and the "translation" field (native language). If a distinct feminine form exists, add it after a comma (e.g. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Ignore proper nouns.
+- In every language except German, write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
+- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
+- Verbs: always in the infinitive. Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").
+- Adjectives: give both masculine and feminine forms when they differ (e.g. "beau, belle" / "schön" or "petit, petite" / "klein").
 
-Zusätzlich: Gib im Feld "source_forms" alle exakten Wortformen an, die im Quelltext vorkommen (flektierte Formen, Plurale, Konjugationen etc.). Beispiel: Wenn im Text "rivais" steht und die Grundform "um rival" ist, dann source_forms: ["rivais"].
+Additionally, list every exact word form that occurs in the source text (inflected forms, plurals, conjugations, etc.) in the "source_forms" field. Example: if the source contains "rivais" and the base form is "um rival", then source_forms: ["rivais"].
 
-Antworte ausschließlich als JSON-Array ohne weiteren Text. Lass das level-Feld auf "" — es wird nach der Extraktion lokal gesetzt:
+Respond exclusively as a JSON array, with no additional text. Leave the level field as "" — it is set locally after extraction:
 [
   {
     "original": "...",
@@ -230,7 +230,7 @@ export async function translateText(
   const translations: string[] = [];
 
   for (const chunk of chunks) {
-    const systemPrompt = `Du bist ein professioneller Übersetzer. Übersetze den folgenden Text von ${fromLanguageName} nach ${toLanguageName}. Gib nur die Übersetzung zurück, ohne zusätzliche Erklärungen.`;
+    const systemPrompt = `You are a professional translator. Translate the following text from ${fromLanguageName} to ${toLanguageName}. Return only the translation, without any additional explanation.`;
     const result = await callClaude(
       [{ role: 'user', content: chunk }],
       systemPrompt
@@ -249,19 +249,19 @@ export async function translateSingleWord(
 ): Promise<{ original: string; translation: string; level: string; type: string }> {
   // CEFR level is determined locally after the translation comes back —
   // the LLM is only responsible for formatting + translation.
-  const systemPrompt = `Du bist ein Sprachlehrer-Assistent. Übersetze das folgende Wort/die folgende Phrase von ${fromLanguageName} nach ${toLanguageName} und bestimme die Wortart.
+  const systemPrompt = `You are a language teacher assistant. Translate the following word/phrase from ${fromLanguageName} to ${toLanguageName} and determine its word type.
 
-Regeln für die Formatierung:
-- Substantive: immer im Singular mit direktem Artikel (der/die/das, le/la, o/a etc. je nach Sprache) – sowohl im "original"-Feld (${fromLanguageName}) als auch im "translation"-Feld (${toLanguageName}). Falls eine weibliche Sonderform existiert, diese mit Komma dahinter angeben (z.B. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Eigennamen ignorieren.
-- In allen Sprachen außer Deutsch Substantive konsequent klein schreiben, auch wenn sie im Quelltext großgeschrieben waren (z.B. Satzanfang).
-- Bindestriche aus Zeilenumbrüchen entfernen (z.B. "Wort-\\ntrennung" → "Worttrennung").
-- Verben: immer im Infinitiv. Reflexive Verben immer mit Reflexivpronomen angeben (z.B. "sich erinnern", "se souvenir", "acordar-se")
-- Adjektive: maskuline und feminine Form angeben, falls es Unterschiede gibt (z.B. "beau, belle" / "schön" oder "petit, petite" / "klein")
+Formatting rules:
+- Nouns: always singular with their direct article (der/die/das, le/la, o/a, etc., depending on the language) — in both the "original" field (${fromLanguageName}) and the "translation" field (${toLanguageName}). If a distinct feminine form exists, add it after a comma (e.g. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Ignore proper nouns.
+- In every language except German, write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
+- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
+- Verbs: always in the infinitive. Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").
+- Adjectives: give both masculine and feminine forms when they differ (e.g. "beau, belle" / "schön" or "petit, petite" / "klein").
 
-Antworte ausschließlich als JSON-Objekt ohne weiteren Text. Lass das level-Feld auf "" — es wird nach der Übersetzung lokal gesetzt:
+Respond exclusively as a JSON object, with no additional text. Leave the level field as "" — it is set locally after translation:
 {
-  "original": "... (formatierte Grundform in ${fromLanguageName})",
-  "translation": "... (formatierte Übersetzung in ${toLanguageName})",
+  "original": "... (formatted base form in ${fromLanguageName})",
+  "translation": "... (formatted translation in ${toLanguageName})",
   "level": "",
   "type": "noun|verb|adjective|phrase|other"
 }`;

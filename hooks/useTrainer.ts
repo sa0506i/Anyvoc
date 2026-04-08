@@ -14,8 +14,9 @@ interface TrainerState {
   roundComplete: boolean;
   roundResults: { correct: number; incorrect: number };
   roundDirection: ResolvedDirection;
+  practiceMode: boolean;
 
-  startRound: (cards: Vocabulary[], quizDirection: QuizDirection) => void;
+  startRound: (cards: Vocabulary[], quizDirection: QuizDirection, practiceMode?: boolean) => void;
   flipCard: () => void;
   markCorrect: () => { vocabId: string; newBox: number };
   markIncorrect: () => { vocabId: string; newBox: number };
@@ -41,8 +42,9 @@ export const useTrainerStore = create<TrainerState>((set, get) => ({
   roundComplete: false,
   roundResults: { correct: 0, incorrect: 0 },
   roundDirection: 'original',
+  practiceMode: false,
 
-  startRound: (cards, quizDirection) =>
+  startRound: (cards, quizDirection, practiceMode = false) =>
     set({
       currentRound: shuffle(cards),
       currentIndex: 0,
@@ -52,6 +54,7 @@ export const useTrainerStore = create<TrainerState>((set, get) => ({
       roundComplete: false,
       roundResults: { correct: 0, incorrect: 0 },
       roundDirection: resolveDirection(quizDirection),
+      practiceMode,
     }),
 
   flipCard: () => set({ isFlipped: true }),
@@ -127,6 +130,7 @@ export const useTrainerStore = create<TrainerState>((set, get) => ({
       roundComplete: false,
       roundResults: { correct: 0, incorrect: 0 },
       roundDirection: 'original',
+      practiceMode: false,
     }),
 }));
 

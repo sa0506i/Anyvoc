@@ -10,9 +10,10 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import {
   getContentById,
   getVocabularyByContentId,
@@ -31,19 +32,46 @@ import HighlightedText from '../../components/HighlightedText';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EditVocabModal from '../../components/EditVocabModal';
-import { STRIP_PREFIX } from '../../lib/vocabSort';
+import { STRIP_PREFIX, sortKey } from '../../lib/vocabSort';
+import { CEFR_LEVELS } from '../../constants/levels';
+import { SortOption } from '../../hooks/useVocabulary';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
 type Tab = 'original' | 'translation' | 'vocabulary';
 
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'date', label: 'Date' },
+  { value: 'alphabetical', label: 'A\u2013Z' },
+  { value: 'level', label: 'Level' },
+  { value: 'box', label: 'Maturity' },
+];
+
 export default function ContentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const db = useSQLiteContext();
   const { nativeLanguage, learningLanguage } = useSettings();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const Header = ({ title }: { title: string }) => (
+    <View style={[styles.header, { paddingTop: insets.top / 2 + spacing.xs }]}>
+      <View style={styles.headerSide} />
+      <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+      <View style={styles.headerSide}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
+          <Ionicons
+            name="close"
+            size={20}
+            color={colors.text}
+            style={styles.closeIcon}
+          />
+        </Pressable>
+      </View>
+    </View>
+  );
 
   // Load data synchronously on first render to avoid flash
   const [content, setContent] = useState<Content | null>(() =>
@@ -55,6 +83,23 @@ export default function ContentDetailScreen() {
   const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('original');
   const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('date');
+
+  const sortedVocabulary = useMemo(() => {
+    return [...vocabulary].sort((a, b) => {
+      switch (sortBy) {
+        case 'alphabetical':
+          return sortKey(a.original).localeCompare(sortKey(b.original));
+        case 'level':
+          return CEFR_LEVELS.indexOf(a.level as any) - CEFR_LEVELS.indexOf(b.level as any);
+        case 'box':
+          return a.leitner_box - b.leitner_box;
+        case 'date':
+        default:
+          return b.created_at - a.created_at;
+      }
+    });
+  }, [vocabulary, sortBy]);
 
   const loadData = useCallback(() => {
     if (!id) return;
@@ -189,14 +234,18 @@ export default function ContentDetailScreen() {
 
   if (!content) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.errorText}>Content not found</Text>
+      <View style={styles.container}>
+        <Header title="Content" />
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>Content not found</Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      <Header title={content.title} />
       {/* Tab Switcher */}
       <View style={styles.tabBar}>
         {(['original', 'translation', 'vocabulary'] as Tab[]).map((tab) => (
@@ -245,8 +294,25 @@ export default function ContentDetailScreen() {
 
       {activeTab === 'vocabulary' && (
         <FlatList
-          data={vocabulary}
+          data={sortedVocabulary}
           keyExtractor={(item) => item.id}
+          ListHeaderComponent={
+            vocabulary.length > 0 ? (
+              <View style={styles.sortRow}>
+                {SORT_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.value}
+                    style={[styles.sortChip, sortBy === opt.value && styles.sortChipActive]}
+                    onPress={() => setSortBy(opt.value)}
+                  >
+                    <Text style={[styles.sortChipText, sortBy === opt.value && styles.sortChipTextActive]}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null
+          }
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: spacing.xl + insets.bottom },
@@ -341,6 +407,40 @@ const createStyles = (c: ThemeColors) =>
       flex: 1,
       backgroundColor: c.background,
     },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingBottom: spacing.sm,
+      backgroundColor: c.backgroundMid,
+    },
+    headerSide: {
+      width: 40,
+      alignItems: 'flex-end',
+    },
+    headerTitle: {
+      flex: 1,
+      textAlign: 'center',
+      fontSize: fontSize.lg,
+      fontWeight: '600',
+      color: c.text,
+    },
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    closeIcon: {
+      lineHeight: 20,
+      textAlign: 'center',
+      textAlignVertical: 'center',
+      includeFontPadding: false,
+      width: 20,
+      height: 20,
+    },
     centered: {
       flex: 1,
       justifyContent: 'center',
@@ -382,6 +482,32 @@ const createStyles = (c: ThemeColors) =>
     },
     listContent: {
       padding: spacing.md,
+    },
+    sortRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      paddingBottom: spacing.md,
+    },
+    sortChip: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.full,
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+    },
+    sortChipActive: {
+      backgroundColor: c.primary,
+      borderColor: c.primary,
+    },
+    sortChipText: {
+      fontSize: fontSize.sm,
+      fontWeight: '300' as const,
+      color: c.text,
+    },
+    sortChipTextActive: {
+      color: '#FFFFFF',
+      fontWeight: '600' as const,
     },
     bodyText: {
       fontSize: fontSize.md,

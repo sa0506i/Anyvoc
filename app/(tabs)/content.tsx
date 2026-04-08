@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { isAtOrAboveLevel, displayLevel } from '../../constants/levels';
+import { displayLevel } from '../../constants/levels';
 import {
   View,
   Text,
@@ -13,34 +13,22 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { useShareIntentContext } from 'expo-share-intent';
-import { parseShareIntent } from '../../lib/shareHandler';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getContents,
-  insertContent,
-  insertVocabularyBatch,
   deleteContent,
   type Content,
-  type Vocabulary,
 } from '../../lib/database';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
-import {
-  extractVocabulary,
-  translateText,
-  detectLanguage,
-  ClaudeAPIError,
-  type SupportedLanguage,
-} from '../../lib/claude';
+import { ClaudeAPIError } from '../../lib/claude';
 import { extractTextFromImageLocal } from '../../lib/ocr';
-import { useSettings } from '../../hooks/useSettings';
-import { getLanguageName } from '../../constants/languages';
-import { generateUUID } from '../../lib/uuid';
+import { processSharedText } from '../../lib/shareProcessing';
 import { fetchArticleContent } from '../../lib/urlExtractor';
+import { useSettings } from '../../hooks/useSettings';
 import { useTheme } from '../../hooks/useTheme';
 import { useUIStore } from '../../hooks/useUIStore';
 import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from '../../constants/theme';
@@ -56,7 +44,7 @@ export default function ContentsScreen() {
 
   const addMenuRequested = useUIStore((s) => s.addMenuRequested);
   const clearAddMenuRequest = useUIStore((s) => s.clearAddMenuRequest);
-  const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
+  const contentRefreshNonce = useUIStore((s) => s.contentRefreshNonce);
 
   const [contents, setContents] = useState<ContentWithCount[]>([]);
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -82,114 +70,34 @@ export default function ContentsScreen() {
     }
   }, [addMenuRequested]);
 
-  // Handle shared content from other apps
+  // Share intents are handled globally by ShareIntentHandler (mounted in
+  // app/_layout.tsx). When that handler finishes inserting, it bumps
+  // contentRefreshNonce so this list reloads.
   useEffect(() => {
-    if (!hasShareIntent) return;
-
-    const parsed = parseShareIntent(shareIntent);
-    if (!parsed) {
-      resetShareIntent();
-      return;
-    }
-
-    const handleSharedContent = async () => {
-      setLoading(true);
-      try {
-        if (parsed.type === 'link' && parsed.url) {
-          setLoadingMessage('Fetching article...');
-          const { title, text } = await fetchArticleContent(parsed.url);
-          const fullText = title !== parsed.url ? `${title}\n\n${text}` : text;
-          await processTextWithKey(fullText, title, 'link', parsed.url);
-        } else if (parsed.type === 'text' && parsed.text) {
-          await processTextWithKey(parsed.text, '', 'text');
-        }
-      } catch (error) {
-        if (error instanceof ClaudeAPIError) {
-          Alert.alert('API Error', error.message);
-        } else {
-          const msg = error instanceof Error ? error.message : String(error);
-          Alert.alert('Error', msg);
-        }
-      } finally {
-        setLoading(false);
-        setLoadingMessage('');
-        resetShareIntent();
-      }
-    };
-
-    handleSharedContent();
-  }, [hasShareIntent]);
-
-  const processTextWithKey = async (text: string, title: string, sourceType: Content['source_type'], sourceUrl?: string) => {
-    const contentId = generateUUID();
-    const nativeName = getLanguageName(nativeLanguage);
-    const learningName = getLanguageName(learningLanguage);
-
-    setLoadingMessage('Checking language...');
-    const detectedLang = await detectLanguage(text);
-    if (detectedLang !== learningLanguage) {
-      if (sourceType === 'image') {
-        throw new Error('No usable text could be found in this image. Please try a clearer image.');
-      }
-      const detectedName = getLanguageName(detectedLang);
-      throw new Error(
-        `The content appears to be in ${detectedName}, but your learning language is set to ${learningName}. Please add content in your learning language.`
-      );
-    }
-
-    setLoadingMessage('Extracting vocabulary...');
-    const vocabs = await extractVocabulary(
-      text,
-      nativeName,
-      learningName,
-      learningLanguage as SupportedLanguage
-    );
-
-    setLoadingMessage('Translating text...');
-    const translation = await translateText(text, learningName, nativeName);
-
-    const now = Date.now();
-    insertContent(db, {
-      id: contentId,
-      title: title || text.substring(0, 50).trim() + (text.length > 50 ? '...' : ''),
-      original_text: text,
-      translated_text: translation,
-      source_type: sourceType,
-      source_url: sourceUrl ?? null,
-      created_at: now,
-    });
-
-    const filteredVocabs = vocabs.filter(v => isAtOrAboveLevel(v.level, level));
-
-    const vocabEntries: Vocabulary[] = filteredVocabs.map((v) => ({
-      id: generateUUID(),
-      content_id: contentId,
-      original: v.original,
-      translation: v.translation,
-      level: v.level,
-      word_type: v.type,
-      source_forms: v.source_forms?.length ? JSON.stringify(v.source_forms) : null,
-      leitner_box: 1,
-      last_reviewed: null,
-      correct_count: 0,
-      incorrect_count: 0,
-      created_at: now,
-    }));
-
-    insertVocabularyBatch(db, vocabEntries);
-    loadContents();
-
-    if (vocabs.length > 0 && vocabEntries.length === 0) {
-      Alert.alert('Done', `${vocabs.length} vocabulary items found, but all were below your level (${displayLevel(level)}). Try lowering your level in settings.`);
-    } else {
-      Alert.alert('Done', `${vocabEntries.length} vocabulary items extracted.`);
-    }
-  };
+    if (contentRefreshNonce > 0) loadContents();
+  }, [contentRefreshNonce, loadContents]);
 
   const processText = async (text: string, title: string, sourceType: Content['source_type'], sourceUrl?: string) => {
     setLoading(true);
     try {
-      await processTextWithKey(text, title, sourceType, sourceUrl);
+      const result = await processSharedText(
+        db,
+        text,
+        title,
+        sourceType,
+        sourceUrl,
+        { nativeLanguage, learningLanguage, level },
+        setLoadingMessage,
+      );
+      loadContents();
+      if (result.belowLevel) {
+        Alert.alert(
+          'Done',
+          `${result.foundTotal} vocabulary items found, but all were below your level (${displayLevel(level)}). Try lowering your level in settings.`
+        );
+      } else {
+        Alert.alert('Done', `${result.inserted} vocabulary items extracted.`);
+      }
     } catch (error) {
       if (error instanceof ClaudeAPIError) {
         Alert.alert('API Error', error.message);
@@ -255,8 +163,11 @@ export default function ContentsScreen() {
       const extractedText = await extractTextFromImageLocal(manipulated.base64, 'image/jpeg');
 
       const title = extractedText.split(/\s+/).slice(0, 5).join(' ') + '…';
-      setLoadingMessage('Extracting vocabulary...');
-      await processTextWithKey(extractedText, title, 'image');
+      // processText handles its own loading + error flow for the vocab phase
+      setLoading(false);
+      setLoadingMessage('');
+      await processText(extractedText, title, 'image');
+      return;
     } catch (error) {
       const msg = error instanceof ClaudeAPIError
         ? error.message
@@ -279,7 +190,10 @@ export default function ContentsScreen() {
       setLoadingMessage('Fetching article...');
       const { title, text } = await fetchArticleContent(url);
       const fullText = title !== url ? `${title}\n\n${text}` : text;
-      await processTextWithKey(fullText, title, 'link', url);
+      setLoading(false);
+      setLoadingMessage('');
+      await processText(fullText, title, 'link', url);
+      return;
     } catch (error) {
       if (error instanceof ClaudeAPIError) {
         Alert.alert('API Error', error.message);
