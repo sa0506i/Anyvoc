@@ -2,7 +2,7 @@ import { classifyWord, type SupportedLanguage } from './classifier';
 
 const API_URL = 'https://anyvoc-backend.fly.dev/api/chat';
 const MODEL = 'claude-haiku-4-5-20251001';
-const MAX_CHARS_PER_CHUNK = 15000;
+const MAX_CHARS_PER_CHUNK = 5000;
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
@@ -193,29 +193,55 @@ export async function extractVocabulary(
       { temperature: 0 }
     );
 
-    try {
-      // Extract JSON array from response (handle potential markdown wrapping)
-      let jsonStr = responseText.match(/\[[\s\S]*\]/)?.[0];
+    const arrayStart = responseText.indexOf('[');
+    if (arrayStart === -1) {
+      console.warn('No JSON array in vocabulary response:', responseText.substring(0, 200));
+      continue;
+    }
 
-      // If no complete array found, try to repair truncated JSON
-      if (!jsonStr) {
-        const arrayStart = responseText.indexOf('[');
-        if (arrayStart !== -1) {
-          jsonStr = responseText.substring(arrayStart);
-          // Remove last incomplete object (after last '}')
-          const lastComplete = jsonStr.lastIndexOf('}');
-          if (lastComplete !== -1) {
-            jsonStr = jsonStr.substring(0, lastComplete + 1) + ']';
+    // First try: parse from first '[' to last ']' (handles complete responses)
+    let parsed: ExtractedVocab[] | null = null;
+    const lastBracket = responseText.lastIndexOf(']');
+    if (lastBracket > arrayStart) {
+      try {
+        parsed = JSON.parse(responseText.substring(arrayStart, lastBracket + 1));
+      } catch {
+        // fall through to repair
+      }
+    }
+
+    // Repair fallback: truncate after the last fully completed top-level object
+    if (!parsed) {
+      try {
+        const tail = responseText.substring(arrayStart);
+        // Walk through and track brace depth to find completed top-level objects
+        let depth = 0;
+        let inString = false;
+        let escape = false;
+        let lastTopLevelCloseIdx = -1;
+        for (let i = 0; i < tail.length; i++) {
+          const c = tail[i];
+          if (escape) { escape = false; continue; }
+          if (c === '\\') { escape = true; continue; }
+          if (c === '"') { inString = !inString; continue; }
+          if (inString) continue;
+          if (c === '{') depth++;
+          else if (c === '}') {
+            depth--;
+            if (depth === 0) lastTopLevelCloseIdx = i;
           }
         }
+        if (lastTopLevelCloseIdx !== -1) {
+          const repaired = tail.substring(0, lastTopLevelCloseIdx + 1) + ']';
+          parsed = JSON.parse(repaired);
+        }
+      } catch {
+        console.warn('Failed to repair vocabulary response:', responseText.substring(0, 300));
       }
+    }
 
-      if (jsonStr) {
-        const parsed = JSON.parse(jsonStr) as ExtractedVocab[];
-        allVocabs.push(...parsed);
-      }
-    } catch {
-      console.warn('Failed to parse vocabulary response:', responseText.substring(0, 200));
+    if (parsed && Array.isArray(parsed)) {
+      allVocabs.push(...parsed);
     }
   }
 

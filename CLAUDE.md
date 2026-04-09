@@ -4,6 +4,8 @@
 Vocabulary trainer (React Native / Expo) that extracts vocabulary from shared content via Claude API.
 All user data stored locally on device. The only backend is a thin Anthropic proxy (`https://anyvoc-backend.fly.dev/api/chat`) that holds the API key — no user data or accounts. Expo managed workflow (no committed `android/` or `ios/` folders).
 
+**Local dev caveat:** Running `npx expo run:android` (or `run:ios`) generates a local `android/` (or `ios/`) folder as a build cache. This is gitignored and does NOT change the workflow from Repo/EAS perspective — managed workflow stays intact. BUT: after any change to `app.json` plugins or after `expo install <native-module>`, you MUST run `npx expo prebuild --clean` followed by `npx expo run:android` again, otherwise plugin/native changes won't be picked up by the cached native build. JS-only changes need no rebuild — Metro reload is enough.
+
 ## Tech Stack
 - **Framework:** React Native 0.81 / Expo ~54, Expo Router ~6, TypeScript
 - **Database:** expo-sqlite ~16, synchronous API only (`runSync`, `getFirstSync`, `getAllSync`)
