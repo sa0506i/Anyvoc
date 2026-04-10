@@ -137,12 +137,13 @@ export default function VocabularyScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View testID="vocabulary-screen" style={styles.container}>
       {/* Search */}
       <View style={styles.searchRow}>
         <View style={styles.searchInput}>
           <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
           <TextInput
+            testID="vocab-search-input"
             style={styles.searchText}
             placeholder="Search..."
             placeholderTextColor={colors.textSecondary}
@@ -191,6 +192,7 @@ export default function VocabularyScreen() {
 
       {/* List */}
       <FlatList
+        testID="vocab-list"
         data={filteredAndSorted}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[

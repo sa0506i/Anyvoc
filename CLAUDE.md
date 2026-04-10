@@ -124,7 +124,7 @@ python scripts/calibrate-model.py    # fits ordinal logit → model.json
 #   - lib/classifier/score.ts   (runtime)
 #   - scripts/validate-gold-all.ts  (eval script — keep in sync!)
 npx tsx scripts/validate-gold-all.ts  # per-lang sanity check
-npm run test:classifier               # 26 Jest tests must pass
+npm test                              # tsc + all Jest tests must pass
 ```
 `tmp/` is gitignored (raw gold sources aren't redistributable under
 CC BY-NC-SA). Generated `lib/data/*.json` are committed (compatible with
@@ -217,12 +217,29 @@ Claude Code works best when given a goal + a verification step. Examples:
 
 Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc --noEmit` or read `expo.log` on its own if instructed; it will not auto-start the dev server.
 
-### TypeScript checks without a build
-```bash
-# Claude Code can run this after any change — no emulator needed
-npx tsc --noEmit
+### Testing
 
-# Check a single file's imports resolve correctly
+| Command | What runs | Requires emulator |
+|---------|-----------|-------------------|
+| `npm test` | `tsc --noEmit` + `jest` (all unit/integration tests) | No |
+| `npm run test:all` | `tsc --noEmit` + `jest` + `maestro` E2E flows | Yes |
+| `npm run test:e2e` | Maestro E2E flows only | Yes |
+| `npm run test:e2e:single -- .maestro/01-app-launches.yaml` | Single Maestro flow | Yes |
+
+`npm test` is the fast, always-runnable gate — run it after every change.
+`npm run test:all` is the full pipeline including E2E (needs emulator + Metro).
+
+**Test suites (Jest):**
+| Suite | File | Tests | Mocking |
+|-------|------|-------|---------|
+| Leitner logic | `lib/leitner.test.ts` | 34 | Pure functions, no mocks |
+| Database layer | `lib/database.test.ts` | 26 | `better-sqlite3` in-memory |
+| CEFR classifier | `lib/classifier/classifier.test.ts` | 26 | Mocked Claude fallback |
+| Build scripts | `scripts/build-freq.test.ts` | — | — |
+
+**TypeScript check only:**
+```bash
+npx tsc --noEmit
 npx tsc --noEmit --isolatedModules app/content/\[id\].tsx
 ```
 
@@ -318,6 +335,43 @@ Select-String -Path expo.log -Pattern "TS\d{4}|Cannot find module" | Select-Obje
 # Successful reload confirmation
 Select-String -Path expo.log -Pattern "Bundling complete|bundle compiled"
 ```
+
+## E2E Testing (Maestro 2.x)
+Maestro is installed at `~/.maestro/bin/maestro` (requires Java 17+, provided by
+Android Studio JBR). Flow files live in `.maestro/*.yaml`.
+
+**Prerequisites:** Java must be on PATH for maestro to work:
+```bash
+export PATH="$HOME/.maestro/bin:/c/Program Files/Android/Android Studio/jbr/bin:$PATH"
+```
+
+**Running E2E tests:**
+```bash
+npm run test:e2e                                          # all flows
+npm run test:e2e:single -- .maestro/01-app-launches.yaml  # single flow
+npm run test:all                                          # tsc + jest + maestro
+```
+
+**Requires:** Emulator running + Metro bundler active + App connected (see
+"autonomous debug & test workflow" above). Maestro launches the app itself via
+`launchApp` — no manual start needed once Metro is serving.
+
+**Flow files:**
+| File | What it tests |
+|------|---------------|
+| `01-app-launches.yaml` | App starts, all 3 tabs visible |
+| `02-tab-navigation.yaml` | Tap each tab, verify screen via testID |
+| `03-trainer-session.yaml` | Start training, answer cards, round complete |
+| `04-add-text-content.yaml` | Add menu → Enter Text → fill form → save |
+| `05-vocabulary-search.yaml` | Search input, sort chips (Date/A–Z/Level) |
+
+**Adding testIDs:** New interactive elements must have a `testID` prop for
+Maestro to find them. Convention: `kebab-case`, e.g. `testID="start-training-btn"`.
+Existing testIDs: `trainer-screen`, `content-screen`, `vocabulary-screen`,
+`flashcard`, `correct-btn`, `incorrect-btn`, `start-training-btn`,
+`continue-training-btn`, `end-session-btn`, `round-complete-text`,
+`content-list`, `menu-enter-text`, `menu-choose-image`, `menu-add-link`,
+`title-input`, `text-input`, `save-text-btn`, `vocab-search-input`, `vocab-list`.
 
 ## Known Issues / Watch Out
 - **Image picker on iOS:** ALWAYS add 500ms delay before `launchImageLibraryAsync`

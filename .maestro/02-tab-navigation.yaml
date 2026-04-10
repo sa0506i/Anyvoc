@@ -1,0 +1,19 @@
+appId: com.anonymous.Anyvoc
+name: "Tab navigation works"
+---
+- launchApp
+
+# Navigate to Content tab
+- tapOn: "Content"
+- assertVisible:
+    id: "content-screen"
+
+# Navigate to Vocabulary tab
+- tapOn: "Vocabulary"
+- assertVisible:
+    id: "vocabulary-screen"
+
+# Navigate back to Trainer tab
+- tapOn: "Trainer"
+- assertVisible:
+    id: "trainer-screen"

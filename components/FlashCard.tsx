@@ -28,7 +28,7 @@ export default function FlashCard({
 
   return (
     <View style={styles.wrapper}>
-      <Pressable style={styles.card} onPress={!isRevealed ? onReveal : undefined}>
+      <Pressable testID="flashcard" style={styles.card} onPress={!isRevealed ? onReveal : undefined}>
         <View style={styles.cardHighlight} />
         <Text style={styles.label}>{isRevealed ? 'Antwort' : 'Frage'}</Text>
         {onDelete && (
@@ -44,11 +44,11 @@ export default function FlashCard({
 
       {isRevealed && (
         <View style={styles.buttonRow}>
-          <Pressable style={[styles.answerButton, styles.incorrectButton]} onPress={onIncorrect}>
+          <Pressable testID="incorrect-btn" style={[styles.answerButton, styles.incorrectButton]} onPress={onIncorrect}>
             <Ionicons name="close" size={24} color={colors.error} />
             <Text style={[styles.answerButtonText, styles.incorrectButtonText]}>Nicht gewusst</Text>
           </Pressable>
-          <Pressable style={[styles.answerButton, styles.correctButton]} onPress={onCorrect}>
+          <Pressable testID="correct-btn" style={[styles.answerButton, styles.correctButton]} onPress={onCorrect}>
             <Ionicons name="checkmark" size={24} color={colors.success} />
             <Text style={[styles.answerButtonText, styles.correctButtonText]}>Gewusst</Text>
           </Pressable>

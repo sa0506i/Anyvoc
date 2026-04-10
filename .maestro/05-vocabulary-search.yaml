@@ -1,0 +1,24 @@
+appId: com.anonymous.Anyvoc
+name: "Vocabulary search and sort"
+---
+- launchApp
+- tapOn: "Vocabulary"
+- assertVisible:
+    id: "vocabulary-screen"
+
+# If vocab list is visible, test search
+- runFlow:
+    when:
+      visible:
+        id: "vocab-search-input"
+    commands:
+      - tapOn:
+          id: "vocab-search-input"
+      - inputText: "test"
+      - assertVisible:
+          id: "vocab-list"
+
+      # Test sort options
+      - tapOn: "A–Z"
+      - tapOn: "Level"
+      - tapOn: "Date"

@@ -172,7 +172,7 @@ export default function TrainerScreen() {
       <View style={styles.container}>
         <View style={styles.resultsContainer}>
           <Ionicons name="trophy-outline" size={64} color={colors.primary} />
-          <Text style={styles.resultsTitle}>Round Complete!</Text>
+          <Text testID="round-complete-text" style={styles.resultsTitle}>Round Complete!</Text>
           <View style={styles.resultsRow}>
             <View style={styles.resultBox}>
               <Text style={[styles.resultNumber, { color: colors.success }]}>
@@ -196,7 +196,7 @@ export default function TrainerScreen() {
             </Pressable>
           )}
 
-          <Pressable style={styles.endButton} onPress={handleEndSession}>
+          <Pressable testID="end-session-btn" style={styles.endButton} onPress={handleEndSession}>
             <Text style={styles.endButtonText}>Back to Overview</Text>
           </Pressable>
         </View>
@@ -215,7 +215,7 @@ export default function TrainerScreen() {
 
   // Home / stats view
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.homeContent}>
+    <ScrollView testID="trainer-screen" style={styles.container} contentContainerStyle={styles.homeContent}>
       {/* Statistics */}
       {stats && stats.total > 0 && (
         <>
@@ -252,12 +252,12 @@ export default function TrainerScreen() {
 
       {/* Start button */}
       {dueCount > 0 ? (
-        <Pressable style={styles.startButton} onPress={() => handleStartRound(false)}>
+        <Pressable testID="start-training-btn" style={styles.startButton} onPress={() => handleStartRound(false)}>
           <Ionicons name="play" size={24} color="#FFFFFF" />
           <Text style={styles.startButtonText}>Start Training ({dueCount} due)</Text>
         </Pressable>
       ) : (
-        <Pressable style={styles.continueButton} onPress={() => handleStartRound(true)}>
+        <Pressable testID="continue-training-btn" style={styles.continueButton} onPress={() => handleStartRound(true)}>
           <Ionicons name="play" size={24} color={colors.textSecondary} />
           <Text style={styles.continueButtonText}>Continue Training (0 due)</Text>
         </Pressable>

@@ -252,11 +252,12 @@ export default function ContentsScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View testID="content-screen" style={styles.container}>
       {contents.length === 0 ? (
         <EmptyState />
       ) : (
         <FlatList
+          testID="content-list"
           data={contents}
           keyExtractor={(item) => item.id}
           renderItem={renderContent}
@@ -269,6 +270,7 @@ export default function ContentsScreen() {
         <Pressable style={styles.overlay} onPress={() => setShowAddMenu(false)}>
           <View style={styles.menu}>
             <Pressable
+              testID="menu-enter-text"
               style={styles.menuItem}
               onPress={() => {
                 setShowAddMenu(false);
@@ -278,11 +280,12 @@ export default function ContentsScreen() {
               <Ionicons name="create-outline" size={24} color={colors.text} />
               <Text style={styles.menuItemText}>Enter Text</Text>
             </Pressable>
-            <Pressable style={styles.menuItem} onPress={handleAddImage}>
+            <Pressable testID="menu-choose-image" style={styles.menuItem} onPress={handleAddImage}>
               <Ionicons name="image-outline" size={24} color={colors.text} />
               <Text style={styles.menuItemText}>Choose Image</Text>
             </Pressable>
             <Pressable
+              testID="menu-add-link"
               style={styles.menuItem}
               onPress={() => {
                 setShowAddMenu(false);
@@ -304,7 +307,7 @@ export default function ContentsScreen() {
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
             <Text style={styles.modalTitle}>Enter Text</Text>
-            <Pressable onPress={handleAddText} disabled={!textInput.trim()}>
+            <Pressable testID="save-text-btn" onPress={handleAddText} disabled={!textInput.trim()}>
               <Text
                 style={[styles.saveText, !textInput.trim() && { opacity: 0.5 }]}
               >
@@ -313,6 +316,7 @@ export default function ContentsScreen() {
             </Pressable>
           </View>
           <TextInput
+            testID="title-input"
             style={styles.titleInputField}
             placeholder="Title (optional)"
             placeholderTextColor={colors.textSecondary}
@@ -320,6 +324,7 @@ export default function ContentsScreen() {
             onChangeText={setTitleInput}
           />
           <TextInput
+            testID="text-input"
             style={styles.textInputField}
             placeholder="Enter text here..."
             placeholderTextColor={colors.textSecondary}

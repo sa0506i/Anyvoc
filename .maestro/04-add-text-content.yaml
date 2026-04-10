@@ -1,0 +1,27 @@
+appId: com.anonymous.Anyvoc
+name: "Add text content flow"
+---
+- launchApp
+- tapOn: "Content"
+- assertVisible:
+    id: "content-screen"
+
+# Open add menu via the + FAB
+- tapOn: "add-circle"
+
+# Choose "Enter Text"
+- tapOn:
+    id: "menu-enter-text"
+
+# Fill in the text form
+- tapOn:
+    id: "title-input"
+- inputText: "Maestro Test"
+
+- tapOn:
+    id: "text-input"
+- inputText: "Der Hund spielt im Garten. Die Katze schläft auf dem Sofa."
+
+# Save
+- tapOn:
+    id: "save-text-btn"
