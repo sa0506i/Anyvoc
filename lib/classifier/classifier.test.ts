@@ -103,14 +103,14 @@ describe('classifyWord — local classification', () => {
 describe('classifyWord — Claude API fallback', () => {
   it('triggers API call when fallbackCount >= 2 and zipf === 0', async () => {
     mockedCallClaude.mockResolvedValueOnce('B2');
-    const out = await classifyWord('xqzpvword', 'en');
+    const out = await classifyWord('xqzpvword', 'en', mockedCallClaude);
     expect(out).toBe('B2');
     expect(mockedCallClaude).toHaveBeenCalledTimes(1);
   });
 
   it('uses temperature: 0 in the API request', async () => {
     mockedCallClaude.mockResolvedValueOnce('A2');
-    await classifyWord('xqzpvword', 'en');
+    await classifyWord('xqzpvword', 'en', mockedCallClaude);
     const call = mockedCallClaude.mock.calls[0];
     // Signature: (messages, systemPrompt, maxTokens, options)
     expect(call[3]).toEqual(expect.objectContaining({ temperature: 0 }));
@@ -119,8 +119,8 @@ describe('classifyWord — Claude API fallback', () => {
 
   it('does NOT call the API a second time for a cached word', async () => {
     mockedCallClaude.mockResolvedValueOnce('B1');
-    const first = await classifyWord('xqzpvword', 'en');
-    const second = await classifyWord('xqzpvword', 'en');
+    const first = await classifyWord('xqzpvword', 'en', mockedCallClaude);
+    const second = await classifyWord('xqzpvword', 'en', mockedCallClaude);
     expect(first).toBe('B1');
     expect(second).toBe('B1');
     expect(mockedCallClaude).toHaveBeenCalledTimes(1);
@@ -128,13 +128,13 @@ describe('classifyWord — Claude API fallback', () => {
 
   it('returns local label when API response is invalid', async () => {
     mockedCallClaude.mockResolvedValueOnce('not a level');
-    const local = await classifyWord('xqzpvword', 'en');
+    const local = await classifyWord('xqzpvword', 'en', mockedCallClaude);
     expect(isCefr(local)).toBe(true);
   });
 
   it('returns local label when API throws', async () => {
     mockedCallClaude.mockRejectedValueOnce(new Error('network fail'));
-    const local = await classifyWord('xqzpvword', 'en');
+    const local = await classifyWord('xqzpvword', 'en', mockedCallClaude);
     expect(isCefr(local)).toBe(true);
   });
 
@@ -142,12 +142,12 @@ describe('classifyWord — Claude API fallback', () => {
     mockedCallClaude.mockResolvedValue('B1');
     // 10 unique fallback-eligible words consume the budget.
     for (let i = 0; i < 10; i++) {
-      await classifyWord(`zzfallback${i}`, 'en');
+      await classifyWord(`zzfallback${i}`, 'en', mockedCallClaude);
     }
     expect(mockedCallClaude).toHaveBeenCalledTimes(10);
 
     // The 11th must NOT call the API again.
-    const out = await classifyWord('zzfallback11', 'en');
+    const out = await classifyWord('zzfallback11', 'en', mockedCallClaude);
     expect(mockedCallClaude).toHaveBeenCalledTimes(10);
     expect(isCefr(out)).toBe(true);
   });
@@ -167,7 +167,7 @@ describe('classifyWordWithConfidence', () => {
 
   it('reports usedApiCallback=true when the API actually fired', async () => {
     mockedCallClaude.mockResolvedValueOnce('C1');
-    const r = await classifyWordWithConfidence('xqzpvword', 'en');
+    const r = await classifyWordWithConfidence('xqzpvword', 'en', mockedCallClaude);
     expect(r.usedApiCallback).toBe(true);
     expect(r.level).toBe('C1');
     expect(r.confidence).toBe('low');
@@ -175,8 +175,8 @@ describe('classifyWordWithConfidence', () => {
 
   it('reports usedApiCallback=false on cache hit', async () => {
     mockedCallClaude.mockResolvedValueOnce('B1');
-    await classifyWordWithConfidence('xqzpvword', 'en'); // populates cache
-    const r = await classifyWordWithConfidence('xqzpvword', 'en');
+    await classifyWordWithConfidence('xqzpvword', 'en', mockedCallClaude); // populates cache
+    const r = await classifyWordWithConfidence('xqzpvword', 'en', mockedCallClaude);
     expect(r.usedApiCallback).toBe(false);
     expect(r.level).toBe('B1');
   });

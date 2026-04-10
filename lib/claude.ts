@@ -249,7 +249,7 @@ export async function extractVocabulary(
   // assigns levels. High/medium-confidence words resolve synchronously.
   for (const vocab of allVocabs) {
     try {
-      vocab.level = await classifyWord(vocab.original, learningLanguageCode);
+      vocab.level = await classifyWord(vocab.original, learningLanguageCode, callClaude);
     } catch (err) {
       console.warn(
         `[claude] classifyWord failed for "${vocab.original}" (${learningLanguageCode}):`,
@@ -331,7 +331,7 @@ Respond exclusively as a JSON object, with no additional text. Leave the level f
 
   // Local deterministic CEFR assignment.
   try {
-    parsed.level = await classifyWord(parsed.original || word, fromLanguageCode);
+    parsed.level = await classifyWord(parsed.original || word, fromLanguageCode, callClaude);
   } catch (err) {
     console.warn(
       `[claude] classifyWord failed for "${parsed.original || word}" (${fromLanguageCode}):`,

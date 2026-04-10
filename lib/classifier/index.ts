@@ -21,6 +21,7 @@ import {
   computeConfidence,
   classifyViaClaude,
   type Confidence,
+  type ClaudeFallbackFn,
 } from './fallback';
 import { getCached, setCached } from './cache';
 
@@ -75,18 +76,19 @@ function classifyLocally(word: string, language: SupportedLanguage): LocalClassi
  */
 export async function classifyWord(
   word: string,
-  language: string
+  language: string,
+  claudeFn?: ClaudeFallbackFn
 ): Promise<CEFRLevel> {
   assertSupported(language);
   const local = classifyLocally(word, language);
-  if (local.confidence !== 'low') {
+  if (local.confidence !== 'low' || !claudeFn) {
     return local.level;
   }
 
   const cached = getCached(word, language);
   if (cached) return cached;
 
-  const apiResult = await classifyViaClaude(word, language, getLanguageName(language));
+  const apiResult = await classifyViaClaude(word, language, getLanguageName(language), claudeFn);
   if (apiResult) {
     setCached(word, language, apiResult);
     return apiResult;
@@ -100,7 +102,8 @@ export async function classifyWord(
  */
 export async function classifyWordWithConfidence(
   word: string,
-  language: string
+  language: string,
+  claudeFn?: ClaudeFallbackFn
 ): Promise<{
   level: CEFRLevel;
   confidence: Confidence;
@@ -109,7 +112,7 @@ export async function classifyWordWithConfidence(
 }> {
   assertSupported(language);
   const local = classifyLocally(word, language);
-  if (local.confidence !== 'low') {
+  if (local.confidence !== 'low' || !claudeFn) {
     return {
       level: local.level,
       confidence: local.confidence,
@@ -128,7 +131,7 @@ export async function classifyWordWithConfidence(
     };
   }
 
-  const apiResult = await classifyViaClaude(word, language, getLanguageName(language));
+  const apiResult = await classifyViaClaude(word, language, getLanguageName(language), claudeFn);
   if (apiResult) {
     setCached(word, language, apiResult);
     return {

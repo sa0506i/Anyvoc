@@ -9,11 +9,18 @@
  * limit we return the local label and warn — never block, never throw.
  */
 
-import { callClaude } from '../claude';
 import type { CEFRLevel } from '../../constants/levels';
 import { isValidCefr } from './score';
 import type { Features } from './features';
 import type { SupportedLanguage } from './index';
+
+/** Callback type matching callClaude's signature (messages, system, maxTokens, options). */
+export type ClaudeFallbackFn = (
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  systemPrompt: string,
+  maxTokens: number,
+  options?: { temperature?: number }
+) => Promise<string>;
 
 export type Confidence = 'high' | 'medium' | 'low';
 
@@ -65,7 +72,8 @@ export function __resetRateLimitForTests(): void {
 export async function classifyViaClaude(
   word: string,
   language: SupportedLanguage,
-  languageName: string
+  languageName: string,
+  claudeFn: ClaudeFallbackFn
 ): Promise<CEFRLevel | null> {
   if (!tryConsumeRateBudget()) {
     console.warn(
@@ -76,7 +84,7 @@ export async function classifyViaClaude(
 
   let response: string;
   try {
-    response = await callClaude(
+    response = await claudeFn(
       [
         {
           role: 'user',

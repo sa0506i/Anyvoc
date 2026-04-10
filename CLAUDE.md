@@ -175,7 +175,153 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 - `cardsPerRound` → number of cards per trainer session (default `"20"`)
 - No API key is stored anywhere on device — the backend proxy holds it.
 
+## Development Workflow (Claude Code)
+
+### Agentic loop — how Claude Code operates on this project
+Claude Code reads `CLAUDE.md` on every session start and uses it as the single source of truth for architecture decisions. It can read/write all source files, run shell commands, and read log output. It cannot observe the running app directly — logs are the only runtime signal.
+
+**Two-terminal setup (Windows PowerShell):**
+```powershell
+# Terminal 1 — keep running throughout dev session
+npx expo run:android 2>&1 | Tee-Object -FilePath expo.log
+
+# Terminal 2 — Claude Code session
+claude
+```
+`expo.log` is the bridge: Claude Code reads it after every change to verify Metro compiled cleanly and no runtime errors appeared.
+
+### When to use which start command
+| Situation | Command |
+|-----------|---------|
+| JS-only change (components, hooks, lib/) | `npx expo start` — Metro hot reload, no rebuild |
+| First run after clone | `npx expo run:android` — builds native shell |
+| After `expo install <native-module>` or `app.json` plugin change | `npx expo prebuild --clean && npx expo run:android` |
+| Release / store build | `eas build --profile production --platform android` |
+| Quick preview APK (no store) | `eas build --profile preview --platform android` |
+
+### Effective prompts for Claude Code
+Claude Code works best when given a goal + a verification step. Examples:
+
+```
+"Read expo.log, identify the current error, fix it, then confirm
+ the relevant file compiles without TypeScript errors."
+
+"Add a progress-bar component to the trainer session screen.
+ Follow the GlassCard + createStyles(colors) pattern from existing components.
+ After writing, check expo.log for Metro errors."
+
+"Refactor lib/leitner.ts so selectRound() accepts an optional
+ maxCards parameter (default 20). Keep all existing call sites working.
+ Run: npx tsc --noEmit and show me the output."
+```
+
+Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc --noEmit` or read `expo.log` on its own if instructed; it will not auto-start the dev server.
+
+### TypeScript checks without a build
+```bash
+# Claude Code can run this after any change — no emulator needed
+npx tsc --noEmit
+
+# Check a single file's imports resolve correctly
+npx tsc --noEmit --isolatedModules app/content/\[id\].tsx
+```
+
+### Claude Code autonomous debug & test workflow
+When the user asks Claude Code to start the emulator and dev server for testing,
+run the following sequence. This was validated to fix the "black screen" problem
+caused by stale processes and the Expo Dev Client not auto-connecting to Metro.
+
+**Option A — full rebuild (after native changes / first run):**
+```powershell
+# 1. Clean slate — kill emulator and free Metro port
+adb emu kill
+npx kill-port 8081
+
+# 2. Start emulator (full path required — not on PATH)
+#    Use -no-snapshot-load for a clean boot.
+"$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -avd Pixel_9 -no-snapshot-load
+#    (run in background, then wait)
+adb wait-for-device          # blocks until device is online
+adb devices                  # verify "emulator-5554  device"
+
+# 3. Build native shell + start Metro + install APK
+cd D:\dev\Claude-React\Anyvoc
+npx expo run:android 2>&1 | Tee-Object -FilePath expo.log
+#    (run in background, wait ~90s for BUILD SUCCESSFUL + "Bundled …ms")
+
+# 4. Force-connect Dev Client to Metro (emulator localhost = 10.0.2.2)
+#    npx expo run:android sends localhost:8081, which the emulator
+#    can't resolve. The deep-link with 10.0.2.2 fixes this.
+adb shell am start -a android.intent.action.VIEW `
+  -d "exp+anyvoc://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081" `
+  com.anonymous.Anyvoc
+
+# 5. Verify
+adb shell dumpsys activity top | grep "ACTIVITY"
+#    → expect: com.anonymous.Anyvoc/.MainActivity  mResumed=true
+```
+
+**Option B — JS-only changes (faster, no rebuild):**
+Use when the native shell (APK) is already installed and only JS/TS code changed.
+```powershell
+# 1. Free Metro port if stale
+npx kill-port 8081
+
+# 2. Start Metro only (no Gradle build)
+cd D:\dev\Claude-React\Anyvoc
+npx expo start --android 2>&1 | Tee-Object -FilePath expo.log
+#    (run in background, wait ~20s)
+
+# 3. Reverse-forward port so emulator reaches host's Metro
+adb reverse tcp:8081 tcp:8081
+
+# 4. Connect Dev Client to Metro
+adb shell am force-stop com.anonymous.Anyvoc
+adb shell am start -a android.intent.action.VIEW `
+  -d "exp+anyvoc://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081" `
+  com.anonymous.Anyvoc
+
+# 5. Verify
+adb shell dumpsys activity top | grep "ACTIVITY"
+#    → expect: com.anonymous.Anyvoc/.MainActivity  mResumed=true
+```
+
+**Log-based debugging after startup:**
+```bash
+# expo.log — Metro bundle results + JS console output
+cat expo.log | tail -20
+grep -iE "error|warn|WARN" expo.log | tail -20
+
+# adb logcat — native + JS runtime errors
+adb logcat -d -t 100 -s "ReactNativeJS:*"          # JS errors only
+adb logcat -d -t 200 | grep -iE "anyvoc|FATAL"     # crashes
+adb logcat -c                                        # clear before repro
+```
+
+### What Claude Code must NOT do in this project
+- Start or restart the Expo dev server autonomously **unless the user explicitly asks** (see "autonomous debug & test workflow" above)
+- Edit anything under `tmp/` or `lib/data/` — those are pipeline outputs
+- Modify `lib/classifier/score.ts` constants by hand (calibration pipeline only)
+- Add any form of API key to client code (see Security in Tech Stack)
+- Switch the Claude model from `claude-haiku-4-5-20251001` to Sonnet/Opus
+- Use `android/` or `ios/` folder paths — managed workflow, those folders are gitignored build caches
+
+### Reading logs efficiently
+`expo.log` is append-only during a session. Relevant patterns to grep for:
+```bash
+# Metro bundle errors
+Select-String -Path expo.log -Pattern "error|Error|WARN|warn" | Select-Object -Last 20
+
+# TypeScript / module resolution errors
+Select-String -Path expo.log -Pattern "TS\d{4}|Cannot find module" | Select-Object -Last 10
+
+# Successful reload confirmation
+Select-String -Path expo.log -Pattern "Bundling complete|bundle compiled"
+```
+
 ## Known Issues / Watch Out
 - **Image picker on iOS:** ALWAYS add 500ms delay before `launchImageLibraryAsync`
   to allow modal to fully close — skipping this causes a silent no-op with no error
 - **API key:** the app must never hold an Anthropic key. All Claude calls go through the backend proxy. Do not add client-side key storage, env vars, or `Authorization` headers.
+- **expo.log on Windows:** `Tee-Object` requires PowerShell (not CMD). If the file stays empty, check that the terminal is PowerShell 5+ and that `npx` resolves correctly (`where.exe npx`).
+- **Android emulator + Metro port conflict:** if Metro fails to start on port 8081, kill the stale process with `npx kill-port 8081` before restarting.
