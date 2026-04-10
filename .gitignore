@@ -41,8 +41,8 @@ yarn-error.*
 *.tsbuildinfo
 
 # generated native folders
-/ios
-/android
+# /ios
+# /android
 
 # Classifier dev-only artefacts: gold-CEFR sources and intermediate files.
 # Inputs to scripts/build-gold.ts + the calibration pipeline. The trained
