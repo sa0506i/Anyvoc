@@ -19,6 +19,9 @@ export interface ThemeColors {
   successBgMedium: string;
   errorBgLight: string;
   errorBgMedium: string;
+  warningBgLight: string;
+  warningBgMedium: string;
+  overlay: string;
   subtleOverlay: string;
   borderSubtle: string;
 
@@ -57,6 +60,9 @@ const marineColors: ThemeColors = {
   successBgMedium: 'rgba(77, 255, 181, 0.4)',
   errorBgLight: 'rgba(255, 77, 106, 0.2)',
   errorBgMedium: 'rgba(255, 77, 106, 0.4)',
+  warningBgLight: 'rgba(255, 184, 77, 0.2)',
+  warningBgMedium: 'rgba(255, 184, 77, 0.4)',
+  overlay: 'rgba(5, 13, 26, 0.8)',
   subtleOverlay: 'rgba(255, 255, 255, 0.08)',
   borderSubtle: 'rgba(100, 150, 255, 0.15)',
 

@@ -225,7 +225,7 @@ export default function ContentsScreen() {
   const renderContent = ({ item }: { item: ContentWithCount }) => (
     <SwipeToDelete onDelete={() => handleDeleteContent(item.id)}>
       <Pressable
-        style={styles.contentCard}
+        style={({ pressed }) => [styles.contentCard, pressed && styles.pressed]}
         onPress={() => router.push(`/content/${item.id}`)}
       >
         <View style={styles.cardHighlight} />
@@ -273,7 +273,7 @@ export default function ContentsScreen() {
           <View style={styles.menu}>
             <Pressable
               testID="menu-enter-text"
-              style={styles.menuItem}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
               onPress={() => {
                 setShowAddMenu(false);
                 setShowTextModal(true);
@@ -282,13 +282,13 @@ export default function ContentsScreen() {
               <Ionicons name="create-outline" size={24} color={colors.text} />
               <Text style={styles.menuItemText}>Enter Text</Text>
             </Pressable>
-            <Pressable testID="menu-choose-image" style={styles.menuItem} onPress={handleAddImage}>
+            <Pressable testID="menu-choose-image" style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]} onPress={handleAddImage}>
               <Ionicons name="image-outline" size={24} color={colors.text} />
               <Text style={styles.menuItemText}>Choose Image</Text>
             </Pressable>
             <Pressable
               testID="menu-add-link"
-              style={styles.menuItem}
+              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
               onPress={() => {
                 setShowAddMenu(false);
                 setShowLinkModal(true);
@@ -418,7 +418,7 @@ const createStyles = (c: ThemeColors) =>
       left: 0,
       right: 0,
       height: 1,
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      backgroundColor: c.subtleOverlay,
     },
     contentCardHeader: {
       flexDirection: 'row',
@@ -445,23 +445,9 @@ const createStyles = (c: ThemeColors) =>
       color: c.primary,
       fontWeight: '500',
     },
-    fab: {
-      position: 'absolute',
-      right: spacing.md,
-      bottom: 120,
-      width: 56,
-      height: 56,
-      borderRadius: 28,
-      backgroundColor: 'rgba(77, 255, 181, 0.18)',
-      borderWidth: 1,
-      borderColor: 'rgba(77, 255, 181, 0.35)',
-      justifyContent: 'center',
-      alignItems: 'center',
-      ...marineShadow,
-    },
     overlay: {
       flex: 1,
-      backgroundColor: 'rgba(5, 13, 26, 0.8)',
+      backgroundColor: c.overlay,
       justifyContent: 'flex-end',
       padding: spacing.md,
     },
@@ -552,7 +538,7 @@ const createStyles = (c: ThemeColors) =>
     },
     loadingOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(5, 13, 26, 0.85)',
+      backgroundColor: c.overlay,
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -571,5 +557,9 @@ const createStyles = (c: ThemeColors) =>
       fontWeight: '300',
       color: c.text,
       textAlign: 'center',
+    },
+    pressed: {
+      transform: [{ scale: 0.97 }],
+      opacity: 0.85,
     },
   });

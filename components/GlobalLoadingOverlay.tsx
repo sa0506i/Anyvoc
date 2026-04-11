@@ -26,7 +26,7 @@ const createStyles = (c: ThemeColors) =>
   StyleSheet.create({
     overlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(5, 13, 26, 0.85)',
+      backgroundColor: c.overlay,
       justifyContent: 'center',
       alignItems: 'center',
       zIndex: 9999,

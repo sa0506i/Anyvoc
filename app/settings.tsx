@@ -31,7 +31,7 @@ export default function SettingsScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const Header = () => (
-    <View style={[styles.header, { paddingTop: insets.top / 2 + spacing.xs }]}>
+    <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
       <View style={styles.headerSide} />
       <Text style={styles.headerTitle}>Settings</Text>
       <View style={styles.headerSide}>
@@ -142,7 +142,7 @@ export default function SettingsScreen() {
           return (
             <Pressable
               key={ui}
-              style={[styles.levelChip, styles.cefrChip, active && styles.levelChipActive]}
+              style={({ pressed }) => [styles.levelChip, styles.cefrChip, active && styles.levelChipActive, pressed && styles.pressed]}
               onPress={() => updateSetting('level', uiToInternalLevel(ui))}
             >
               <Text style={[styles.levelChipText, active && styles.levelChipTextActive]}>
@@ -159,7 +159,7 @@ export default function SettingsScreen() {
         {quizDirectionOptions.map((opt) => (
           <Pressable
             key={opt.value}
-            style={[styles.levelChip, quizDirection === opt.value && styles.levelChipActive]}
+            style={({ pressed }) => [styles.levelChip, quizDirection === opt.value && styles.levelChipActive, pressed && styles.pressed]}
             onPress={() => updateSetting('quizDirection', opt.value)}
           >
             <Text style={[styles.levelChipText, quizDirection === opt.value && styles.levelChipTextActive]}>
@@ -178,7 +178,7 @@ export default function SettingsScreen() {
         {[5, 10, 15, 20, 25, 30].map((n) => (
           <Pressable
             key={n}
-            style={[styles.levelChip, cardsPerRound === String(n) && styles.levelChipActive]}
+            style={({ pressed }) => [styles.levelChip, cardsPerRound === String(n) && styles.levelChipActive, pressed && styles.pressed]}
             onPress={() => updateSetting('cardsPerRound', String(n))}
           >
             <Text style={[styles.levelChipText, cardsPerRound === String(n) && styles.levelChipTextActive]}>
@@ -228,7 +228,7 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      backgroundColor: c.subtleOverlay,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -359,9 +359,9 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       alignSelf: 'center',
       alignItems: 'center',
       gap: spacing.xs,
-      backgroundColor: 'rgba(255, 77, 106, 0.2)',
+      backgroundColor: c.errorBgLight,
       borderWidth: 1,
-      borderColor: 'rgba(255, 77, 106, 0.4)',
+      borderColor: c.errorBgMedium,
       borderRadius: borderRadius.full,
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.lg,
@@ -403,6 +403,10 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       fontSize: fontSize.sm,
       color: c.textSecondary,
       fontWeight: '300',
+    },
+    pressed: {
+      transform: [{ scale: 0.97 }],
+      opacity: 0.85,
     },
   });
 }

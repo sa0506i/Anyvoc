@@ -36,7 +36,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
 
   return (
     <LinearGradient
-      colors={['rgba(10, 22, 40, 0)', 'rgba(10, 22, 40, 0.5)', 'rgba(10, 22, 40, 1)']}
+      colors={['transparent', colors.backgroundMid + '80', colors.backgroundMid]}
       locations={[0, 0.35, 0.7]}
       style={[styles.wrapper, { paddingBottom: insets.bottom }]}
     >

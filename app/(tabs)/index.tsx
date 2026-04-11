@@ -364,7 +364,7 @@ const createStyles = (c: ThemeColors) =>
     },
     progressTrack: {
       height: 4,
-      backgroundColor: 'rgba(100, 150, 255, 0.15)',
+      backgroundColor: c.borderSubtle,
       borderRadius: 2,
     },
     progressFill: {
@@ -408,9 +408,9 @@ const createStyles = (c: ThemeColors) =>
       fontWeight: '300',
     },
     retryButton: {
-      backgroundColor: 'rgba(255, 184, 77, 0.2)',
+      backgroundColor: c.warningBgLight,
       borderWidth: 1,
-      borderColor: 'rgba(255, 184, 77, 0.4)',
+      borderColor: c.warningBgMedium,
       borderRadius: borderRadius.full,
       padding: spacing.md,
       paddingHorizontal: spacing.lg,

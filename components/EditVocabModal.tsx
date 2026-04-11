@@ -97,7 +97,7 @@ const createStyles = (c: ThemeColors) =>
     },
     backdrop: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(5, 13, 26, 0.7)',
+      backgroundColor: c.overlay,
     },
     card: {
       width: '85%',

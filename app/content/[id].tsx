@@ -49,7 +49,7 @@ export default function ContentDetailScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const Header = ({ title }: { title: string }) => (
-    <View style={[styles.header, { paddingTop: insets.top / 2 + spacing.xs }]}>
+    <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
       <View style={styles.headerSide} />
       <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
       <View style={styles.headerSide}>
@@ -281,7 +281,7 @@ export default function ContentDetailScreen() {
                 {SORT_OPTIONS.map((opt) => (
                   <Pressable
                     key={opt.value}
-                    style={[styles.sortChip, sortBy === opt.value && styles.sortChipActive]}
+                    style={({ pressed }) => [styles.sortChip, sortBy === opt.value && styles.sortChipActive, pressed && styles.pressed]}
                     onPress={() => setSortBy(opt.value)}
                   >
                     <Text style={[styles.sortChipText, sortBy === opt.value && styles.sortChipTextActive]}>
@@ -368,7 +368,7 @@ const createStyles = (c: ThemeColors) =>
       width: 32,
       height: 32,
       borderRadius: 16,
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      backgroundColor: c.subtleOverlay,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -477,8 +477,12 @@ const createStyles = (c: ThemeColors) =>
     },
     loadingOverlay: {
       ...StyleSheet.absoluteFillObject,
-      backgroundColor: 'rgba(5, 13, 26, 0.7)',
+      backgroundColor: c.overlay,
       justifyContent: 'center',
       alignItems: 'center',
+    },
+    pressed: {
+      transform: [{ scale: 0.97 }],
+      opacity: 0.85,
     },
   });

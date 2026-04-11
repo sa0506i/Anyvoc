@@ -141,7 +141,7 @@ export default function VocabularyScreen() {
         {SORT_OPTIONS.map((opt) => (
           <Pressable
             key={opt.value}
-            style={[styles.sortChip, sortBy === opt.value && styles.sortChipActive]}
+            style={({ pressed }) => [styles.sortChip, sortBy === opt.value && styles.sortChipActive, pressed && styles.pressed]}
             onPress={() => setSortBy(opt.value)}
           >
             <Text style={[styles.sortChipText, sortBy === opt.value && styles.sortChipTextActive]}>
@@ -309,5 +309,9 @@ const createStyles = (c: ThemeColors) =>
       fontSize: fontSize.xs,
       fontWeight: '600' as const,
       color: '#FFFFFF',
+    },
+    pressed: {
+      transform: [{ scale: 0.97 }],
+      opacity: 0.85,
     },
   });

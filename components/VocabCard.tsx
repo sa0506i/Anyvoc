@@ -27,7 +27,7 @@ export default function VocabCard({
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
       <View style={styles.mainRow}>
         <View style={styles.textColumn}>
           <Text style={styles.original}>{original}</Text>
@@ -126,5 +126,9 @@ const createStyles = (c: ThemeColors) =>
       flex: 1,
       fontSize: fontSize.xs,
       color: c.textSecondary,
+    },
+    pressed: {
+      transform: [{ scale: 0.97 }],
+      opacity: 0.85,
     },
   });
