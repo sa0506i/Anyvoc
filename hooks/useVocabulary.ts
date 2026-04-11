@@ -1,6 +1,7 @@
 import { create } from 'zustand';
+import type { SortOption } from '../lib/vocabSort';
 
-export type SortOption = 'date' | 'alphabetical' | 'level' | 'box';
+export type { SortOption } from '../lib/vocabSort';
 
 interface VocabularyListState {
   searchQuery: string;

@@ -25,33 +25,25 @@ import {
   type Vocabulary,
 } from '../../lib/database';
 import { translateSingleWord, ClaudeAPIError, type SupportedLanguage } from '../../lib/claude';
-import { useSettings } from '../../hooks/useSettings';
+import { useSettingsStore } from '../../hooks/useSettings';
 import { getLanguageName } from '../../constants/languages';
 import { generateUUID } from '../../lib/uuid';
 import HighlightedText from '../../components/HighlightedText';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EditVocabModal from '../../components/EditVocabModal';
-import { STRIP_PREFIX, sortKey } from '../../lib/vocabSort';
-import { CEFR_LEVELS } from '../../constants/levels';
-import { SortOption } from '../../hooks/useVocabulary';
+import { SORT_OPTIONS, sortVocabulary, extractSearchTerms, escapeRegex, type SortOption } from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
 type Tab = 'original' | 'translation' | 'vocabulary';
 
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'date', label: 'Date' },
-  { value: 'alphabetical', label: 'A\u2013Z' },
-  { value: 'level', label: 'Level' },
-  { value: 'box', label: 'Maturity' },
-];
-
 export default function ContentDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const db = useSQLiteContext();
-  const { nativeLanguage, learningLanguage } = useSettings();
+  const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
+  const learningLanguage = useSettingsStore((s) => s.learningLanguage);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -85,21 +77,7 @@ export default function ContentDetailScreen() {
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('date');
 
-  const sortedVocabulary = useMemo(() => {
-    return [...vocabulary].sort((a, b) => {
-      switch (sortBy) {
-        case 'alphabetical':
-          return sortKey(a.original).localeCompare(sortKey(b.original));
-        case 'level':
-          return CEFR_LEVELS.indexOf(a.level as any) - CEFR_LEVELS.indexOf(b.level as any);
-        case 'box':
-          return a.leitner_box - b.leitner_box;
-        case 'date':
-        default:
-          return b.created_at - a.created_at;
-      }
-    });
-  }, [vocabulary, sortBy]);
+  const sortedVocabulary = useMemo(() => sortVocabulary(vocabulary, sortBy), [vocabulary, sortBy]);
 
   const loadData = useCallback(() => {
     if (!id) return;
@@ -360,46 +338,6 @@ export default function ContentDetailScreen() {
       />
     </View>
   );
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/**
- * Extract search terms from a vocab entry's "original" field.
- * Handles:
- * - Comma-separated forms: "un médecin, une médecin" → ["médecin"]
- * - Articles: "une maison" → ["maison"]
- * - Reflexive verbs: "se souvenir" → ["souvenir"]
- * - Adjective forms: "beau, belle" → ["beau", "belle"]
- */
-function extractSearchTerms(original: string): string[] {
-  const terms = new Set<string>();
-
-  // Split on comma to handle multiple forms
-  const parts = original.split(/,/).map((p) => p.trim()).filter(Boolean);
-
-  for (const part of parts) {
-    // Strip leading articles / reflexive pronouns
-    const stripped = part.replace(STRIP_PREFIX, '').trim();
-    if (stripped) {
-      terms.add(stripped);
-      // Also add individual words for multi-word entries
-      const words = stripped.split(/\s+/);
-      if (words.length > 1) {
-        for (const w of words) {
-          if (w.length >= 3) terms.add(w);
-        }
-      }
-    }
-  }
-
-  // Also try the full original (without article) as one term
-  const fullStripped = original.replace(STRIP_PREFIX, '').split(',')[0].trim();
-  if (fullStripped) terms.add(fullStripped);
-
-  return Array.from(terms);
 }
 
 const createStyles = (c: ThemeColors) =>

@@ -97,7 +97,7 @@ const createStyles = (c: ThemeColors) =>
     levelText: {
       fontSize: fontSize.xs,
       fontWeight: '700',
-      color: '#FFFFFF',
+      color: c.textOnColor,
     },
     boxBadge: {
       width: 22,
@@ -109,7 +109,7 @@ const createStyles = (c: ThemeColors) =>
     boxText: {
       fontSize: fontSize.xs,
       fontWeight: '700',
-      color: '#FFFFFF',
+      color: c.textOnColor,
     },
     footer: {
       flexDirection: 'row',

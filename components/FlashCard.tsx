@@ -30,7 +30,7 @@ export default function FlashCard({
     <View style={styles.wrapper}>
       <Pressable testID="flashcard" style={styles.card} onPress={!isRevealed ? onReveal : undefined}>
         <View style={styles.cardHighlight} />
-        <Text style={styles.label}>{isRevealed ? 'Antwort' : 'Frage'}</Text>
+        <Text style={styles.label}>{isRevealed ? 'Answer' : 'Question'}</Text>
         {onDelete && (
           <Pressable style={styles.deleteButton} onPress={onDelete} hitSlop={8}>
             <Ionicons name="trash-outline" size={18} color={colors.textSecondary} />
@@ -38,7 +38,7 @@ export default function FlashCard({
         )}
         <Text style={styles.cardText}>{isRevealed ? back : front}</Text>
         {!isRevealed && (
-          <Text style={styles.tapHint}>Tippen zum Aufdecken</Text>
+          <Text style={styles.tapHint}>Tap to reveal</Text>
         )}
       </Pressable>
 
@@ -46,11 +46,11 @@ export default function FlashCard({
         <View style={styles.buttonRow}>
           <Pressable testID="incorrect-btn" style={[styles.answerButton, styles.incorrectButton]} onPress={onIncorrect}>
             <Ionicons name="close" size={24} color={colors.error} />
-            <Text style={[styles.answerButtonText, styles.incorrectButtonText]}>Nicht gewusst</Text>
+            <Text style={[styles.answerButtonText, styles.incorrectButtonText]}>Missed</Text>
           </Pressable>
           <Pressable testID="correct-btn" style={[styles.answerButton, styles.correctButton]} onPress={onCorrect}>
             <Ionicons name="checkmark" size={24} color={colors.success} />
-            <Text style={[styles.answerButtonText, styles.correctButtonText]}>Gewusst</Text>
+            <Text style={[styles.answerButtonText, styles.correctButtonText]}>Got it</Text>
           </Pressable>
         </View>
       )}
@@ -81,7 +81,7 @@ const createStyles = (c: ThemeColors) =>
       left: 0,
       right: 0,
       height: 1,
-      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+      backgroundColor: c.subtleOverlay,
       zIndex: 1,
     },
     deleteButton: {
@@ -126,15 +126,15 @@ const createStyles = (c: ThemeColors) =>
       gap: spacing.sm,
     },
     correctButton: {
-      backgroundColor: 'rgba(77, 255, 181, 0.2)',
+      backgroundColor: c.successBgLight,
       borderWidth: 1,
-      borderColor: 'rgba(77, 255, 181, 0.4)',
+      borderColor: c.successBgMedium,
       borderRadius: borderRadius.full,
     },
     incorrectButton: {
-      backgroundColor: 'rgba(255, 77, 106, 0.2)',
+      backgroundColor: c.errorBgLight,
       borderWidth: 1,
-      borderColor: 'rgba(255, 77, 106, 0.4)',
+      borderColor: c.errorBgMedium,
       borderRadius: borderRadius.full,
     },
     answerButtonText: {

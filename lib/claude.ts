@@ -4,6 +4,13 @@ const API_URL = 'https://anyvoc-backend.fly.dev/api/chat';
 const MODEL = 'claude-haiku-4-5-20251001';
 const MAX_CHARS_PER_CHUNK = 5000;
 
+/** Shared vocabulary formatting rules used in both extract and single-word prompts. */
+const VOCAB_FORMATTING_RULES = `- Nouns: always singular with their direct article (der/die/das, le/la, o/a, etc., depending on the language). If a distinct feminine form exists, add it after a comma (e.g. "le médecin, la médecin" / "der Arzt, die Ärztin"). Ignore proper nouns.
+- In every language except German, write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
+- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
+- Verbs: always in the infinitive. Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").
+- Adjectives: give both masculine and feminine forms when they differ (e.g. "beau, belle" / "schön" or "petit, petite" / "klein").`;
+
 interface ClaudeMessage {
   role: 'user' | 'assistant';
   content: string | ClaudeContentBlock[];
@@ -154,12 +161,8 @@ function buildVocabSystemPrompt(
 
 The learning language is ${learningLanguageName}; the native language is ${nativeLanguageName}.
 
-Formatting rules:
-- Nouns: always singular with their direct article (der/die/das, le/la, o/a, etc., depending on the language) — in both the "original" field (learning language) and the "translation" field (native language). If a distinct feminine form exists, add it after a comma (e.g. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Ignore proper nouns.
-- In every language except German, write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always in the infinitive. Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").
-- Adjectives: give both masculine and feminine forms when they differ (e.g. "beau, belle" / "schön" or "petit, petite" / "klein").
+Formatting rules (apply to both "original" and "translation" fields):
+${VOCAB_FORMATTING_RULES}
 
 Additionally, list every exact word form that occurs in the source text (inflected forms, plurals, conjugations, etc.) in the "source_forms" field. Example: if the source contains "rivais" and the base form is "um rival", then source_forms: ["rivais"].
 
@@ -292,12 +295,8 @@ export async function translateSingleWord(
   // the LLM is only responsible for formatting + translation.
   const systemPrompt = `You are a language teacher assistant. Translate the following word/phrase from ${fromLanguageName} to ${toLanguageName} and determine its word type.
 
-Formatting rules:
-- Nouns: always singular with their direct article (der/die/das, le/la, o/a, etc., depending on the language) — in both the "original" field (${fromLanguageName}) and the "translation" field (${toLanguageName}). If a distinct feminine form exists, add it after a comma (e.g. original: "le médecin, la médecin" / translation: "der Arzt, die Ärztin"). Ignore proper nouns.
-- In every language except German, write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always in the infinitive. Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").
-- Adjectives: give both masculine and feminine forms when they differ (e.g. "beau, belle" / "schön" or "petit, petite" / "klein").
+Formatting rules (apply to both "original" and "translation" fields):
+${VOCAB_FORMATTING_RULES}
 
 Respond exclusively as a JSON object, with no additional text. Leave the level field as "" — it is set locally after translation:
 {

@@ -88,6 +88,9 @@ function createMockDb(): SQLiteDatabase {
     getAllSync<T>(sql: string, params?: any[]): T[] {
       return raw.prepare(sql).all(...(params ?? [])) as T[];
     },
+    withTransactionSync(fn: () => void) {
+      raw.transaction(fn)();
+    },
   } as unknown as SQLiteDatabase;
 }
 

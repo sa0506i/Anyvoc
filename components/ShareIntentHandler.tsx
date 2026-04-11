@@ -7,7 +7,7 @@ import { parseShareIntent } from '../lib/shareHandler';
 import { processSharedText } from '../lib/shareProcessing';
 import { fetchArticleContent } from '../lib/urlExtractor';
 import { ClaudeAPIError } from '../lib/claude';
-import { useSettings } from '../hooks/useSettings';
+import { useSettingsStore } from '../hooks/useSettings';
 import { useShareProcessingStore } from '../hooks/useShareProcessingStore';
 import { useUIStore } from '../hooks/useUIStore';
 
@@ -27,7 +27,9 @@ import { useUIStore } from '../hooks/useUIStore';
 export default function ShareIntentHandler() {
   const router = useRouter();
   const db = useSQLiteContext();
-  const { nativeLanguage, learningLanguage, level } = useSettings();
+  const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
+  const learningLanguage = useSettingsStore((s) => s.learningLanguage);
+  const level = useSettingsStore((s) => s.level);
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   const shareStore = useShareProcessingStore();
   const bumpContentRefresh = useUIStore((s) => s.bumpContentRefresh);

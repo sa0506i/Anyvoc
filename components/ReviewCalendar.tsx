@@ -88,14 +88,14 @@ const createStyles = (c: ThemeColors) =>
       alignItems: 'center',
     },
     dotReviewed: {
-      backgroundColor: 'rgba(77, 255, 181, 0.25)',
+      backgroundColor: c.successBgLight,
       borderWidth: 2,
       borderColor: c.success,
     },
     dotMissed: {
-      backgroundColor: 'rgba(100, 150, 255, 0.08)',
+      backgroundColor: c.highlight,
       borderWidth: 1,
-      borderColor: 'rgba(100, 150, 255, 0.15)',
+      borderColor: c.borderSubtle,
     },
     dotToday: {
       borderWidth: 2,

@@ -12,23 +12,15 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getAllVocabulary, deleteVocabulary, updateVocabularyFields, type Vocabulary } from '../../lib/database';
-import { useVocabularyList, SortOption } from '../../hooks/useVocabulary';
+import { useVocabularyList } from '../../hooks/useVocabulary';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import EditVocabModal from '../../components/EditVocabModal';
 import { MATURITY_LABELS } from '../../components/LearningMaturity';
-import { CEFR_LEVELS } from '../../constants/levels';
-import { sortKey } from '../../lib/vocabSort';
+import { SORT_OPTIONS, sortVocabulary } from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
-
-const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-  { value: 'date', label: 'Date' },
-  { value: 'alphabetical', label: 'A\u2013Z' },
-  { value: 'level', label: 'Level' },
-  { value: 'box', label: 'Maturity' },
-];
 
 type ActiveFilter =
   | { type: 'box'; box: number }
@@ -95,22 +87,7 @@ export default function VocabularyScreen() {
       );
     }
 
-    // Sort
-    result = [...result].sort((a, b) => {
-      switch (sortBy) {
-        case 'alphabetical':
-          return sortKey(a.original).localeCompare(sortKey(b.original));
-        case 'level':
-          return CEFR_LEVELS.indexOf(a.level as any) - CEFR_LEVELS.indexOf(b.level as any);
-        case 'box':
-          return a.leitner_box - b.leitner_box;
-        case 'date':
-        default:
-          return b.created_at - a.created_at;
-      }
-    });
-
-    return result;
+    return sortVocabulary(result, sortBy);
   }, [vocabulary, searchQuery, sortBy, activeFilter]);
 
   const handleDelete = (vocab: Vocabulary) => {

@@ -8,11 +8,19 @@ export interface ThemeColors {
   glassBorder: string;
   text: string;
   textSecondary: string;
+  textOnColor: string;
   border: string;
   error: string;
   success: string;
   warning: string;
   highlight: string;
+
+  successBgLight: string;
+  successBgMedium: string;
+  errorBgLight: string;
+  errorBgMedium: string;
+  subtleOverlay: string;
+  borderSubtle: string;
 
   levelA1: string;
   levelA2: string;
@@ -38,11 +46,19 @@ const marineColors: ThemeColors = {
   glassBorder: 'rgba(100, 150, 255, 0.2)',
   text: '#EAF0FF',
   textSecondary: 'rgba(180, 200, 255, 0.65)',
+  textOnColor: '#FFFFFF',
   border: 'rgba(100, 150, 255, 0.12)',
   error: '#FF4D6A',
   success: '#4DFFB5',
   warning: '#FFB84D',
   highlight: 'rgba(30, 111, 255, 0.25)',
+
+  successBgLight: 'rgba(77, 255, 181, 0.2)',
+  successBgMedium: 'rgba(77, 255, 181, 0.4)',
+  errorBgLight: 'rgba(255, 77, 106, 0.2)',
+  errorBgMedium: 'rgba(255, 77, 106, 0.4)',
+  subtleOverlay: 'rgba(255, 255, 255, 0.08)',
+  borderSubtle: 'rgba(100, 150, 255, 0.15)',
 
   levelA1: '#2D7AE0',
   levelA2: '#3B8AF0',

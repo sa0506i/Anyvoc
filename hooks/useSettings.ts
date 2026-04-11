@@ -1,7 +1,9 @@
+import { useCallback } from 'react';
 import { create } from 'zustand';
 import { useSQLiteContext } from 'expo-sqlite';
 import * as Localization from 'expo-localization';
-import { getAllSettings, setSetting as dbSetSetting, clearAllSettings } from '../lib/database';
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { getAllSettings, setSetting as dbSetSetting, clearAllData } from '../lib/database';
 import { languages } from '../constants/languages';
 
 /** Returns the device's primary language code if it's a supported language, otherwise 'en'. */
@@ -25,8 +27,9 @@ interface SettingsState {
   cardsPerRound: string;
   loaded: boolean;
 
-  loadSettings: () => void;
-  _setFromDb: (settings: Record<string, string>) => void;
+  loadSettings: (db: SQLiteDatabase) => void;
+  updateSetting: (db: SQLiteDatabase, key: string, value: string) => void;
+  resetApp: (db: SQLiteDatabase) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -37,27 +40,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   cardsPerRound: '20',
   loaded: false,
 
-  loadSettings: () => {
-    // This is a no-op placeholder; actual loading happens via the hook below
-  },
-
-  _setFromDb: (settings) =>
-    set({
-      nativeLanguage: settings['nativeLanguage'] ?? getDeviceNativeLanguage(),
-      learningLanguage: settings['learningLanguage'] ?? 'en',
-      level: settings['level'] ?? 'A2',
-      quizDirection: (settings['quizDirection'] as QuizDirection) ?? 'random',
-      cardsPerRound: settings['cardsPerRound'] ?? '20',
-      loaded: true,
-    }),
-}));
-
-/** Hook that provides settings actions bound to the current DB context */
-export function useSettings() {
-  const db = useSQLiteContext();
-  const store = useSettingsStore();
-
-  const loadSettings = async () => {
+  loadSettings: (db) => {
     const settings = getAllSettings(db);
 
     // Migrate any stored language codes that are no longer in the supported list.
@@ -78,32 +61,62 @@ export function useSettings() {
       dbSetSetting(db, 'nativeLanguage', deviceLang);
     }
 
-    store._setFromDb(settings);
-  };
+    set({
+      nativeLanguage: settings['nativeLanguage'] ?? getDeviceNativeLanguage(),
+      learningLanguage: settings['learningLanguage'] ?? 'en',
+      level: settings['level'] ?? 'A2',
+      quizDirection: (settings['quizDirection'] as QuizDirection) ?? 'random',
+      cardsPerRound: settings['cardsPerRound'] ?? '20',
+      loaded: true,
+    });
+  },
 
-  const updateSetting = (key: string, value: string) => {
+  updateSetting: (db, key, value) => {
     dbSetSetting(db, key, value);
-    useSettingsStore.setState({ [key]: value });
-  };
+    set({ [key]: value });
+  },
 
-  const resetApp = async () => {
-    const { clearAllData } = await import('../lib/database');
+  resetApp: (db) => {
     clearAllData(db);
     const deviceLang = getDeviceNativeLanguage();
     dbSetSetting(db, 'nativeLanguage', deviceLang);
-    useSettingsStore.setState({
+    set({
       nativeLanguage: deviceLang,
       learningLanguage: 'en',
       level: 'A2',
       quizDirection: 'random',
       cardsPerRound: '20',
     });
+  },
+}));
+
+/**
+ * Hook that returns settings actions bound to the current DB context.
+ * For reading settings state, use useSettingsStore(selector) directly.
+ */
+export function useSettingsActions() {
+  const db = useSQLiteContext();
+  const { loadSettings, updateSetting, resetApp } = useSettingsStore();
+
+  return {
+    loadSettings: useCallback(() => loadSettings(db), [db, loadSettings]),
+    updateSetting: useCallback((key: string, value: string) => updateSetting(db, key, value), [db, updateSetting]),
+    resetApp: useCallback(() => resetApp(db), [db, resetApp]),
   };
+}
+
+/**
+ * @deprecated Use useSettingsStore(selector) for state + useSettingsActions() for actions.
+ * Kept for backward compatibility during migration.
+ */
+export function useSettings() {
+  const db = useSQLiteContext();
+  const store = useSettingsStore();
 
   return {
     ...store,
-    loadSettings,
-    updateSetting,
-    resetApp,
+    loadSettings: useCallback(() => store.loadSettings(db), [db, store.loadSettings]),
+    updateSetting: useCallback((key: string, value: string) => store.updateSetting(db, key, value), [db, store.updateSetting]),
+    resetApp: useCallback(() => store.resetApp(db), [db, store.resetApp]),
   };
 }

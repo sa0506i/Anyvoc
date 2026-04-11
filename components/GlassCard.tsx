@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ViewStyle, StyleSheet } from 'react-native';
+import { View, ViewStyle } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 import { borderRadius, marineShadow } from '../constants/theme';
 
@@ -27,16 +27,10 @@ export function GlassCard({ children, style, noHighlight, noShadow }: GlassCardP
         style,
       ]}
     >
-      {!noHighlight && <View style={styles.topHighlight} />}
+      {!noHighlight && (
+        <View style={{ height: 1, width: '100%', backgroundColor: colors.subtleOverlay }} />
+      )}
       {children}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  topHighlight: {
-    height: 1,
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-  },
-});

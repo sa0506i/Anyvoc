@@ -67,7 +67,7 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               <Ionicons
                 name={isFocused ? icons.active : icons.inactive}
                 size={22}
-                color={isFocused ? '#FFFFFF' : colors.textSecondary}
+                color={isFocused ? colors.text : colors.textSecondary}
               />
               <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
                 {label}
@@ -112,7 +112,7 @@ const createTabBarStyles = (c: ThemeColors) =>
       letterSpacing: 0.2,
     },
     tabLabelActive: {
-      color: '#FFFFFF',
+      color: c.text,
       fontWeight: '600',
     },
   });

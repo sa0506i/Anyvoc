@@ -32,6 +32,7 @@ export interface Vocabulary {
 export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
 
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
@@ -149,8 +150,10 @@ export function updateContentTranslation(db: SQLiteDatabase, id: string, transla
 }
 
 export function deleteContent(db: SQLiteDatabase, id: string): void {
-  db.runSync('DELETE FROM vocabulary WHERE content_id = ?', [id]);
-  db.runSync('DELETE FROM contents WHERE id = ?', [id]);
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM contents WHERE id = ?', [id]);
+    // vocabulary rows are removed automatically via ON DELETE CASCADE
+  });
 }
 
 // --- Vocabulary ---
@@ -166,6 +169,8 @@ export function getVocabularyByContentId(db: SQLiteDatabase, contentId: string):
   );
 }
 
+/** Checks if a word already exists globally (across all contents).
+ *  Global dedup is intentional: the Leitner system tracks each word once. */
 export function vocabularyExists(db: SQLiteDatabase, original: string): boolean {
   const row = db.getFirstSync('SELECT id FROM vocabulary WHERE original = ?', [original]);
   return !!row;
@@ -193,9 +198,11 @@ export function insertVocabulary(db: SQLiteDatabase, vocab: Vocabulary): void {
 }
 
 export function insertVocabularyBatch(db: SQLiteDatabase, vocabs: Vocabulary[]): void {
-  for (const vocab of vocabs) {
-    insertVocabulary(db, vocab);
-  }
+  db.withTransactionSync(() => {
+    for (const vocab of vocabs) {
+      insertVocabulary(db, vocab);
+    }
+  });
 }
 
 export function recordReviewDay(db: SQLiteDatabase): void {
@@ -275,8 +282,8 @@ export function getVocabularyStats(db: SQLiteDatabase): {
     byBox[row.leitner_box] = row.count;
   }
 
-  const now = Date.now();
-  const todayStart = now - (now % 86400000);
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const weekStart = todayStart - 6 * 86400000;
 
   const learnedToday =
@@ -295,8 +302,10 @@ export function getVocabularyStats(db: SQLiteDatabase): {
 }
 
 export function clearAllData(db: SQLiteDatabase): void {
-  db.runSync('DELETE FROM vocabulary');
-  db.runSync('DELETE FROM contents');
-  db.runSync('DELETE FROM settings');
-  db.runSync('DELETE FROM review_days');
+  db.withTransactionSync(() => {
+    db.runSync('DELETE FROM vocabulary');
+    db.runSync('DELETE FROM contents');
+    db.runSync('DELETE FROM settings');
+    db.runSync('DELETE FROM review_days');
+  });
 }

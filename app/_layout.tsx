@@ -8,7 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ShareIntentProvider } from 'expo-share-intent';
 import { initDatabase } from '../lib/database';
-import { useSettings } from '../hooks/useSettings';
+import { useSettingsActions } from '../hooks/useSettings';
 import { useTheme } from '../hooks/useTheme';
 import { darkColors, type ThemeColors } from '../constants/theme';
 import ShareIntentHandler from '../components/ShareIntentHandler';
@@ -29,7 +29,7 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { loadSettings } = useSettings();
+  const { loadSettings } = useSettingsActions();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 

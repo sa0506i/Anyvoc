@@ -57,7 +57,7 @@ const createStyles = (c: ThemeColors) =>
     boxCount: {
       fontSize: fontSize.xl,
       fontWeight: '700',
-      color: '#FFFFFF',
+      color: c.textOnColor,
     },
     boxLabel: {
       fontSize: fontSize.xs,

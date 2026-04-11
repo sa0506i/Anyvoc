@@ -28,7 +28,7 @@ import { ClaudeAPIError } from '../../lib/claude';
 import { extractTextFromImageLocal } from '../../lib/ocr';
 import { processSharedText } from '../../lib/shareProcessing';
 import { fetchArticleContent } from '../../lib/urlExtractor';
-import { useSettings } from '../../hooks/useSettings';
+import { useSettingsStore } from '../../hooks/useSettings';
 import { useTheme } from '../../hooks/useTheme';
 import { useUIStore } from '../../hooks/useUIStore';
 import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from '../../constants/theme';
@@ -38,7 +38,9 @@ type ContentWithCount = Content & { vocab_count: number };
 export default function ContentsScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
-  const { nativeLanguage, learningLanguage, level } = useSettings();
+  const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
+  const learningLanguage = useSettingsStore((s) => s.learningLanguage);
+  const level = useSettingsStore((s) => s.level);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 

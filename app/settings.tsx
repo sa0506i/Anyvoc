@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useSettings, QuizDirection } from '../hooks/useSettings';
+import { useSettingsStore, useSettingsActions, QuizDirection } from '../hooks/useSettings';
 import { useTheme } from '../hooks/useTheme';
 import { languages, getLanguageName } from '../constants/languages';
 import { CEFR_LEVELS_UI, displayLevel, uiToInternalLevel } from '../constants/levels';
@@ -20,15 +20,12 @@ import { spacing, fontSize, borderRadius, marineShadow } from '../constants/them
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const {
-    nativeLanguage,
-    learningLanguage,
-    level,
-    quizDirection,
-    cardsPerRound,
-    updateSetting,
-    resetApp,
-  } = useSettings();
+  const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
+  const learningLanguage = useSettingsStore((s) => s.learningLanguage);
+  const level = useSettingsStore((s) => s.level);
+  const quizDirection = useSettingsStore((s) => s.quizDirection);
+  const cardsPerRound = useSettingsStore((s) => s.cardsPerRound);
+  const { updateSetting, resetApp } = useSettingsActions();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);

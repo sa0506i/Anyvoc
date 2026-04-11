@@ -80,7 +80,7 @@ export default function SwipeToDelete({ children, onDelete, onEdit }: SwipeToDel
 const createStyles = (c: ThemeColors) =>
   StyleSheet.create({
     deleteContainer: {
-      backgroundColor: 'rgba(255, 77, 106, 0.3)',
+      backgroundColor: c.errorBgLight,
       justifyContent: 'center',
       alignItems: 'center',
       width: 72,
@@ -89,7 +89,7 @@ const createStyles = (c: ThemeColors) =>
       marginLeft: spacing.sm,
     },
     editContainer: {
-      backgroundColor: 'rgba(77, 255, 181, 0.18)',
+      backgroundColor: c.successBgLight,
       justifyContent: 'center',
       alignItems: 'center',
       width: 72,
