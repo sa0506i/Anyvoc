@@ -1,7 +1,10 @@
 import { callClaude } from './claude';
+import { Readability } from '@mozilla/readability';
+import { parseHTML } from 'linkedom';
 
 const FETCH_TIMEOUT_MS = 10000;
 const MIN_CONTENT_LENGTH = 50;
+const READABILITY_MIN_LENGTH = 100;
 
 const USER_AGENT =
   'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
@@ -12,10 +15,8 @@ function stripNoiseTags(html: string): string {
   let result = html;
   for (const tag of tags) {
     result = result.replace(new RegExp(`<${tag}[\\s>][\\s\\S]*?</${tag}>`, 'gi'), '');
-    // Self-closing variants
     result = result.replace(new RegExp(`<${tag}[^>]*/?>`, 'gi'), '');
   }
-  // Remove HTML comments
   result = result.replace(/<!--[\s\S]*?-->/g, '');
   return result;
 }
@@ -67,10 +68,31 @@ async function fetchHtml(url: string): Promise<string> {
   }
 }
 
-export async function fetchArticleContent(url: string): Promise<{ title: string; text: string }> {
-  const rawHtml = await fetchHtml(url);
-  const cleanedHtml = truncateHtml(stripNoiseTags(rawHtml));
+/**
+ * Try to extract article content using Mozilla Readability (offline, zero API cost).
+ * Returns { title, text } or null if extraction fails or yields insufficient content.
+ */
+function extractWithReadability(html: string): { title: string; text: string } | null {
+  try {
+    const { document } = parseHTML(html);
+    const reader = new Readability(document, { charThreshold: 50 });
+    const article = reader.parse();
+    if (!article || !article.textContent || article.textContent.trim().length < READABILITY_MIN_LENGTH) {
+      return null;
+    }
+    return {
+      title: article.title || '',
+      text: article.textContent.trim(),
+    };
+  } catch {
+    return null;
+  }
+}
 
+/**
+ * Fallback: extract article content using Claude API (existing logic).
+ */
+async function extractWithClaude(cleanedHtml: string, url: string): Promise<{ title: string; text: string }> {
   const systemPrompt = `You are an article extraction assistant. Given raw HTML of a webpage, extract ONLY the main article content as clean plain text.
 
 Rules:
@@ -115,4 +137,18 @@ TITLE: <the article title>
   }
 
   return { title, text };
+}
+
+export async function fetchArticleContent(url: string): Promise<{ title: string; text: string }> {
+  const rawHtml = await fetchHtml(url);
+
+  // Try Readability first (offline, free)
+  const readabilityResult = extractWithReadability(rawHtml);
+  if (readabilityResult) {
+    return readabilityResult;
+  }
+
+  // Fallback to Claude API
+  const cleanedHtml = truncateHtml(stripNoiseTags(rawHtml));
+  return extractWithClaude(cleanedHtml, url);
 }
