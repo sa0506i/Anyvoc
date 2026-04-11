@@ -44,7 +44,7 @@
     "expo-sqlite": "~16.0.10",
     "expo-status-bar": "~3.0.9",
     "fastest-levenshtein": "^1.0.16",
-    "franc": "^6.2.0",
+    "franc-min": "^6.2.0",
     "linkedom": "^0.18.12",
     "react": "19.1.0",
     "react-dom": "19.1.0",

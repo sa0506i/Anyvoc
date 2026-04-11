@@ -50,7 +50,7 @@ export async function processSharedText(
 
   onProgress('Checking language...');
   const detectedLang = await detectLanguage(text);
-  if (detectedLang !== settings.learningLanguage) {
+  if (detectedLang !== null && detectedLang !== settings.learningLanguage) {
     if (sourceType === 'image') {
       throw new Error('No usable text could be found in this image. Please try a clearer image.');
     }

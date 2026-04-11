@@ -1,4 +1,5 @@
 import { classifyWord, type SupportedLanguage } from './classifier';
+import { franc } from 'franc-min';
 
 const API_URL = 'https://anyvoc-backend.fly.dev/api/chat';
 const MODEL = 'claude-haiku-4-5-20251001';
@@ -109,15 +110,22 @@ export async function callClaude(
   }
 }
 
-export async function detectLanguage(text: string): Promise<string> {
+/** ISO 639-3 (franc output) → ISO 639-1 (our language codes) for supported languages. */
+const ISO3_TO_ISO1: Record<string, string> = {
+  eng: 'en', deu: 'de', fra: 'fr', spa: 'es', ita: 'it', por: 'pt',
+  nld: 'nl', swe: 'sv', nob: 'no', nno: 'no', dan: 'da', pol: 'pl', ces: 'cs',
+};
+
+/**
+ * Detect the language of a text sample using franc (offline, synchronous).
+ * Returns an ISO 639-1 code for supported languages, or null if undetermined
+ * or unsupported.
+ */
+export function detectLanguage(text: string): string | null {
   const sample = text.substring(0, 500);
-  const systemPrompt = 'You are a language detection tool. Given a text sample, reply with ONLY the ISO 639-1 two-letter language code (e.g. "en", "de", "fr", "pt"). Nothing else.';
-  const result = await callClaude(
-    [{ role: 'user', content: sample }],
-    systemPrompt,
-    10
-  );
-  return result.trim().toLowerCase().substring(0, 2);
+  const iso3 = franc(sample);
+  if (iso3 === 'und') return null;
+  return ISO3_TO_ISO1[iso3] ?? null;
 }
 
 export function chunkText(text: string, maxChars: number = MAX_CHARS_PER_CHUNK): string[] {

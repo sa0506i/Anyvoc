@@ -191,25 +191,14 @@ describe('chunkText', () => {
 // ---------- detectLanguage ----------
 
 describe('detectLanguage', () => {
-  it('returns cleaned language code', async () => {
-    global.fetch = mockFetchOk('  DE  ');
-    const result = await detectLanguage('Hallo Welt');
+  it('returns ISO 639-1 code for supported languages', () => {
+    const result = detectLanguage('Dies ist ein ausreichend langer deutscher Text für die Spracherkennung mit der franc Bibliothek.');
     expect(result).toBe('de');
   });
 
-  it('truncates input to 500 chars', async () => {
-    global.fetch = mockFetchOk('en');
-    const longText = 'x'.repeat(1000);
-    await detectLanguage(longText);
-    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-    expect(body.messages[0].content.length).toBe(500);
-  });
-
-  it('uses maxTokens 10', async () => {
-    global.fetch = mockFetchOk('fr');
-    await detectLanguage('Bonjour');
-    const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-    expect(body.max_tokens).toBe(10);
+  it('returns null for undetermined text', () => {
+    const result = detectLanguage('123 456');
+    expect(result).toBeNull();
   });
 });
 
