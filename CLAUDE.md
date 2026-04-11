@@ -12,7 +12,8 @@ All user data stored locally on device. The only backend is a thin Anthropic pro
 - **State:** Zustand stores (`useSettingsStore`, `useTrainerStore`) + `useTheme` context
 - **AI:** Claude API via backend proxy at `https://anyvoc-backend.fly.dev/api/chat` (called from `lib/claude.ts`) — model `claude-haiku-4-5-20251001` (cost-optimised)
 - **Security:** No API key ships with the app. The Anthropic key lives only on the backend proxy; the client sends no `Authorization` header. Do NOT reintroduce a client-side API key (no `expo-secure-store`, no settings field, no env var bundled into the app).
-- **Share:** expo-share-intent; web content parsed via Claude API (not Cheerio/regex)
+- **Local NLP:** `franc-min` (offline language detection), `@mozilla/readability` + `linkedom` (offline article extraction from HTML)
+- **Share:** expo-share-intent; web content extracted via Readability (Claude API fallback for edge cases)
 
 ## Project Structure
 ```
@@ -31,12 +32,12 @@ components/
   SwipeToDelete.tsx  # Swipe gesture for list deletion
   VocabCard.tsx      # Single vocab row
 lib/
-  claude.ts          # All Claude API calls (callClaude is exported)
+  claude.ts          # Claude API calls (callClaude exported) + detectLanguage (offline via franc-min)
   database.ts        # All SQLite access (sync API)
   leitner.ts         # getCardsForReview, selectRound, getStreakDays,
                      # getBestStreak, getAveragePerDay
   shareHandler.ts    # Share intent processing
-  urlExtractor.ts    # Web URL content extraction via Claude API
+  urlExtractor.ts    # Web URL content extraction via Readability (Claude fallback)
   uuid.ts            # generateUUID()
   classifier/        # Local CEFR classifier (see section below)
     features.ts      # Zipf + AoA lookup, normalisation, fallback
@@ -144,7 +145,8 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 - Long texts chunked at 15 000 chars via `chunkText()`
 - Always strip markdown fences before parsing: `responseText.match(/\[[\s\S]*\]/)`
 - Error handling: catch `ClaudeAPIError` separately (401 = proxy auth error, 429 = rate limit)
-- Web/URL content: extracted via `lib/urlExtractor.ts` using Claude API — NOT Cheerio or regex
+- `detectLanguage()` is **offline** (uses `franc-min` trigram detection, synchronous). Returns `string | null` — `null` means undetermined/unsupported. No API call.
+- Web/URL content: extracted via `lib/urlExtractor.ts` using `@mozilla/readability` + `linkedom` (offline). Falls back to Claude API only when Readability yields <100 chars (e.g. SPAs, login pages).
 
 ## Vocabulary Formatting Rules (system prompt)
 - **Nouns:** direct article + singular; feminine form after comma if exists
@@ -234,8 +236,10 @@ Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc -
 |-------|------|-------|---------|
 | Leitner logic | `lib/leitner.test.ts` | 34 | Pure functions, no mocks |
 | Database layer | `lib/database.test.ts` | 26 | `better-sqlite3` in-memory |
-| Claude API | `lib/claude.test.ts` | 28 | `global.fetch` + mocked classifier |
+| Claude API | `lib/claude.test.ts` | 27 | `global.fetch` + mocked classifier |
 | CEFR classifier | `lib/classifier/classifier.test.ts` | 26 | Mocked Claude fallback |
+| Language detection | `lib/detectLanguage.test.ts` | 7 | No mocks (franc-min is deterministic) |
+| URL extraction | `lib/urlExtractor.test.ts` | 5 | `global.fetch` + mocked `callClaude` |
 | Build scripts | `scripts/build-freq.test.ts` | — | — |
 
 **TypeScript check only:**
