@@ -1,0 +1,54 @@
+appId: com.anonymous.Anyvoc
+name: "Settings screen flow"
+---
+- launchApp
+
+# Open settings via gear icon
+- tapOn:
+    id: "settings-btn"
+
+# Verify settings screen elements are visible
+- assertVisible: "Settings"
+- assertVisible: "Languages"
+- assertVisible: "Native Language"
+- assertVisible: "Learning Language"
+- assertVisible: "Language Level"
+- assertVisible: "Quiz Direction"
+- assertVisible: "Cards Per Round"
+
+# Tap a CEFR level chip (B2)
+- tapOn: "B2"
+
+# Tap a quiz direction chip
+- tapOn: "Random"
+
+# Tap a cards-per-round chip
+- tapOn: "10"
+
+# Open native language picker
+- tapOn:
+    id: "native-language-btn"
+- assertVisible: "Select Native Language"
+
+# Go back to settings
+- tapOn: "Back"
+
+# Open learning language picker
+- tapOn:
+    id: "learning-language-btn"
+- assertVisible: "Select Learning Language"
+
+# Go back to settings
+- tapOn: "Back"
+
+# Verify reset button is visible (don't tap it)
+- assertVisible:
+    id: "reset-app-btn"
+
+# Close settings
+- tapOn:
+    id: "settings-close-btn"
+
+# Verify we're back on a tab screen
+- assertVisible:
+    id: "trainer-screen"

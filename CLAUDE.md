@@ -234,6 +234,7 @@ Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc -
 |-------|------|-------|---------|
 | Leitner logic | `lib/leitner.test.ts` | 34 | Pure functions, no mocks |
 | Database layer | `lib/database.test.ts` | 26 | `better-sqlite3` in-memory |
+| Claude API | `lib/claude.test.ts` | 28 | `global.fetch` + mocked classifier |
 | CEFR classifier | `lib/classifier/classifier.test.ts` | 26 | Mocked Claude fallback |
 | Build scripts | `scripts/build-freq.test.ts` | — | — |
 
@@ -364,6 +365,9 @@ npm run test:all                                          # tsc + jest + maestro
 | `03-trainer-session.yaml` | Start training, answer cards, round complete |
 | `04-add-text-content.yaml` | Add menu → Enter Text → fill form → save |
 | `05-vocabulary-search.yaml` | Search input, sort chips (Date/A–Z/Level) |
+| `06-settings.yaml` | Open settings, change level/direction/cards, language picker, close |
+| `07-content-detail.yaml` | Add content, open detail, switch Original/Translation/Vocabulary tabs |
+| `08-error-states.yaml` | Empty states (trainer/vocab/content), disabled save button |
 
 **Adding testIDs:** New interactive elements must have a `testID` prop for
 Maestro to find them. Convention: `kebab-case`, e.g. `testID="start-training-btn"`.
@@ -371,7 +375,9 @@ Existing testIDs: `trainer-screen`, `content-screen`, `vocabulary-screen`,
 `flashcard`, `correct-btn`, `incorrect-btn`, `start-training-btn`,
 `continue-training-btn`, `end-session-btn`, `round-complete-text`,
 `content-list`, `menu-enter-text`, `menu-choose-image`, `menu-add-link`,
-`title-input`, `text-input`, `save-text-btn`, `vocab-search-input`, `vocab-list`.
+`title-input`, `text-input`, `save-text-btn`, `vocab-search-input`, `vocab-list`,
+`settings-btn`, `settings-close-btn`, `native-language-btn`, `learning-language-btn`,
+`reset-app-btn`, `content-tab-original`, `content-tab-translation`, `content-tab-vocabulary`.
 
 ## Known Issues / Watch Out
 - **Image picker on iOS:** ALWAYS add 500ms delay before `launchImageLibraryAsync`

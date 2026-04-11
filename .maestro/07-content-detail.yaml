@@ -1,0 +1,44 @@
+appId: com.anonymous.Anyvoc
+name: "Content detail tabs flow"
+---
+- launchApp
+- tapOn: "Content"
+- assertVisible:
+    id: "content-screen"
+
+# First add content so we have something to open
+- tapOn: "add-circle"
+- tapOn:
+    id: "menu-enter-text"
+- tapOn:
+    id: "title-input"
+- inputText: "Detail Test"
+- tapOn:
+    id: "text-input"
+- inputText: "Der Hund spielt im Garten."
+- tapOn:
+    id: "save-text-btn"
+
+# Wait for processing to finish and content to appear in list
+- extendedWaitUntil:
+    visible: "Detail Test"
+    timeout: 30000
+
+# Open the content detail
+- tapOn: "Detail Test"
+
+# Verify Original tab is shown by default
+- assertVisible:
+    id: "content-tab-original"
+
+# Switch to Translation tab
+- tapOn:
+    id: "content-tab-translation"
+
+# Switch to Vocabulary tab
+- tapOn:
+    id: "content-tab-vocabulary"
+
+# Switch back to Original tab
+- tapOn:
+    id: "content-tab-original"

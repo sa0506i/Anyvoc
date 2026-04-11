@@ -38,7 +38,7 @@ export default function SettingsScreen() {
       <View style={styles.headerSide} />
       <Text style={styles.headerTitle}>Settings</Text>
       <View style={styles.headerSide}>
-        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
+        <Pressable testID="settings-close-btn" onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
           <Ionicons
             name="close"
             size={20}
@@ -124,12 +124,12 @@ export default function SettingsScreen() {
       {/* Languages */}
       <Text style={styles.sectionTitle}>Languages</Text>
 
-      <Pressable style={styles.row} onPress={() => setShowLanguagePicker('native')}>
+      <Pressable testID="native-language-btn" style={styles.row} onPress={() => setShowLanguagePicker('native')}>
         <Text style={styles.rowLabel}>Native Language</Text>
         <Text style={styles.rowValue}>{getLanguageName(nativeLanguage)} →</Text>
       </Pressable>
 
-      <Pressable style={styles.row} onPress={() => setShowLanguagePicker('learning')}>
+      <Pressable testID="learning-language-btn" style={styles.row} onPress={() => setShowLanguagePicker('learning')}>
         <Text style={styles.rowLabel}>Learning Language</Text>
         <Text style={styles.rowValue}>{getLanguageName(learningLanguage)} →</Text>
       </Pressable>
@@ -193,7 +193,7 @@ export default function SettingsScreen() {
 
       {/* Reset */}
       <View style={styles.resetSection}>
-        <Pressable style={styles.resetButton} onPress={handleReset}>
+        <Pressable testID="reset-app-btn" style={styles.resetButton} onPress={handleReset}>
           <Ionicons name="trash-outline" size={16} color={colors.error} />
           <Text style={styles.resetText}>Reset App</Text>
         </Pressable>

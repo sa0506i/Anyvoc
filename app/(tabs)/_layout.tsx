@@ -150,7 +150,7 @@ export default function TabLayout() {
         headerTintColor: colors.text,
         headerTitleStyle: { color: colors.text },
         headerRight: () => (
-          <Pressable onPress={() => router.push('/settings')} style={{ marginRight: 16 }}>
+          <Pressable testID="settings-btn" onPress={() => router.push('/settings')} style={{ marginRight: 16 }}>
             <Ionicons name="settings-outline" size={24} color={colors.text} />
           </Pressable>
         ),

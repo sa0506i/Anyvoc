@@ -1,0 +1,39 @@
+appId: com.anonymous.Anyvoc
+name: "Empty states and edge cases"
+---
+- launchApp
+
+# --- Empty state: Trainer ---
+# With no vocab, trainer shows "No content" empty state
+- tapOn: "Trainer"
+- assertVisible: "No content"
+
+# --- Empty state: Vocabulary ---
+- tapOn: "Vocabulary"
+- assertVisible:
+    id: "vocabulary-screen"
+- assertVisible: "No content"
+
+# --- Empty state: Content list ---
+- tapOn: "Content"
+- assertVisible:
+    id: "content-screen"
+- assertVisible: "No content"
+
+# --- Add text: Save button is disabled when text is empty ---
+- tapOn: "add-circle"
+- tapOn:
+    id: "menu-enter-text"
+
+# Fill title only, leave text empty — Save should be disabled (opacity 0.5)
+- tapOn:
+    id: "title-input"
+- inputText: "Empty Test"
+
+# Tap save — nothing should happen since button is disabled
+- tapOn:
+    id: "save-text-btn"
+
+# We should still be on the text modal (not navigated away)
+- assertVisible:
+    id: "title-input"

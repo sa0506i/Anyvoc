@@ -251,6 +251,7 @@ export default function ContentDetailScreen() {
         {(['original', 'translation', 'vocabulary'] as Tab[]).map((tab) => (
           <Pressable
             key={tab}
+            testID={`content-tab-${tab}`}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
             onPress={() => setActiveTab(tab)}
           >
