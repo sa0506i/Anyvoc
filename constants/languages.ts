@@ -23,6 +23,10 @@ export function getLanguageName(code: string): string {
   return languages.find((l) => l.code === code)?.nativeName ?? code;
 }
 
+export function getLanguageEnglishName(code: string): string {
+  return languages.find((l) => l.code === code)?.name ?? code;
+}
+
 const languageToCountry: Record<string, string> = {
   de: 'DE', en: 'GB', fr: 'FR', es: 'ES', it: 'IT', pt: 'PT',
   nl: 'NL', sv: 'SE', no: 'NO', da: 'DK', pl: 'PL', cs: 'CZ',

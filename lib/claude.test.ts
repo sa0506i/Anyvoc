@@ -67,7 +67,7 @@ describe('callClaude', () => {
 
     const call = (global.fetch as jest.Mock).mock.calls[0];
     const body = JSON.parse(call[1].body);
-    expect(body.model).toBe('claude-haiku-4-5-20251001');
+    expect(body.model).toBe('mistral-small-2506');
     expect(body.max_tokens).toBe(1024);
     expect(body.system).toBe('sys prompt');
     expect(body.messages).toEqual([{ role: 'user', content: 'test' }]);

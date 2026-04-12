@@ -157,12 +157,10 @@ export default function ContentsScreen() {
       const manipulated = await manipulateAsync(
         asset.uri,
         needsResize ? [{ resize: { width: MAX_DIMENSION } }] : [],
-        { base64: true, format: SaveFormat.JPEG, compress: 0.6 }
+        { format: SaveFormat.JPEG, compress: 0.6 }
       );
 
-      if (!manipulated.base64) return;
-
-      const extractedText = await extractTextFromImageLocal(manipulated.base64, 'image/jpeg');
+      const extractedText = await extractTextFromImageLocal(manipulated.uri);
 
       const title = extractedText.split(/\s+/).slice(0, 5).join(' ') + '…';
       // processText handles its own loading + error flow for the vocab phase

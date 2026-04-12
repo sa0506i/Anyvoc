@@ -197,12 +197,17 @@ export function insertVocabulary(db: SQLiteDatabase, vocab: Vocabulary): void {
   );
 }
 
-export function insertVocabularyBatch(db: SQLiteDatabase, vocabs: Vocabulary[]): void {
+export function insertVocabularyBatch(db: SQLiteDatabase, vocabs: Vocabulary[]): number {
+  let inserted = 0;
   db.withTransactionSync(() => {
     for (const vocab of vocabs) {
-      insertVocabulary(db, vocab);
+      if (!vocabularyExists(db, vocab.original)) {
+        insertVocabulary(db, vocab);
+        inserted++;
+      }
     }
   });
+  return inserted;
 }
 
 export function recordReviewDay(db: SQLiteDatabase): void {

@@ -13,7 +13,7 @@
  */
 
 import { CEFR_LEVELS, type CEFRLevel } from '../../constants/levels';
-import { getLanguageName } from '../../constants/languages';
+import { getLanguageEnglishName } from '../../constants/languages';
 import { extractFeatures } from './features';
 import { applyCognateAdjustment } from './cognates';
 import { difficultyToCefr, scoreDifficulty } from './score';
@@ -88,7 +88,7 @@ export async function classifyWord(
   const cached = getCached(word, language);
   if (cached) return cached;
 
-  const apiResult = await classifyViaClaude(word, language, getLanguageName(language), claudeFn);
+  const apiResult = await classifyViaClaude(word, language, getLanguageEnglishName(language), claudeFn);
   if (apiResult) {
     setCached(word, language, apiResult);
     return apiResult;
@@ -131,7 +131,7 @@ export async function classifyWordWithConfidence(
     };
   }
 
-  const apiResult = await classifyViaClaude(word, language, getLanguageName(language), claudeFn);
+  const apiResult = await classifyViaClaude(word, language, getLanguageEnglishName(language), claudeFn);
   if (apiResult) {
     setCached(word, language, apiResult);
     return {

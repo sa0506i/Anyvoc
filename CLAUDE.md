@@ -1,8 +1,8 @@
 # Anyvoc – Project Memory
 
 ## App Overview
-Vocabulary trainer (React Native / Expo) that extracts vocabulary from shared content via Claude API.
-All user data stored locally on device. The only backend is a thin Anthropic proxy (`https://anyvoc-backend.fly.dev/api/chat`) that holds the API key — no user data or accounts. Expo managed workflow (no committed `android/` or `ios/` folders).
+Vocabulary trainer (React Native / Expo) that extracts vocabulary from shared content via Mistral API.
+All user data stored locally on device. The only backend is a thin Mistral proxy (`https://anyvoc-backend.fly.dev/api/chat`) that holds the API key — no user data or accounts. Expo managed workflow (no committed `android/` or `ios/` folders).
 
 **Local dev caveat:** Running `npx expo run:android` (or `run:ios`) generates a local `android/` (or `ios/`) folder as a build cache. This is gitignored and does NOT change the workflow from Repo/EAS perspective — managed workflow stays intact. BUT: after any change to `app.json` plugins or after `expo install <native-module>`, you MUST run `npx expo prebuild --clean` followed by `npx expo run:android` again, otherwise plugin/native changes won't be picked up by the cached native build. JS-only changes need no rebuild — Metro reload is enough.
 
@@ -10,8 +10,9 @@ All user data stored locally on device. The only backend is a thin Anthropic pro
 - **Framework:** React Native 0.81 / Expo ~54, Expo Router ~6, TypeScript
 - **Database:** expo-sqlite ~16, synchronous API only (`runSync`, `getFirstSync`, `getAllSync`)
 - **State:** Zustand stores (`useSettingsStore`, `useTrainerStore`) + `useTheme` context
-- **AI:** Claude API via backend proxy at `https://anyvoc-backend.fly.dev/api/chat` (called from `lib/claude.ts`) — model `claude-haiku-4-5-20251001` (cost-optimised)
-- **Security:** No API key ships with the app. The Anthropic key lives only on the backend proxy; the client sends no `Authorization` header. Do NOT reintroduce a client-side API key (no `expo-secure-store`, no settings field, no env var bundled into the app).
+- **AI:** Mistral API via backend proxy at `https://anyvoc-backend.fly.dev/api/chat` (called from `lib/claude.ts`) — model `mistral-small-2506` (cost-optimised). The proxy accepts Claude-format requests and transforms them to Mistral format, enabling provider switches without app updates.
+- **OCR:** On-device text recognition via `expo-mlkit-ocr` (Google ML Kit, offline, zero API cost)
+- **Security:** No API key ships with the app. The Mistral key lives only on the backend proxy; the client sends no `Authorization` header. Do NOT reintroduce a client-side API key (no `expo-secure-store`, no settings field, no env var bundled into the app).
 - **Local NLP:** `franc-min` (offline language detection), `@mozilla/readability` + `linkedom` (offline article extraction from HTML)
 - **Share:** expo-share-intent; web content extracted via Readability (Claude API fallback for edge cases)
 
@@ -31,8 +32,16 @@ components/
   ReviewCalendar.tsx # Recent review days display
   SwipeToDelete.tsx  # Swipe gesture for list deletion
   VocabCard.tsx      # Single vocab row
+backend/
+  server.js          # Express proxy: accepts Claude-format requests, transforms
+                     # to Mistral API format, returns Claude-format responses.
+                     # Deployed on Fly.dev. MISTRAL_API_KEY is a Fly secret.
+  Dockerfile         # Container build for Fly.dev deployment
+  fly.toml           # Fly.dev app config (region: cdg, auto-stop machines)
+  package.json       # Dependencies: express, cors (no SDK — uses plain fetch)
 lib/
-  claude.ts          # Claude API calls (callClaude exported) + detectLanguage (offline via franc-min)
+  claude.ts          # LLM API calls (callClaude exported) + detectLanguage (offline via franc-min)
+  ocr.ts             # On-device OCR via @infinitered/react-native-mlkit-text-recognition
   database.ts        # All SQLite access (sync API)
   leitner.ts         # getCardsForReview, selectRound, getStreakDays,
                      # getBestStreak, getAveragePerDay
@@ -138,15 +147,17 @@ deterministic, offline, zero-cost, sub-millisecond. The remaining accuracy
 gap is a **data limit**, not a model limit (gold sources have inherent noise).
 See `BENCHMARK-REPORT.md` context in conversation history for details.
 
-## Claude API (lib/claude.ts)
-- All requests go through the backend proxy at `https://anyvoc-backend.fly.dev/api/chat`. The client never holds the Anthropic key.
-- `callClaude()` is **exported** — use it directly for custom prompts
-- Model: `claude-haiku-4-5-20251001` — do NOT switch to Sonnet/Opus (cost)
+## LLM API (lib/claude.ts)
+- All requests go through the backend proxy at `https://anyvoc-backend.fly.dev/api/chat`. The client never holds the API key.
+- The client sends Claude-format requests; the backend proxy transforms them to Mistral API format. This enables provider switches without app updates.
+- `callClaude()` is **exported** — use it directly for custom prompts (name kept for compatibility)
+- Model: `mistral-small-2506` — cost-optimised small model
 - Long texts chunked at 15 000 chars via `chunkText()`
 - Always strip markdown fences before parsing: `responseText.match(/\[[\s\S]*\]/)`
 - Error handling: catch `ClaudeAPIError` separately (401 = proxy auth error, 429 = rate limit)
 - `detectLanguage()` is **offline** (uses `franc-min` trigram detection, synchronous). Returns `string | null` — `null` means undetermined/unsupported. No API call.
-- Web/URL content: extracted via `lib/urlExtractor.ts` using `@mozilla/readability` + `linkedom` (offline). Falls back to Claude API only when Readability yields <100 chars (e.g. SPAs, login pages).
+- Web/URL content: extracted via `lib/urlExtractor.ts` using `@mozilla/readability` + `linkedom` (offline). Falls back to LLM API only when Readability yields <100 chars (e.g. SPAs, login pages).
+- **OCR:** On-device via `expo-mlkit-ocr` (Google ML Kit) — no API call for image text extraction.
 
 ## Vocabulary Formatting Rules (system prompt)
 - **Nouns:** direct article + singular; feminine form after comma if exists
@@ -325,7 +336,7 @@ adb logcat -c                                        # clear before repro
 - Edit anything under `tmp/` or `lib/data/` — those are pipeline outputs
 - Modify `lib/classifier/score.ts` constants by hand (calibration pipeline only)
 - Add any form of API key to client code (see Security in Tech Stack)
-- Switch the Claude model from `claude-haiku-4-5-20251001` to Sonnet/Opus
+- Switch the LLM model without updating both `lib/claude.ts` (MODEL constant) and `backend/server.js` (MISTRAL_MODEL constant)
 - Use `android/` or `ios/` folder paths — managed workflow, those folders are gitignored build caches
 
 ### Reading logs efficiently

@@ -1,4 +1,4 @@
-import { callClaude } from './claude';
+import { recognizeText as mlkitRecognizeText } from '@infinitered/react-native-mlkit-text-recognition';
 
 // Validation thresholds
 const MIN_TEXT_LENGTH = 20;
@@ -13,31 +13,11 @@ interface ValidationResult {
 }
 
 /**
- * Extract text from an image using Claude Vision API.
+ * Extract text from an image using on-device ML Kit OCR.
  */
-async function recognizeText(base64Data: string, mediaType: string): Promise<string> {
-  return callClaude(
-    [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: mediaType,
-              data: base64Data,
-            },
-          },
-          {
-            type: 'text',
-            text: 'Extract all visible text from this image. Return only the extracted text, no comments.',
-          },
-        ],
-      },
-    ],
-    'You are an OCR assistant. Extract all visible text from the image. Return only the extracted text without additional comments.'
-  );
+async function recognizeText(imageUri: string): Promise<string> {
+  const result = await mlkitRecognizeText(imageUri);
+  return result.text;
 }
 
 /**
@@ -106,15 +86,14 @@ export function cleanOcrText(text: string): string {
 }
 
 /**
- * Full pipeline: OCR via Claude Vision, validate text quality, clean, and return.
+ * Full pipeline: OCR via on-device ML Kit, validate text quality, clean, and return.
  * Throws an Error with a user-facing message if validation fails.
  * This saves the expensive vocabulary extraction call for bad/empty images.
  */
 export async function extractTextFromImageLocal(
-  base64Data: string,
-  mediaType: string
+  imageUri: string
 ): Promise<string> {
-  const rawText = await recognizeText(base64Data, mediaType);
+  const rawText = await recognizeText(imageUri);
 
   if (!rawText.trim()) {
     throw new Error('No text could be detected in the image.');

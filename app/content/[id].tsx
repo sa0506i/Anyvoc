@@ -26,7 +26,7 @@ import {
 } from '../../lib/database';
 import { translateSingleWord, ClaudeAPIError, type SupportedLanguage } from '../../lib/claude';
 import { useSettingsStore } from '../../hooks/useSettings';
-import { getLanguageName } from '../../constants/languages';
+import { getLanguageEnglishName } from '../../constants/languages';
 import { generateUUID } from '../../lib/uuid';
 import HighlightedText from '../../components/HighlightedText';
 import VocabCard from '../../components/VocabCard';
@@ -149,8 +149,8 @@ export default function ContentDetailScreen() {
   const addWordToVocabulary = async (word: string) => {
     setLoading(true);
     try {
-      const nativeName = getLanguageName(nativeLanguage);
-      const learningName = getLanguageName(learningLanguage);
+      const nativeName = getLanguageEnglishName(nativeLanguage);
+      const learningName = getLanguageEnglishName(learningLanguage);
       const result = await translateSingleWord(
         word,
         learningName,

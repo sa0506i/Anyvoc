@@ -11,7 +11,7 @@ import {
   type Content,
   type Vocabulary,
 } from './database';
-import { getLanguageName } from '../constants/languages';
+import { getLanguageName, getLanguageEnglishName } from '../constants/languages';
 import { isAtOrAboveLevel } from '../constants/levels';
 import { generateUUID } from './uuid';
 
@@ -45,8 +45,9 @@ export async function processSharedText(
   onProgress: (message: string) => void,
 ): Promise<ShareProcessingResult> {
   const contentId = generateUUID();
-  const nativeName = getLanguageName(settings.nativeLanguage);
-  const learningName = getLanguageName(settings.learningLanguage);
+  // Use English names for API prompts (Mistral needs unambiguous language names)
+  const nativeName = getLanguageEnglishName(settings.nativeLanguage);
+  const learningName = getLanguageEnglishName(settings.learningLanguage);
 
   onProgress('Checking language...');
   const detectedLang = await detectLanguage(text);
@@ -99,10 +100,10 @@ export async function processSharedText(
     created_at: now,
   }));
 
-  insertVocabularyBatch(db, vocabEntries);
+  const actuallyInserted = insertVocabularyBatch(db, vocabEntries);
 
   return {
-    inserted: vocabEntries.length,
+    inserted: actuallyInserted,
     foundTotal: vocabs.length,
     belowLevel: vocabs.length > 0 && vocabEntries.length === 0,
   };
