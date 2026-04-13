@@ -1,39 +1,7 @@
 Starting project at D:\dev\Claude-React\Anyvoc
 Starting Metro Bundler
-Error while reading cache, falling back to a full crawl:
- Error: Unable to deserialize cloned data.
-    at deserialize (node:v8:469:14)
-    at DiskCacheManager.read (D:\dev\Claude-React\Anyvoc\node_modules\metro-file-map\src\cache\DiskCacheManager.js:60:33)
-    at FileMap.read (D:\dev\Claude-React\Anyvoc\node_modules\metro-file-map\src\index.js:284:14)
-    at D:\dev\Claude-React\Anyvoc\node_modules\metro-file-map\src\index.js:202:25
-    at DependencyGraph.ready (D:\dev\Claude-React\Anyvoc\node_modules\metro\src\node-haste\DependencyGraph.js:88:5)
-    at Bundler.ready (D:\dev\Claude-React\Anyvoc\node_modules\metro\src\Bundler.js:62:5)
-    at IncrementalBundler.ready (D:\dev\Claude-React\Anyvoc\node_modules\metro\src\IncrementalBundler.js:302:5)
-    at Server.ready (D:\dev\Claude-React\Anyvoc\node_modules\metro\src\Server.js:1305:5)
 › Opening exp+anyvoc://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081 on Pixel_9
 Waiting on http://localhost:8081
 Logs for your project will appear below.
-Android node_modules\expo-router\entry.js ▓▓▓▓░░░░░░░░░░░░ 30.7% (331/597)
-Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1556/1557)
-Android Bundled 5145ms node_modules\expo-router\entry.js (1557 modules)
-Android Bundled 354ms node_modules\expo-router\entry.js (1 module)
 Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 329ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 314ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 307ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 332ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 329ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 309ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 282ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 285ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 285ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 305ms node_modules\expo-router\entry.js (1 module)
+Android Bundled 1296ms node_modules\expo-router\entry.js (1542 modules)

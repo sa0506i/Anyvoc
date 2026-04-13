@@ -73,6 +73,7 @@ function createMockDb(): SQLiteDatabase {
     );
     CREATE INDEX IF NOT EXISTS idx_vocabulary_content_id ON vocabulary(content_id);
     CREATE INDEX IF NOT EXISTS idx_vocabulary_leitner_box ON vocabulary(leitner_box);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_vocabulary_original ON vocabulary(original);
     CREATE TABLE IF NOT EXISTS review_days (
       day TEXT PRIMARY KEY
     );

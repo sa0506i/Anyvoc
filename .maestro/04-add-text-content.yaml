@@ -2,26 +2,61 @@ appId: com.anonymous.Anyvoc
 name: "Add text content flow"
 ---
 - launchApp
+- waitForAnimationToEnd
+
+# Set native=English, learning=German, level=A1
+- tapOn:
+    id: "settings-btn"
+- waitForAnimationToEnd
+- tapOn:
+    id: "native-language-btn"
+- waitForAnimationToEnd
+- tapOn: "English"
+- waitForAnimationToEnd
+- tapOn:
+    id: "learning-language-btn"
+- waitForAnimationToEnd
+- tapOn: "Deutsch"
+- waitForAnimationToEnd
+- tapOn: "A1"
+- tapOn:
+    id: "settings-close-btn"
+- waitForAnimationToEnd
+
+# Navigate to Content tab
 - tapOn: "Content"
+- waitForAnimationToEnd
 - assertVisible:
     id: "content-screen"
 
-# Open add menu via the + FAB
-- tapOn: "add-circle"
-
-# Choose "Enter Text"
+# Open add menu
+- tapOn: "Add"
+- waitForAnimationToEnd
 - tapOn:
     id: "menu-enter-text"
+- waitForAnimationToEnd
 
-# Fill in the text form
-- tapOn:
-    id: "title-input"
-- inputText: "Maestro Test"
-
+# Type content in text area (has autoFocus), then title
 - tapOn:
     id: "text-input"
-- inputText: "Der Hund spielt im Garten. Die Katze schläft auf dem Sofa."
+- waitForAnimationToEnd
+- inputText: "Der Hund spielt im Garten und die Katze schlaeft auf dem Sofa"
+- tapOn:
+    id: "title-input"
+- waitForAnimationToEnd
+- inputText: "Maestro Test"
 
-# Save
+# Save and wait for processing + dismiss Done dialog
 - tapOn:
     id: "save-text-btn"
+- repeat:
+    times: 15
+    commands:
+      - waitForAnimationToEnd
+- tapOn:
+    text: "OK"
+    optional: true
+- waitForAnimationToEnd
+
+# Verify content appears in list
+- assertVisible: "Maestro Test"

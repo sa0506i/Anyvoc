@@ -1,16 +1,57 @@
 const express = require('express');
 const cors = require('cors');
+const rateLimit = require('express-rate-limit');
+
+// --- Startup validation ---
+if (!process.env.MISTRAL_API_KEY) {
+  console.error('FATAL: MISTRAL_API_KEY environment variable is not set');
+  process.exit(1);
+}
 
 const app = express();
-app.use(cors());
+
+// --- CORS: restrict to expected origins ---
+app.use(cors({
+  origin: [
+    /^exp\+anyvoc:\/\//,           // Expo dev client
+    /^https?:\/\/localhost(:\d+)?$/, // local development
+    /^https?:\/\/10\.0\.2\.2(:\d+)?$/, // Android emulator
+  ],
+  methods: ['POST'],
+}));
+
 app.use(express.json({ limit: '10mb' }));
+
+// --- Rate limiting: 60 requests per minute per IP ---
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { content: [], error: { message: 'Too many requests, please try again later.' } },
+});
 
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MISTRAL_MODEL = 'mistral-small-2506';
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', apiLimiter, async (req, res) => {
   try {
     const { messages, max_tokens, system, temperature, top_p } = req.body;
+
+    // --- Request validation ---
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({
+        content: [],
+        error: { message: 'Invalid request: messages must be a non-empty array' },
+      });
+    }
+
+    if (max_tokens !== undefined && (typeof max_tokens !== 'number' || max_tokens < 1 || max_tokens > 32768)) {
+      return res.status(400).json({
+        content: [],
+        error: { message: 'Invalid request: max_tokens must be a number between 1 and 32768' },
+      });
+    }
 
     // Transform Claude format → Mistral format
     // Claude sends system as a separate field; Mistral expects it as the first message

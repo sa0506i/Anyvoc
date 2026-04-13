@@ -146,7 +146,7 @@ export function chunkText(text: string, maxChars: number = MAX_CHARS_PER_CHUNK):
     const searchArea = remaining.substring(searchStart, maxChars);
 
     // Look for sentence-ending punctuation followed by space
-    const sentenceEnd = searchArea.search(/[.!?]\s+(?=[A-ZÀ-ÿ])/);
+    const sentenceEnd = searchArea.search(/[.!?]\s+(?=\p{Lu})/u);
     if (sentenceEnd !== -1) {
       splitAt = searchStart + sentenceEnd + 1;
     }

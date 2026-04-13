@@ -2,30 +2,70 @@ appId: com.anonymous.Anyvoc
 name: "Content detail tabs flow"
 ---
 - launchApp
+- waitForAnimationToEnd
+
+# Set native=English, learning=German, level=A1
+- tapOn:
+    id: "settings-btn"
+- waitForAnimationToEnd
+- tapOn:
+    id: "native-language-btn"
+- waitForAnimationToEnd
+- tapOn: "English"
+- waitForAnimationToEnd
+- tapOn:
+    id: "learning-language-btn"
+- waitForAnimationToEnd
+- tapOn: "Deutsch"
+- waitForAnimationToEnd
+- tapOn: "A1"
+- tapOn:
+    id: "settings-close-btn"
+- waitForAnimationToEnd
+
+# Navigate to Content tab
 - tapOn: "Content"
+- waitForAnimationToEnd
 - assertVisible:
     id: "content-screen"
 
-# First add content so we have something to open
-- tapOn: "add-circle"
+# Add content
+- tapOn: "Add"
+- waitForAnimationToEnd
 - tapOn:
     id: "menu-enter-text"
-- tapOn:
-    id: "title-input"
-- inputText: "Detail Test"
+- waitForAnimationToEnd
+
+# Type content then title
 - tapOn:
     id: "text-input"
-- inputText: "Der Hund spielt im Garten."
+- waitForAnimationToEnd
+- inputText: "Der Hund spielt im Garten und die Katze schlaeft auf dem Sofa"
+- tapOn:
+    id: "title-input"
+- waitForAnimationToEnd
+- inputText: "Detail Test"
+
+# Save and wait for API processing
 - tapOn:
     id: "save-text-btn"
+- repeat:
+    times: 15
+    commands:
+      - waitForAnimationToEnd
 
-# Wait for processing to finish and content to appear in list
-- extendedWaitUntil:
-    visible: "Detail Test"
-    timeout: 30000
+# Dismiss the Done dialog
+- tapOn:
+    text: "OK"
+    optional: true
+- waitForAnimationToEnd
+
+# The content should be in the list
+- assertVisible: "Detail Test"
 
 # Open the content detail
 - tapOn: "Detail Test"
+- waitForAnimationToEnd
 
 # Verify Original tab is shown by default
 - assertVisible:

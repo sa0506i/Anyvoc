@@ -88,6 +88,13 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   } catch {
     // Column already exists — ignore
   }
+
+  // Migration: add unique index on vocabulary.original for INSERT OR IGNORE dedup
+  try {
+    db.runSync('CREATE UNIQUE INDEX IF NOT EXISTS idx_vocabulary_original ON vocabulary(original)');
+  } catch {
+    // Index already exists — ignore
+  }
 }
 
 // --- Settings ---
@@ -177,9 +184,8 @@ export function vocabularyExists(db: SQLiteDatabase, original: string): boolean 
 }
 
 export function insertVocabulary(db: SQLiteDatabase, vocab: Vocabulary): void {
-  if (vocabularyExists(db, vocab.original)) return;
   db.runSync(
-    'INSERT INTO vocabulary (id, content_id, original, translation, level, word_type, source_forms, leitner_box, last_reviewed, correct_count, incorrect_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT OR IGNORE INTO vocabulary (id, content_id, original, translation, level, word_type, source_forms, leitner_box, last_reviewed, correct_count, incorrect_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       vocab.id,
       vocab.content_id,
@@ -198,16 +204,16 @@ export function insertVocabulary(db: SQLiteDatabase, vocab: Vocabulary): void {
 }
 
 export function insertVocabularyBatch(db: SQLiteDatabase, vocabs: Vocabulary[]): number {
-  let inserted = 0;
+  let insertedBefore = 0;
+  let insertedAfter = 0;
   db.withTransactionSync(() => {
+    insertedBefore = (db.getFirstSync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM vocabulary') ?? { cnt: 0 }).cnt;
     for (const vocab of vocabs) {
-      if (!vocabularyExists(db, vocab.original)) {
-        insertVocabulary(db, vocab);
-        inserted++;
-      }
+      insertVocabulary(db, vocab);
     }
+    insertedAfter = (db.getFirstSync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM vocabulary') ?? { cnt: 0 }).cnt;
   });
-  return inserted;
+  return insertedAfter - insertedBefore;
 }
 
 export function recordReviewDay(db: SQLiteDatabase): void {

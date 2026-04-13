@@ -32,9 +32,10 @@ async function fetchHtml(url: string): Promise<string> {
     throw new Error('Please enter a complete URL starting with https:// or http://');
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     const response = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT },
       signal: controller.signal,
@@ -42,7 +43,6 @@ async function fetchHtml(url: string): Promise<string> {
     });
 
     if (!response.ok) {
-      clearTimeout(timeout);
       throw new Error(
         `Could not fetch the URL (HTTP ${response.status}). The website may be blocking automated access or the link may be invalid.`
       );
@@ -50,12 +50,10 @@ async function fetchHtml(url: string): Promise<string> {
 
     const contentType = response.headers.get('content-type') ?? '';
     if (!contentType.includes('text/html') && !contentType.includes('text/plain') && !contentType.includes('xhtml')) {
-      clearTimeout(timeout);
       throw new Error('This URL does not point to an HTML page. Only web articles are supported.');
     }
 
     const html = await response.text();
-    clearTimeout(timeout);
     return html;
   } catch (error) {
     if (error instanceof Error &&
@@ -65,6 +63,8 @@ async function fetchHtml(url: string): Promise<string> {
     throw new Error(
       'Could not fetch the URL. The website may be blocking automated access or the link may be invalid.'
     );
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

@@ -35,7 +35,6 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      "expo-secure-store",
       "expo-image-picker",
       [
         "expo-share-intent",

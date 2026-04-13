@@ -2,7 +2,9 @@ appId: com.anonymous.Anyvoc
 name: "Trainer session flow"
 ---
 - launchApp
+- waitForAnimationToEnd
 - tapOn: "Trainer"
+- waitForAnimationToEnd
 
 # Start training (button varies depending on due cards)
 - runFlow:
@@ -10,11 +12,13 @@ name: "Trainer session flow"
       visible: "Start Training"
     commands:
       - tapOn: "Start Training"
+      - waitForAnimationToEnd
 - runFlow:
     when:
       visible: "Continue Training"
     commands:
       - tapOn: "Continue Training"
+      - waitForAnimationToEnd
 
 # If no vocab exists, we'll see the empty state — skip session test
 - runFlow:
@@ -22,32 +26,26 @@ name: "Trainer session flow"
       visible:
         id: "flashcard"
     commands:
-      # Tap flashcard to reveal answer
-      - tapOn:
-          id: "flashcard"
+      # Answer up to 25 cards (covers default 20 + retries)
+      - repeat:
+          times: 25
+          commands:
+            - runFlow:
+                when:
+                  visible:
+                    id: "flashcard"
+                commands:
+                  - tapOn:
+                      id: "flashcard"
+                  - tapOn:
+                      id: "correct-btn"
 
-      # Mark as correct
-      - tapOn:
-          id: "correct-btn"
-
-      # Wait for next card or round complete
-      - extendedWaitUntil:
-          visible: "Round Complete!"
-          timeout: 120000
-          action:
-            # Keep answering cards: tap to reveal, then correct
-            - tapOn:
-                id: "flashcard"
-                optional: true
-            - tapOn:
-                id: "correct-btn"
-                optional: true
-
-      # Round complete screen
+      # Round complete screen should be visible
       - assertVisible:
           id: "round-complete-text"
       - tapOn:
           id: "end-session-btn"
+      - waitForAnimationToEnd
 
       # Back to overview
       - assertVisible:

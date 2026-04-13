@@ -2,10 +2,12 @@ appId: com.anonymous.Anyvoc
 name: "Settings screen flow"
 ---
 - launchApp
+- waitForAnimationToEnd
 
 # Open settings via gear icon
 - tapOn:
     id: "settings-btn"
+- waitForAnimationToEnd
 
 # Verify settings screen elements are visible
 - assertVisible: "Settings"
@@ -31,7 +33,7 @@ name: "Settings screen flow"
 - assertVisible: "Select Native Language"
 
 # Go back to settings
-- tapOn: "Back"
+- tapOn: "← Back"
 
 # Open learning language picker
 - tapOn:
@@ -39,7 +41,7 @@ name: "Settings screen flow"
 - assertVisible: "Select Learning Language"
 
 # Go back to settings
-- tapOn: "Back"
+- tapOn: "← Back"
 
 # Verify reset button is visible (don't tap it)
 - assertVisible:
@@ -48,6 +50,7 @@ name: "Settings screen flow"
 # Close settings
 - tapOn:
     id: "settings-close-btn"
+- waitForAnimationToEnd
 
 # Verify we're back on a tab screen
 - assertVisible:

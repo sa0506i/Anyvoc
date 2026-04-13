@@ -2,18 +2,22 @@ appId: com.anonymous.Anyvoc
 name: "Tab navigation works"
 ---
 - launchApp
+- waitForAnimationToEnd
 
 # Navigate to Content tab
 - tapOn: "Content"
+- waitForAnimationToEnd
 - assertVisible:
     id: "content-screen"
 
 # Navigate to Vocabulary tab
 - tapOn: "Vocabulary"
+- waitForAnimationToEnd
 - assertVisible:
     id: "vocabulary-screen"
 
 # Navigate back to Trainer tab
 - tapOn: "Trainer"
+- waitForAnimationToEnd
 - assertVisible:
     id: "trainer-screen"

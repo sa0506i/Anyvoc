@@ -2,33 +2,48 @@ appId: com.anonymous.Anyvoc
 name: "Empty states and edge cases"
 ---
 - launchApp
+- waitForAnimationToEnd
+
+# Reset app data to ensure empty states
+- tapOn:
+    id: "settings-btn"
+- waitForAnimationToEnd
+- tapOn:
+    id: "reset-app-btn"
+- tapOn: "Reset"
+- waitForAnimationToEnd
 
 # --- Empty state: Trainer ---
-# With no vocab, trainer shows "No content" empty state
 - tapOn: "Trainer"
+- waitForAnimationToEnd
 - assertVisible: "No content"
 
 # --- Empty state: Vocabulary ---
 - tapOn: "Vocabulary"
+- waitForAnimationToEnd
 - assertVisible:
     id: "vocabulary-screen"
 - assertVisible: "No content"
 
 # --- Empty state: Content list ---
 - tapOn: "Content"
+- waitForAnimationToEnd
 - assertVisible:
     id: "content-screen"
 - assertVisible: "No content"
 
 # --- Add text: Save button is disabled when text is empty ---
-- tapOn: "add-circle"
+- tapOn: "Add"
+- waitForAnimationToEnd
 - tapOn:
     id: "menu-enter-text"
+- waitForAnimationToEnd
 
-# Fill title only, leave text empty — Save should be disabled (opacity 0.5)
+# Fill title only, leave text empty — Save should be disabled
 - tapOn:
     id: "title-input"
 - inputText: "Empty Test"
+- hideKeyboard
 
 # Tap save — nothing should happen since button is disabled
 - tapOn:

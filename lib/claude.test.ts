@@ -186,6 +186,18 @@ describe('chunkText', () => {
     const chunks = chunkText(text, 100);
     expect(chunks.length).toBe(3);
   });
+
+  it('splits at sentence boundary with non-Latin uppercase (Czech/Polish)', () => {
+    // Č and Ź are outside À-ÿ range but are uppercase Unicode letters
+    // sentence1 ends with ". " near the 5000 limit, sentence2 starts with Č
+    const sentence1 = 'A'.repeat(4800) + '. ';
+    const sentence2 = 'Človĕk je krásný a moudrý. ' + 'B'.repeat(300);
+    const text = sentence1 + sentence2;
+    const chunks = chunkText(text, 5000);
+    expect(chunks.length).toBe(2);
+    // First chunk should end at the sentence boundary (period)
+    expect(chunks[0]).toMatch(/\.$/);
+  });
 });
 
 // ---------- detectLanguage ----------

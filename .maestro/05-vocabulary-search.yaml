@@ -2,11 +2,13 @@ appId: com.anonymous.Anyvoc
 name: "Vocabulary search and sort"
 ---
 - launchApp
+- waitForAnimationToEnd
 - tapOn: "Vocabulary"
+- waitForAnimationToEnd
 - assertVisible:
     id: "vocabulary-screen"
 
-# If vocab list is visible, test search
+# If vocab list is visible, test search and sort
 - runFlow:
     when:
       visible:

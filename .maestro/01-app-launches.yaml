@@ -2,6 +2,8 @@ appId: com.anonymous.Anyvoc
 name: "App launches and shows tabs"
 ---
 - launchApp
+- waitForAnimationToEnd
 - assertVisible: "Trainer"
 - assertVisible: "Content"
 - assertVisible: "Vocabulary"
+- assertVisible: "Add"

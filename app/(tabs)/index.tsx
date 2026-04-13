@@ -80,7 +80,11 @@ export default function TrainerScreen() {
     let pool;
     if (practice) {
       // Continue-Mode: random selection from entire vocabulary
-      pool = [...allVocab].sort(() => Math.random() - 0.5);
+      pool = [...allVocab];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
     } else {
       pool = getCardsForReview(allVocab);
     }
@@ -207,7 +211,7 @@ export default function TrainerScreen() {
   // No vocabulary at all → unified empty state, flex-centred
   if (stats && stats.total === 0) {
     return (
-      <View style={styles.container}>
+      <View testID="trainer-screen" style={styles.container}>
         <EmptyState />
       </View>
     );

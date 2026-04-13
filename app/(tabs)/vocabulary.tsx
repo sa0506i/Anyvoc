@@ -107,7 +107,7 @@ export default function VocabularyScreen() {
   // No vocabulary at all → unified empty state, flex-centred (no search/sort UI)
   if (vocabulary.length === 0) {
     return (
-      <View style={styles.container}>
+      <View testID="vocabulary-screen" style={styles.container}>
         <EmptyState />
       </View>
     );
