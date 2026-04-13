@@ -1,58 +1,58 @@
 appId: com.anonymous.Anyvoc
-name: "Settings screen flow"
+name: 'Settings screen flow'
 ---
 - launchApp
 - waitForAnimationToEnd
 
 # Open settings via gear icon
 - tapOn:
-    id: "settings-btn"
+    id: 'settings-btn'
 - waitForAnimationToEnd
 
 # Verify settings screen elements are visible
-- assertVisible: "Settings"
-- assertVisible: "Languages"
-- assertVisible: "Native Language"
-- assertVisible: "Learning Language"
-- assertVisible: "Language Level"
-- assertVisible: "Quiz Direction"
-- assertVisible: "Quiz Mode"
-- assertVisible: "Cards Per Round"
+- assertVisible: 'Settings'
+- assertVisible: 'Languages'
+- assertVisible: 'Native Language'
+- assertVisible: 'Learning Language'
+- assertVisible: 'Language Level'
+- assertVisible: 'Quiz Direction'
+- assertVisible: 'Quiz Mode'
+- assertVisible: 'Cards Per Round'
 
 # Tap a CEFR level chip (B2)
-- tapOn: "B2"
+- tapOn: 'B2'
 
 # Tap a quiz direction chip
-- tapOn: "Random"
+- tapOn: 'Random'
 
 # Tap a cards-per-round chip
-- tapOn: "10"
+- tapOn: '10'
 
 # Open native language picker
 - tapOn:
-    id: "native-language-btn"
-- assertVisible: "Select Native Language"
+    id: 'native-language-btn'
+- assertVisible: 'Select Native Language'
 
 # Go back to settings
-- tapOn: "← Back"
+- tapOn: '← Back'
 
 # Open learning language picker
 - tapOn:
-    id: "learning-language-btn"
-- assertVisible: "Select Learning Language"
+    id: 'learning-language-btn'
+- assertVisible: 'Select Learning Language'
 
 # Go back to settings
-- tapOn: "← Back"
+- tapOn: '← Back'
 
 # Verify reset button is visible (don't tap it)
 - assertVisible:
-    id: "reset-app-btn"
+    id: 'reset-app-btn'
 
 # Close settings
 - tapOn:
-    id: "settings-close-btn"
+    id: 'settings-close-btn'
 - waitForAnimationToEnd
 
 # Verify we're back on a tab screen
 - assertVisible:
-    id: "trainer-screen"
+    id: 'trainer-screen'

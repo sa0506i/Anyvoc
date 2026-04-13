@@ -1,72 +1,227 @@
 <h2>Tipp-Modus: UI-Varianten</h2>
-<p class="subtitle">Wie soll die Eingabe während einer Runde aussehen? Gleicher Progress-Bar oben, aber statt Karteikarte ein Eingabefeld.</p>
+<p class="subtitle">
+  Wie soll die Eingabe während einer Runde aussehen? Gleicher Progress-Bar oben, aber statt
+  Karteikarte ein Eingabefeld.
+</p>
 
 <div class="cards">
   <!-- Option A -->
   <div class="card" data-choice="a" onclick="toggleSelect(this)">
-    <div class="card-image" style="padding: 20px; background: #0A1628;">
+    <div class="card-image" style="padding: 20px; background: #0a1628">
       <!-- Mockup: Compact -->
-      <div style="background: rgba(15,35,80,0.55); border: 1px solid rgba(100,150,255,0.2); border-radius: 22px; padding: 24px; color: #EAF0FF; font-family: system-ui;">
-        <div style="text-align:center; opacity:0.6; font-size:12px; margin-bottom:8px;">FRAGE</div>
-        <div style="text-align:center; font-size:24px; font-weight:600; margin-bottom:24px;">le médecin</div>
-        <input type="text" disabled placeholder="Übersetzung eingeben…" style="width:100%; box-sizing:border-box; padding:14px 16px; border-radius:12px; border:1px solid rgba(100,150,255,0.3); background:rgba(5,13,26,0.8); color:#EAF0FF; font-size:16px; margin-bottom:16px;">
-        <div style="text-align:center;">
-          <button disabled style="padding:12px 32px; border-radius:9999px; border:none; background:#1E6FFF; color:white; font-size:16px; font-weight:600;">Prüfen</button>
+      <div
+        style="
+          background: rgba(15, 35, 80, 0.55);
+          border: 1px solid rgba(100, 150, 255, 0.2);
+          border-radius: 22px;
+          padding: 24px;
+          color: #eaf0ff;
+          font-family: system-ui;
+        "
+      >
+        <div style="text-align: center; opacity: 0.6; font-size: 12px; margin-bottom: 8px">
+          FRAGE
+        </div>
+        <div style="text-align: center; font-size: 24px; font-weight: 600; margin-bottom: 24px">
+          le médecin
+        </div>
+        <input
+          type="text"
+          disabled
+          placeholder="Übersetzung eingeben…"
+          style="
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(100, 150, 255, 0.3);
+            background: rgba(5, 13, 26, 0.8);
+            color: #eaf0ff;
+            font-size: 16px;
+            margin-bottom: 16px;
+          "
+        />
+        <div style="text-align: center">
+          <button
+            disabled
+            style="
+              padding: 12px 32px;
+              border-radius: 9999px;
+              border: none;
+              background: #1e6fff;
+              color: white;
+              font-size: 16px;
+              font-weight: 600;
+            "
+          >
+            Prüfen
+          </button>
         </div>
       </div>
     </div>
     <div class="card-body">
       <h3>A: Kompakt</h3>
-      <p>Frage oben, Eingabefeld darunter, Prüfen-Button. Minimalistisch, wie die Karteikarte — gleiche GlassCard-Ästhetik.</p>
+      <p>
+        Frage oben, Eingabefeld darunter, Prüfen-Button. Minimalistisch, wie die Karteikarte —
+        gleiche GlassCard-Ästhetik.
+      </p>
     </div>
   </div>
 
   <!-- Option B -->
   <div class="card" data-choice="b" onclick="toggleSelect(this)">
-    <div class="card-image" style="padding: 20px; background: #0A1628;">
+    <div class="card-image" style="padding: 20px; background: #0a1628">
       <!-- Mockup: With hint area -->
-      <div style="background: rgba(15,35,80,0.55); border: 1px solid rgba(100,150,255,0.2); border-radius: 22px; padding: 24px; color: #EAF0FF; font-family: system-ui;">
-        <div style="text-align:center; opacity:0.6; font-size:12px; margin-bottom:8px;">FRAGE</div>
-        <div style="text-align:center; font-size:24px; font-weight:600; margin-bottom:8px;">le médecin</div>
-        <div style="text-align:center; opacity:0.5; font-size:13px; margin-bottom:20px;">Nomen · A2</div>
-        <input type="text" disabled placeholder="Übersetzung eingeben…" style="width:100%; box-sizing:border-box; padding:14px 16px; border-radius:12px; border:1px solid rgba(100,150,255,0.3); background:rgba(5,13,26,0.8); color:#EAF0FF; font-size:16px; margin-bottom:12px;">
-        <!-- Feedback area preview -->
-        <div style="background:rgba(77,255,181,0.1); border:1px solid rgba(77,255,181,0.3); border-radius:12px; padding:12px; margin-bottom:16px;">
-          <div style="color:#4DFFB5; font-weight:600; font-size:14px;">✓ Richtig!</div>
-          <div style="opacity:0.7; font-size:13px; margin-top:4px;">Vollständig: der Arzt, die Ärztin</div>
+      <div
+        style="
+          background: rgba(15, 35, 80, 0.55);
+          border: 1px solid rgba(100, 150, 255, 0.2);
+          border-radius: 22px;
+          padding: 24px;
+          color: #eaf0ff;
+          font-family: system-ui;
+        "
+      >
+        <div style="text-align: center; opacity: 0.6; font-size: 12px; margin-bottom: 8px">
+          FRAGE
         </div>
-        <div style="text-align:center;">
-          <button disabled style="padding:12px 32px; border-radius:9999px; border:none; background:#4DFFB5; color:#050D1A; font-size:16px; font-weight:600;">Weiter →</button>
+        <div style="text-align: center; font-size: 24px; font-weight: 600; margin-bottom: 8px">
+          le médecin
+        </div>
+        <div style="text-align: center; opacity: 0.5; font-size: 13px; margin-bottom: 20px">
+          Nomen · A2
+        </div>
+        <input
+          type="text"
+          disabled
+          placeholder="Übersetzung eingeben…"
+          style="
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px 16px;
+            border-radius: 12px;
+            border: 1px solid rgba(100, 150, 255, 0.3);
+            background: rgba(5, 13, 26, 0.8);
+            color: #eaf0ff;
+            font-size: 16px;
+            margin-bottom: 12px;
+          "
+        />
+        <!-- Feedback area preview -->
+        <div
+          style="
+            background: rgba(77, 255, 181, 0.1);
+            border: 1px solid rgba(77, 255, 181, 0.3);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 16px;
+          "
+        >
+          <div style="color: #4dffb5; font-weight: 600; font-size: 14px">✓ Richtig!</div>
+          <div style="opacity: 0.7; font-size: 13px; margin-top: 4px">
+            Vollständig: der Arzt, die Ärztin
+          </div>
+        </div>
+        <div style="text-align: center">
+          <button
+            disabled
+            style="
+              padding: 12px 32px;
+              border-radius: 9999px;
+              border: none;
+              background: #4dffb5;
+              color: #050d1a;
+              font-size: 16px;
+              font-weight: 600;
+            "
+          >
+            Weiter →
+          </button>
         </div>
       </div>
     </div>
     <div class="card-body">
       <h3>B: Mit Feedback-Zone</h3>
-      <p>Wie A, aber mit sichtbarer Wortart + Level, und einer Feedback-Box die nach dem Prüfen erscheint (grün=richtig, rot=falsch, mit Hinweis auf vollständige Form).</p>
+      <p>
+        Wie A, aber mit sichtbarer Wortart + Level, und einer Feedback-Box die nach dem Prüfen
+        erscheint (grün=richtig, rot=falsch, mit Hinweis auf vollständige Form).
+      </p>
     </div>
   </div>
 
   <!-- Option C -->
   <div class="card" data-choice="c" onclick="toggleSelect(this)">
-    <div class="card-image" style="padding: 20px; background: #0A1628;">
+    <div class="card-image" style="padding: 20px; background: #0a1628">
       <!-- Mockup: Keyboard-first bottom sheet -->
-      <div style="color: #EAF0FF; font-family: system-ui;">
-        <div style="text-align:center; padding: 40px 20px;">
-          <div style="opacity:0.6; font-size:12px; margin-bottom:8px;">FRAGE</div>
-          <div style="font-size:28px; font-weight:600;">le médecin</div>
+      <div style="color: #eaf0ff; font-family: system-ui">
+        <div style="text-align: center; padding: 40px 20px">
+          <div style="opacity: 0.6; font-size: 12px; margin-bottom: 8px">FRAGE</div>
+          <div style="font-size: 28px; font-weight: 600">le médecin</div>
         </div>
-        <div style="background: rgba(15,35,80,0.55); border: 1px solid rgba(100,150,255,0.2); border-radius: 22px 22px 0 0; padding: 20px;">
-          <input type="text" disabled placeholder="Übersetzung eingeben…" style="width:100%; box-sizing:border-box; padding:14px 16px; border-radius:12px; border:1px solid rgba(100,150,255,0.3); background:rgba(5,13,26,0.8); color:#EAF0FF; font-size:16px; margin-bottom:12px;">
-          <div style="display:flex; gap:8px;">
-            <button disabled style="flex:1; padding:12px; border-radius:12px; border:1px solid rgba(100,150,255,0.2); background:transparent; color:#EAF0FF; font-size:14px;">Aufgeben</button>
-            <button disabled style="flex:2; padding:12px; border-radius:12px; border:none; background:#1E6FFF; color:white; font-size:14px; font-weight:600;">Prüfen</button>
+        <div
+          style="
+            background: rgba(15, 35, 80, 0.55);
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            border-radius: 22px 22px 0 0;
+            padding: 20px;
+          "
+        >
+          <input
+            type="text"
+            disabled
+            placeholder="Übersetzung eingeben…"
+            style="
+              width: 100%;
+              box-sizing: border-box;
+              padding: 14px 16px;
+              border-radius: 12px;
+              border: 1px solid rgba(100, 150, 255, 0.3);
+              background: rgba(5, 13, 26, 0.8);
+              color: #eaf0ff;
+              font-size: 16px;
+              margin-bottom: 12px;
+            "
+          />
+          <div style="display: flex; gap: 8px">
+            <button
+              disabled
+              style="
+                flex: 1;
+                padding: 12px;
+                border-radius: 12px;
+                border: 1px solid rgba(100, 150, 255, 0.2);
+                background: transparent;
+                color: #eaf0ff;
+                font-size: 14px;
+              "
+            >
+              Aufgeben
+            </button>
+            <button
+              disabled
+              style="
+                flex: 2;
+                padding: 12px;
+                border-radius: 12px;
+                border: none;
+                background: #1e6fff;
+                color: white;
+                font-size: 14px;
+                font-weight: 600;
+              "
+            >
+              Prüfen
+            </button>
           </div>
         </div>
       </div>
     </div>
     <div class="card-body">
       <h3>C: Bottom-Sheet</h3>
-      <p>Frage groß oben, Eingabe als Bottom-Sheet-Stil unten — optimiert für Tastatur-Nutzung auf dem Handy. "Aufgeben"-Button zeigt die Lösung (zählt als falsch).</p>
+      <p>
+        Frage groß oben, Eingabe als Bottom-Sheet-Stil unten — optimiert für Tastatur-Nutzung auf
+        dem Handy. "Aufgeben"-Button zeigt die Lösung (zählt als falsch).
+      </p>
     </div>
   </div>
 </div>

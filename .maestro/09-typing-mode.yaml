@@ -1,46 +1,46 @@
 appId: com.anonymous.Anyvoc
-name: "Typing quiz mode flow"
+name: 'Typing quiz mode flow'
 ---
 - launchApp
 - waitForAnimationToEnd
 
 # Open settings and switch to Typing mode
 - tapOn:
-    id: "settings-btn"
+    id: 'settings-btn'
 - waitForAnimationToEnd
-- assertVisible: "Quiz Mode"
+- assertVisible: 'Quiz Mode'
 - tapOn:
-    id: "quiz-mode-typing"
+    id: 'quiz-mode-typing'
 - waitForAnimationToEnd
 
 # Close settings
 - tapOn:
-    id: "settings-close-btn"
+    id: 'settings-close-btn'
 - waitForAnimationToEnd
 
 # Navigate to trainer
-- tapOn: "Trainer"
+- tapOn: 'Trainer'
 - waitForAnimationToEnd
 
 # Start training
 - runFlow:
     when:
-      visible: "Start Training"
+      visible: 'Start Training'
     commands:
-      - tapOn: "Start Training"
+      - tapOn: 'Start Training'
       - waitForAnimationToEnd
 - runFlow:
     when:
-      visible: "Continue Training"
+      visible: 'Continue Training'
     commands:
-      - tapOn: "Continue Training"
+      - tapOn: 'Continue Training'
       - waitForAnimationToEnd
 
 # If vocab exists, test the typing flow
 - runFlow:
     when:
       visible:
-        id: "typing-card"
+        id: 'typing-card'
     commands:
       # Answer up to 25 cards via typing
       - repeat:
@@ -49,36 +49,36 @@ name: "Typing quiz mode flow"
             - runFlow:
                 when:
                   visible:
-                    id: "typing-input"
+                    id: 'typing-input'
                 commands:
                   # Give up on each card (simplest E2E path)
                   - tapOn:
-                      id: "give-up-btn"
+                      id: 'give-up-btn'
                   - waitForAnimationToEnd
                   # Feedback should be visible
                   - assertVisible:
-                      id: "feedback-box"
+                      id: 'feedback-box'
                   - tapOn:
-                      id: "next-btn"
+                      id: 'next-btn'
                   - waitForAnimationToEnd
 
       # Round complete screen should be visible
       - assertVisible:
-          id: "round-complete-text"
+          id: 'round-complete-text'
       - tapOn:
-          id: "end-session-btn"
+          id: 'end-session-btn'
       - waitForAnimationToEnd
 
       # Back to overview
       - assertVisible:
-          id: "trainer-screen"
+          id: 'trainer-screen'
 
 # Switch back to flashcard mode in settings
 - tapOn:
-    id: "settings-btn"
+    id: 'settings-btn'
 - waitForAnimationToEnd
 - tapOn:
-    id: "quiz-mode-flashcard"
+    id: 'quiz-mode-flashcard'
 - tapOn:
-    id: "settings-close-btn"
+    id: 'settings-close-btn'
 - waitForAnimationToEnd

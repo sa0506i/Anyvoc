@@ -1,12 +1,14 @@
 # Anyvoc – Project Memory
 
 ## App Overview
+
 Vocabulary trainer (React Native / Expo) that extracts vocabulary from shared content via Mistral API.
 All user data stored locally on device. The only backend is a thin Mistral proxy (`https://anyvoc-backend.fly.dev/api/chat`) that holds the API key — no user data or accounts. Expo managed workflow (no committed `android/` or `ios/` folders).
 
 **Local dev caveat:** Running `npx expo run:android` (or `run:ios`) generates a local `android/` (or `ios/`) folder as a build cache. This is gitignored and does NOT change the workflow from Repo/EAS perspective — managed workflow stays intact. BUT: after any change to `app.json` plugins or after `expo install <native-module>`, you MUST run `npx expo prebuild --clean` followed by `npx expo run:android` again, otherwise plugin/native changes won't be picked up by the cached native build. JS-only changes need no rebuild — Metro reload is enough.
 
 ## Tech Stack
+
 - **Framework:** React Native 0.81 / Expo ~54, Expo Router ~6, TypeScript
 - **Database:** expo-sqlite ~16, synchronous API only (`runSync`, `getFirstSync`, `getAllSync`)
 - **State:** Zustand stores (`useSettingsStore`, `useTrainerStore`) + `useTheme` context
@@ -17,6 +19,7 @@ All user data stored locally on device. The only backend is a thin Mistral proxy
 - **Share:** expo-share-intent; web content extracted via Readability (Claude API fallback for edge cases)
 
 ## Project Structure
+
 ```
 app/(tabs)/
   index.tsx          # Tab 2: Trainer (stats, flashcard session, streak)
@@ -75,6 +78,7 @@ hooks/
 ```
 
 ## Database Schema
+
 ```sql
 settings     (key PK, value)
 contents     (id PK, title, original_text, translated_text, source_type,
@@ -86,22 +90,26 @@ vocabulary   (id PK, content_id FK→contents ON DELETE CASCADE,
 review_days  (day PK)  -- 'YYYY-MM-DD', written by recordReviewDay()
                        -- on every updateVocabularyReview() call
 ```
+
 - `source_forms`: JSON array of inflected forms e.g. `'["rivais"]'`
 - Migration pattern: `try { db.runSync('ALTER TABLE...') } catch { /* ignore */ }`
 - `clearAllData()` deletes all 4 tables including `review_days`
 - `insertVocabulary()` silently skips duplicates via `vocabularyExists()`
 
 ## CEFR Classifier (lib/classifier/)
+
 CEFR levels (A1–C2) are assigned **locally and deterministically**, not by the LLM.
 The level field returned by `extractVocabulary` / `translateSingleWord` in the
 LLM response is **overwritten** by `classifyWord(word, languageCode)`.
 
 **Model:** Ordinal-logit over two features, calibrated on ~84 700 gold rows
 across all 12 languages. Formula:
+
 ```
 η       = W_ZIPF * zipfNorm + W_AOA * aoaNorm
 level   = first k where η < THETA[k], else C2
 ```
+
 Constants live in `lib/classifier/score.ts` (copied verbatim from
 `tmp/gold/model.json`). **Don't edit them by hand** — they come from the
 calibration pipeline.
@@ -112,7 +120,7 @@ When both features fall back, `aoaNorm` is set to 0.4 (B2|C1 neutral default)
 instead of 1 (the old C2 trap).
 
 **Fallback path:** `computeConfidence()` in `fallback.ts` only calls Claude
-Haiku when *both* features missed (`fallbackCount == 2`). Rate-limited to
+Haiku when _both_ features missed (`fallbackCount == 2`). Rate-limited to
 10 calls / 60 s. Results are cached in-memory + `expo-sqlite` (`fallback_cache`
 table, 30-day TTL). Normal words never touch the network.
 
@@ -126,6 +134,7 @@ JSONs are loaded via explicit `switch (lang) { case 'en': return require(...) }`
 (never template strings — Metro's static resolver needs literal paths).
 
 ### Calibration pipeline (dev-machine only, NEVER in EAS build hooks)
+
 ```bash
 npm run build:freq          # Leipzig corpora → lib/data/freq_*.json
 npm run build:aoa-llm -- --lang=de   # per-lang LLM-generated AoA
@@ -139,11 +148,13 @@ python scripts/calibrate-model.py    # fits ordinal logit → model.json
 npx tsx scripts/validate-gold-all.ts  # per-lang sanity check
 npm test                              # tsc + all Jest tests must pass
 ```
+
 `tmp/` is gitignored (raw gold sources aren't redistributable under
 CC BY-NC-SA). Generated `lib/data/*.json` are committed (compatible with
 `eas.json` `requireCommit: true`).
 
 ### Empirical performance
+
 On independent reference-gold (7 languages): **29.2 % exact / 68.4 % ±1 / MAE 1.18** —
 statistically on par with Claude Haiku 4.5 on the same words, but
 deterministic, offline, zero-cost, sub-millisecond. The remaining accuracy
@@ -151,6 +162,7 @@ gap is a **data limit**, not a model limit (gold sources have inherent noise).
 See `BENCHMARK-REPORT.md` context in conversation history for details.
 
 ## LLM API (lib/claude.ts)
+
 - All requests go through the backend proxy at `https://anyvoc-backend.fly.dev/api/chat`. The client never holds the API key.
 - The client sends Claude-format requests; the backend proxy transforms them to Mistral API format. This enables provider switches without app updates.
 - `callClaude()` is **exported** — use it directly for custom prompts (name kept for compatibility)
@@ -163,6 +175,7 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 - **OCR:** On-device via `expo-mlkit-ocr` (Google ML Kit) — no API call for image text extraction.
 
 ## Vocabulary Formatting Rules (system prompt)
+
 - **Nouns:** direct article + singular; feminine form after comma if exists
   `"le médecin, la médecin"` / `"der Arzt, die Ärztin"`
   Proper nouns (Eigennamen) are ignored.
@@ -173,18 +186,21 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 - `translateSingleWord()` now also returns `original` (formatted base form), not just translation
 
 ## Leitner System
+
 - 5 boxes; new vocab → Box 1; correct → box+1 (max 5); incorrect → Box 1
 - Intervals: Box 1=daily, 2=every 2d, 3=every 4d, 4=every 8d, 5=every 16d
 - Session: 20 cards via `selectRound()`; missed cards retried once at end
 - `updateVocabularyReview()` always calls `recordReviewDay()` — never call separately
 
 ## Styling Conventions
+
 - `createStyles(colors: ThemeColors)` pattern — always memoize with `useMemo`
 - Use ONLY `colors`, `spacing`, `fontSize`, `borderRadius`, `glassStyle`, `marineShadow`
   from `constants/theme.ts` — never hardcode color values
 - Glass cards: use `GlassCard` component or spread `glassStyle` from theme
 
 ## Settings Keys (SQLite settings table)
+
 - `nativeLanguage`, `learningLanguage` → language codes
 - `level` → CEFR minimum level string e.g. `"B1"` (extract this level and above only)
 - `quizDirection` → `"native-to-learning"` | `"learning-to-native"` | `"random"`
@@ -195,9 +211,11 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 ## Development Workflow (Claude Code)
 
 ### Agentic loop — how Claude Code operates on this project
+
 Claude Code reads `CLAUDE.md` on every session start and uses it as the single source of truth for architecture decisions. It can read/write all source files, run shell commands, and read log output. It cannot observe the running app directly — logs are the only runtime signal.
 
 **Two-terminal setup (Windows PowerShell):**
+
 ```powershell
 # Terminal 1 — keep running throughout dev session
 npx expo run:android 2>&1 | Tee-Object -FilePath expo.log
@@ -205,18 +223,21 @@ npx expo run:android 2>&1 | Tee-Object -FilePath expo.log
 # Terminal 2 — Claude Code session
 claude
 ```
+
 `expo.log` is the bridge: Claude Code reads it after every change to verify Metro compiled cleanly and no runtime errors appeared.
 
 ### When to use which start command
-| Situation | Command |
-|-----------|---------|
-| JS-only change (components, hooks, lib/) | `npx expo start` — Metro hot reload, no rebuild |
-| First run after clone | `npx expo run:android` — builds native shell |
+
+| Situation                                                        | Command                                             |
+| ---------------------------------------------------------------- | --------------------------------------------------- |
+| JS-only change (components, hooks, lib/)                         | `npx expo start` — Metro hot reload, no rebuild     |
+| First run after clone                                            | `npx expo run:android` — builds native shell        |
 | After `expo install <native-module>` or `app.json` plugin change | `npx expo prebuild --clean && npx expo run:android` |
-| Release / store build | `eas build --profile production --platform android` |
-| Quick preview APK (no store) | `eas build --profile preview --platform android` |
+| Release / store build                                            | `eas build --profile production --platform android` |
+| Quick preview APK (no store)                                     | `eas build --profile preview --platform android`    |
 
 ### Effective prompts for Claude Code
+
 Claude Code works best when given a goal + a verification step. Examples:
 
 ```
@@ -236,13 +257,13 @@ Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc -
 
 ### Testing
 
-| Command | What runs | Requires emulator |
-|---------|-----------|-------------------|
-| `npm test` | `tsc --noEmit` + `jest --coverage` (all unit/integration/arch tests + coverage thresholds) | No |
-| `npm run test:all` | `tsc --noEmit` + `jest` + `maestro` E2E flows | Yes |
-| `npm run test:e2e` | Maestro E2E flows only | Yes |
-| `npm run test:e2e:single -- .maestro/01-app-launches.yaml` | Single Maestro flow | Yes |
-| `npm run check:drift` | Dead code (knip) + security audit + coverage | No |
+| Command                                                    | What runs                                                                                  | Requires emulator |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------- |
+| `npm test`                                                 | `tsc --noEmit` + `jest --coverage` (all unit/integration/arch tests + coverage thresholds) | No                |
+| `npm run test:all`                                         | `tsc --noEmit` + `jest` + `maestro` E2E flows                                              | Yes               |
+| `npm run test:e2e`                                         | Maestro E2E flows only                                                                     | Yes               |
+| `npm run test:e2e:single -- .maestro/01-app-launches.yaml` | Single Maestro flow                                                                        | Yes               |
+| `npm run check:drift`                                      | Dead code (knip) + security audit + coverage                                               | No                |
 
 `npm test` is the fast, always-runnable gate — run it after every change.
 `npm run test:all` is the full pipeline including E2E (needs emulator + Metro).
@@ -262,17 +283,20 @@ Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc -
 | Build scripts | `scripts/build-freq.test.ts` | — | — |
 
 **TypeScript check only:**
+
 ```bash
 npx tsc --noEmit
 npx tsc --noEmit --isolatedModules app/content/\[id\].tsx
 ```
 
 ### Claude Code autonomous debug & test workflow
+
 When the user asks Claude Code to start the emulator and dev server for testing,
 run the following sequence. This was validated to fix the "black screen" problem
 caused by stale processes and the Expo Dev Client not auto-connecting to Metro.
 
 **Option A — full rebuild (after native changes / first run):**
+
 ```powershell
 # 1. Clean slate — kill emulator and free Metro port
 adb emu kill
@@ -304,6 +328,7 @@ adb shell dumpsys activity top | grep "ACTIVITY"
 
 **Option B — JS-only changes (faster, no rebuild):**
 Use when the native shell (APK) is already installed and only JS/TS code changed.
+
 ```powershell
 # 1. Free Metro port if stale
 npx kill-port 8081
@@ -328,6 +353,7 @@ adb shell dumpsys activity top | grep "ACTIVITY"
 ```
 
 **Log-based debugging after startup:**
+
 ```bash
 # expo.log — Metro bundle results + JS console output
 cat expo.log | tail -20
@@ -340,6 +366,7 @@ adb logcat -c                                        # clear before repro
 ```
 
 ### What Claude Code must NOT do in this project
+
 - Start or restart the Expo dev server autonomously **unless the user explicitly asks** (see "autonomous debug & test workflow" above)
 - Edit anything under `tmp/` or `lib/data/` — those are pipeline outputs
 - Modify `lib/classifier/score.ts` constants by hand (calibration pipeline only)
@@ -354,20 +381,22 @@ keep Claude Code aligned with architecture decisions. **When introducing a new
 pattern or architectural rule, always close the steering loop:**
 
 **Steering-loop checklist — run through this when any of these happen:**
+
 - A new module boundary or import restriction is introduced
 - A new UI pattern or data-access pattern is established
 - A dependency is added or removed
 - An existing rule in this file is changed
 
-| Step | Action | Where |
-|------|--------|-------|
-| 1. Document | Add/update the rule in this `CLAUDE.md` file | `CLAUDE.md` |
-| 2. Enforce computationally | Add an ESLint rule (`eslint.config.mjs`) or architecture test (`lib/__tests__/architecture.test.ts`) that catches violations deterministically | Source |
-| 3. Optimise error messages | Write the lint/test error message as a self-correction instruction: what's wrong, how to fix it, which CLAUDE.md section to read | Source |
-| 4. Verify | Run `npm test` to confirm the new sensor passes on current code and would fail on a violation | Terminal |
+| Step                       | Action                                                                                                                                         | Where       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| 1. Document                | Add/update the rule in this `CLAUDE.md` file                                                                                                   | `CLAUDE.md` |
+| 2. Enforce computationally | Add an ESLint rule (`eslint.config.mjs`) or architecture test (`lib/__tests__/architecture.test.ts`) that catches violations deterministically | Source      |
+| 3. Optimise error messages | Write the lint/test error message as a self-correction instruction: what's wrong, how to fix it, which CLAUDE.md section to read               | Source      |
+| 4. Verify                  | Run `npm test` to confirm the new sensor passes on current code and would fail on a violation                                                  | Terminal    |
 
 **Examples of the pattern:**
-- CLAUDE.md says "no Node imports in lib/" → `no-restricted-imports` ESLint rule + architecture test both enforce it with messages like *"Move this to scripts/. See CLAUDE.md Hard rule section."*
+
+- CLAUDE.md says "no Node imports in lib/" → `no-restricted-imports` ESLint rule + architecture test both enforce it with messages like _"Move this to scripts/. See CLAUDE.md Hard rule section."_
 - CLAUDE.md says "no API keys in client code" → architecture test scans for `Authorization`, `ANTHROPIC_API_KEY`, `expo-secure-store` patterns
 - CLAUDE.md says "use theme colors, not hex" → architecture test catches new hardcoded hex values (with `#FFFFFF` baselined)
 
@@ -387,7 +416,9 @@ Ask "could a computational sensor have caught this?" If yes, add one now — don
 | Coverage thresholds | `jest.config.js` coverageThreshold | Drift sensor |
 
 ### Reading logs efficiently
+
 `expo.log` is append-only during a session. Relevant patterns to grep for:
+
 ```bash
 # Metro bundle errors
 Select-String -Path expo.log -Pattern "error|Error|WARN|warn" | Select-Object -Last 20
@@ -400,15 +431,18 @@ Select-String -Path expo.log -Pattern "Bundling complete|bundle compiled"
 ```
 
 ## E2E Testing (Maestro 2.x)
+
 Maestro is installed at `~/.maestro/bin/maestro` (requires Java 17+, provided by
 Android Studio JBR). Flow files live in `.maestro/*.yaml`.
 
 **Prerequisites:** Java must be on PATH for maestro to work:
+
 ```bash
 export PATH="$HOME/.maestro/bin:/c/Program Files/Android/Android Studio/jbr/bin:$PATH"
 ```
 
 **Running E2E tests:**
+
 ```bash
 npm run test:e2e                                          # all flows
 npm run test:e2e:single -- .maestro/01-app-launches.yaml  # single flow
@@ -444,6 +478,7 @@ Existing testIDs: `trainer-screen`, `content-screen`, `vocabulary-screen`,
 `quiz-mode-flashcard`, `quiz-mode-typing`.
 
 ## Known Issues / Watch Out
+
 - **Image picker on iOS:** ALWAYS add 500ms delay before `launchImageLibraryAsync`
   to allow modal to fully close — skipping this causes a silent no-op with no error
 - **API key:** the app must never hold an Anthropic key. All Claude calls go through the backend proxy. Do not add client-side key storage, env vars, or `Authorization` headers.

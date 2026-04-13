@@ -38,12 +38,12 @@ function matchAnswer(userInput: string, expected: string): MatchResult;
 
 ### Matching Rules (first match wins)
 
-| # | Rule | Example | Result |
-|---|------|---------|--------|
-| 1 | Exact match after normalization | "der arzt" = "der Arzt" | `exact` |
-| 2 | Input matches one comma-separated part | "beau" matches "beau, belle" | `tolerant` |
-| 3 | Article tolerance: input without article matches expected without article | "Arzt" matches "der Arzt, die Ärztin" | `tolerant` |
-| 4 | Levenshtein ≤1 on words ≥5 chars (per comma-part, after article stripping) | "medecin" matches "médecin" | `tolerant` |
+| #   | Rule                                                                       | Example                               | Result     |
+| --- | -------------------------------------------------------------------------- | ------------------------------------- | ---------- |
+| 1   | Exact match after normalization                                            | "der arzt" = "der Arzt"               | `exact`    |
+| 2   | Input matches one comma-separated part                                     | "beau" matches "beau, belle"          | `tolerant` |
+| 3   | Article tolerance: input without article matches expected without article  | "Arzt" matches "der Arzt, die Ärztin" | `tolerant` |
+| 4   | Levenshtein ≤1 on words ≥5 chars (per comma-part, after article stripping) | "medecin" matches "médecin"           | `tolerant` |
 
 ### Article stripping
 
@@ -67,10 +67,10 @@ Remove leading articles for comparison: `le, la, l', les, der, die, das, ein, ei
 
 ```typescript
 interface TypingCardProps {
-  question: string;        // displayed question (original or translation)
-  expectedAnswer: string;  // expected answer (the other side)
-  wordType?: string;       // e.g. "noun", "verb", "adjective"
-  level?: string;          // CEFR level e.g. "A2"
+  question: string; // displayed question (original or translation)
+  expectedAnswer: string; // expected answer (the other side)
+  wordType?: string; // e.g. "noun", "verb", "adjective"
+  level?: string; // CEFR level e.g. "A2"
   onCorrect: () => void;
   onIncorrect: () => void;
   onDelete?: () => void;
@@ -80,6 +80,7 @@ interface TypingCardProps {
 ### UI States (3 phases)
 
 **Phase 1 — Input:**
+
 - GlassCard container (same aesthetic as FlashCard)
 - "Question" label + question text (large, centered)
 - Word type + level subtitle (smaller, muted)
@@ -89,6 +90,7 @@ interface TypingCardProps {
 - Delete button top-right (if `onDelete` provided)
 
 **Phase 2 — Feedback:**
+
 - Input becomes read-only
 - Feedback box appears below input:
   - **Green** (`exact`/`tolerant`): "Correct!" + if tolerant: "Complete form: {expected}"
@@ -96,6 +98,7 @@ interface TypingCardProps {
 - "Next →" button replaces Check/Give up
 
 **Phase 3 — Transition:**
+
 - "Next →" calls `onCorrect()` or `onIncorrect()`
 - Parent advances to next card, TypingCard resets
 
@@ -170,19 +173,19 @@ No changes needed. `markCorrect()` / `markIncorrect()` are called by TypingCard 
 
 ## Files to Create
 
-| File | Purpose |
-|------|---------|
-| `lib/matchAnswer.ts` | Answer matching logic |
-| `lib/matchAnswer.test.ts` | Unit tests |
-| `components/TypingCard.tsx` | Typing quiz UI component |
-| `.maestro/09-typing-mode.yaml` | E2E test flow |
+| File                           | Purpose                  |
+| ------------------------------ | ------------------------ |
+| `lib/matchAnswer.ts`           | Answer matching logic    |
+| `lib/matchAnswer.test.ts`      | Unit tests               |
+| `components/TypingCard.tsx`    | Typing quiz UI component |
+| `.maestro/09-typing-mode.yaml` | E2E test flow            |
 
 ## Files to Modify
 
-| File | Change |
-|------|--------|
-| `hooks/useSettings.ts` | Add `quizMode` field |
-| `app/settings.tsx` | Add Quiz Mode chip block |
-| `app/(tabs)/index.tsx` | Conditional render TypingCard vs FlashCard |
+| File                                 | Change                                          |
+| ------------------------------------ | ----------------------------------------------- |
+| `hooks/useSettings.ts`               | Add `quizMode` field                            |
+| `app/settings.tsx`                   | Add Quiz Mode chip block                        |
+| `app/(tabs)/index.tsx`               | Conditional render TypingCard vs FlashCard      |
 | `lib/__tests__/architecture.test.ts` | Add matchAnswer boundary + quizMode value tests |
-| `CLAUDE.md` | Document new setting, component, testIDs |
+| `CLAUDE.md`                          | Document new setting, component, testIDs        |
