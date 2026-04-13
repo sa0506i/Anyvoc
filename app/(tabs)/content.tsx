@@ -7,7 +7,6 @@ import {
   Pressable,
   Modal,
   TextInput,
-  Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
@@ -27,6 +26,7 @@ import { fetchArticleContent } from '../../lib/urlExtractor';
 import { useSettingsStore } from '../../hooks/useSettings';
 import { useTheme } from '../../hooks/useTheme';
 import { useUIStore } from '../../hooks/useUIStore';
+import { useAlert } from '../../components/ConfirmDialog';
 import {
   spacing,
   fontSize,
@@ -45,6 +45,7 @@ export default function ContentsScreen() {
   const level = useSettingsStore((s) => s.level);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { alert, confirm, AlertDialog } = useAlert();
 
   const addMenuRequested = useUIStore((s) => s.addMenuRequested);
   const clearAddMenuRequest = useUIStore((s) => s.clearAddMenuRequest);
@@ -100,20 +101,20 @@ export default function ContentsScreen() {
       );
       loadContents();
       if (result.belowLevel) {
-        Alert.alert(
+        alert(
           'Done',
           `${result.foundTotal} vocabulary items found, but all were below your level (${displayLevel(level)}). Try lowering your level in settings.`,
         );
       } else {
-        Alert.alert('Done', `${result.inserted} vocabulary items extracted.`);
+        alert('Done', `${result.inserted} vocabulary items extracted.`);
       }
     } catch (error) {
       if (error instanceof ClaudeAPIError) {
-        Alert.alert('API Error', error.message);
+        alert('API Error', error.message);
       } else {
         const msg = error instanceof Error ? error.message : String(error);
-        console.error('Content processing error:', error);
-        Alert.alert('Error', msg);
+        console.warn('Content processing error:', error);
+        alert('Error', msg);
       }
     } finally {
       setLoading(false);
@@ -139,10 +140,7 @@ export default function ContentsScreen() {
       // Request permission first (required on iOS)
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
-          'Permission Required',
-          'Please allow access to your photos in device settings.',
-        );
+        alert('Permission Required', 'Please allow access to your photos in device settings.');
         return;
       }
 
@@ -185,7 +183,7 @@ export default function ContentsScreen() {
           : error instanceof Error
             ? error.message
             : String(error);
-      Alert.alert('Image Error', msg);
+      alert('Image Error', msg);
     } finally {
       setLoading(false);
       setLoadingMessage('');
@@ -209,10 +207,10 @@ export default function ContentsScreen() {
       return;
     } catch (error) {
       if (error instanceof ClaudeAPIError) {
-        Alert.alert('API Error', error.message);
+        alert('API Error', error.message);
       } else {
         const msg = error instanceof Error ? error.message : String(error);
-        Alert.alert('Error', msg);
+        alert('Error', msg);
       }
     } finally {
       setLoading(false);
@@ -394,6 +392,7 @@ export default function ContentsScreen() {
           </View>
         </View>
       )}
+      <AlertDialog />
     </View>
   );
 }

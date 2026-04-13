@@ -164,7 +164,162 @@ describe('Architecture: score.ts integrity', () => {
   });
 });
 
-// ─── Rule 5: app/ screens must import useTheme, not hardcode colors ─
+// ─── Rule 5: matchAnswer.ts must stay offline (no network imports) ───
+// CLAUDE.md: Typing quiz matching is pure local — no LLM, no fetch.
+describe('Architecture: matchAnswer.ts must not use network', () => {
+  it('matchAnswer.ts has no network imports', () => {
+    const filePath = path.join(ROOT, 'lib', 'matchAnswer.ts');
+    const content = fs.readFileSync(filePath, 'utf8');
+
+    const NETWORK_PATTERNS = [
+      /\bfetch\s*\(/,
+      /\bfrom\s+['"].*claude['"]/,
+      /\bfrom\s+['"]axios['"]/,
+      /\bimport\b.*['"].*callClaude['"]/,
+      /\bXMLHttpRequest\b/,
+    ];
+
+    for (const pattern of NETWORK_PATTERNS) {
+      const match = content.match(pattern);
+      expect(match).toBeNull();
+      if (match) {
+        throw new Error(
+          `NETWORK IMPORT in matchAnswer.ts: "${match[0]}"\n` +
+            `matchAnswer must be pure local string matching — no network calls.\n` +
+            `See spec: docs/superpowers/specs/2026-04-13-typing-quiz-mode-design.md`,
+        );
+      }
+    }
+  });
+});
+
+// ─── Rule 6: Trainer screen imports ConfirmDialog ──────────────────
+// Trainer has delete-card flow that needs themed dialog.
+// (The broader "no Alert anywhere" ban is Rule 8 below.)
+describe('Architecture: trainer screen uses ConfirmDialog', () => {
+  it('app/(tabs)/index.tsx imports ConfirmDialog', () => {
+    const filePath = path.join(ROOT, 'app', '(tabs)', 'index.tsx');
+    const content = fs.readFileSync(filePath, 'utf8');
+    expect(content).toMatch(/import\s+ConfirmDialog\s+from/);
+  });
+});
+
+// ─── Rule 7: Settings language picker filters native from learning ───
+// Native language must not appear in learning language picker.
+// When native is set to current learning language, they must swap.
+describe('Architecture: settings language swap logic', () => {
+  it('settings.tsx filters languages in learning picker', () => {
+    const filePath = path.join(ROOT, 'app', 'settings.tsx');
+    const content = fs.readFileSync(filePath, 'utf8');
+
+    // Must filter out nativeLanguage from learning picker
+    expect(content).toMatch(/\.filter\(/);
+    expect(content).toMatch(/nativeLanguage/);
+  });
+
+  it('settings.tsx swaps languages when native conflicts with learning', () => {
+    const filePath = path.join(ROOT, 'app', 'settings.tsx');
+    const content = fs.readFileSync(filePath, 'utf8');
+
+    // Must handle the swap case: when selected native === current learning
+    expect(content).toMatch(/learningLanguage/);
+    // Should update learningLanguage to old nativeLanguage when conflict detected
+    expect(content).toMatch(/updateSetting\(['"]learningLanguage['"]/);
+  });
+});
+
+// ─── Rule 8: No Alert.alert anywhere in app/ or components/ ────────
+// CLAUDE.md: Native Alert.alert is unstyled on Android. All screens
+// and components must use the themed ConfirmDialog / useAlert() hook.
+// The only file allowed to reference Alert is ConfirmDialog.tsx itself.
+describe('Architecture: no native Alert.alert in client code', () => {
+  const appFiles = collectSourceFiles(path.join(ROOT, 'app'));
+  const componentFiles = collectSourceFiles(path.join(ROOT, 'components'));
+  const allFiles = [...appFiles, ...componentFiles];
+
+  for (const file of allFiles) {
+    const relPath = path.relative(ROOT, file);
+    // ConfirmDialog.tsx is the themed replacement — it's allowed to reference Alert concepts
+    if (relPath.includes('ConfirmDialog')) continue;
+
+    it(`${relPath} does not use native Alert`, () => {
+      const content = fs.readFileSync(file, 'utf8');
+      // Check for Alert import from react-native
+      const importMatch = content.match(/\bimport\b[^;]*\bAlert\b[^;]*from\s+['"]react-native['"]/);
+      expect(importMatch).toBeNull();
+      if (importMatch) {
+        throw new Error(
+          `NATIVE ALERT IMPORT in ${relPath}: "${importMatch[0]}"\n` +
+            `Do not use React Native's Alert — it renders unstyled on Android.\n` +
+            `Use the useAlert() hook from components/ConfirmDialog instead.\n` +
+            `See CLAUDE.md "Known Issues" section.`,
+        );
+      }
+      // Check for Alert.alert() calls (even without import, could be a global reference)
+      const callMatch = content.match(/\bAlert\.alert\s*\(/);
+      expect(callMatch).toBeNull();
+      if (callMatch) {
+        throw new Error(
+          `ALERT.ALERT() CALL in ${relPath}: "${callMatch[0]}"\n` +
+            `Do not use Alert.alert() — use the useAlert() hook instead.\n` +
+            `See CLAUDE.md "Known Issues" section.`,
+        );
+      }
+    });
+  }
+});
+
+// ─── Rule 9: Error messages must use English language names ─────────
+// CLAUDE.md: All UI is English. Use getLanguageEnglishName() for user-facing
+// strings, not getLanguageName() (which returns native names like "Deutsch").
+describe('Architecture: error messages use English language names', () => {
+  it('shareProcessing.ts uses getLanguageEnglishName for error messages', () => {
+    const filePath = path.join(ROOT, 'lib', 'shareProcessing.ts');
+    const content = fs.readFileSync(filePath, 'utf8');
+
+    // Must import getLanguageEnglishName
+    expect(content).toMatch(/getLanguageEnglishName/);
+
+    // Must NOT import getLanguageName (the native-name version) —
+    // if needed for non-error purposes in the future, this test can be relaxed
+    const nativeNameImport = content.match(/\bimport\b[^;]*\bgetLanguageName\b[^;]*from/);
+    expect(nativeNameImport).toBeNull();
+    if (nativeNameImport) {
+      throw new Error(
+        `NATIVE LANGUAGE NAME in shareProcessing.ts\n` +
+          `User-facing error messages must use English language names.\n` +
+          `Use getLanguageEnglishName() instead of getLanguageName().\n` +
+          `getLanguageName() returns native names (e.g. "Deutsch" instead of "German").`,
+      );
+    }
+  });
+});
+
+// ─── Rule 10: No console.error for user-facing errors in app/ ──────
+// console.error triggers Expo LogBox red toast in dev mode.
+// Use console.warn for expected/handled errors shown to the user.
+describe('Architecture: no console.error in app/ screens', () => {
+  const appFiles = collectSourceFiles(path.join(ROOT, 'app'));
+
+  for (const file of appFiles) {
+    const relPath = path.relative(ROOT, file);
+    it(`${relPath} does not use console.error`, () => {
+      const content = fs.readFileSync(file, 'utf8');
+      const match = content.match(/\bconsole\.error\s*\(/);
+      expect(match).toBeNull();
+      if (match) {
+        throw new Error(
+          `CONSOLE.ERROR in ${relPath}: "${match[0]}"\n` +
+            `console.error triggers Expo LogBox red toast in dev mode.\n` +
+            `Use console.warn for expected/handled errors, or remove the log.\n` +
+            `See CLAUDE.md "Known Issues" section.`,
+        );
+      }
+    });
+  }
+});
+
+// ─── Rule 11: app/ screens must import useTheme, not hardcode colors ─
 // Known baseline: 7 existing #FFFFFF usages in button text/icons (pre-existing debt).
 // This test catches NEW hardcoded colors beyond the baseline.
 describe('Architecture: screens use theme system', () => {

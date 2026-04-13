@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useShareIntentContext } from 'expo-share-intent';
@@ -10,6 +9,7 @@ import { ClaudeAPIError } from '../lib/claude';
 import { useSettingsStore } from '../hooks/useSettings';
 import { useShareProcessingStore } from '../hooks/useShareProcessingStore';
 import { useUIStore } from '../hooks/useUIStore';
+import { useAlert } from './ConfirmDialog';
 
 /**
  * Invisible root-level component that handles incoming system share intents.
@@ -33,6 +33,7 @@ export default function ShareIntentHandler() {
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   const shareStore = useShareProcessingStore();
   const bumpContentRefresh = useUIStore((s) => s.bumpContentRefresh);
+  const { alert, AlertDialog } = useAlert();
 
   // Prevent double-processing if the effect re-runs while still working
   const processingRef = useRef(false);
@@ -100,19 +101,19 @@ export default function ShareIntentHandler() {
         bumpContentRefresh();
 
         if (result.belowLevel) {
-          Alert.alert(
+          alert(
             'Done',
             `${result.foundTotal} vocabulary items found, but all were below your level. Try lowering your level in settings.`,
           );
         } else {
-          Alert.alert('Done', `${result.inserted} vocabulary items extracted.`);
+          alert('Done', `${result.inserted} vocabulary items extracted.`);
         }
       } catch (error) {
         if (error instanceof ClaudeAPIError) {
-          Alert.alert('API Error', error.message);
+          alert('API Error', error.message);
         } else {
           const msg = error instanceof Error ? error.message : String(error);
-          Alert.alert('Error', msg);
+          alert('Error', msg);
         }
       } finally {
         shareStore.stop();
@@ -124,5 +125,5 @@ export default function ShareIntentHandler() {
     run();
   }, [hasShareIntent]);
 
-  return null;
+  return <AlertDialog />;
 }

@@ -4,19 +4,24 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useSettingsStore, useSettingsActions, QuizDirection } from '../hooks/useSettings';
+import {
+  useSettingsStore,
+  useSettingsActions,
+  QuizDirection,
+  QuizMode,
+} from '../hooks/useSettings';
 import { useTheme } from '../hooks/useTheme';
-import { languages, getLanguageName } from '../constants/languages';
+import { languages, getLanguageName, getLanguageFlag } from '../constants/languages';
 import { CEFR_LEVELS_UI, displayLevel, uiToInternalLevel } from '../constants/levels';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, fontSize, borderRadius, marineShadow } from '../constants/theme';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -24,11 +29,15 @@ export default function SettingsScreen() {
   const learningLanguage = useSettingsStore((s) => s.learningLanguage);
   const level = useSettingsStore((s) => s.level);
   const quizDirection = useSettingsStore((s) => s.quizDirection);
+  const quizMode = useSettingsStore((s) => s.quizMode);
   const cardsPerRound = useSettingsStore((s) => s.cardsPerRound);
   const { updateSetting, resetApp } = useSettingsActions();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const nativeFlag = getLanguageFlag(nativeLanguage);
+  const learningFlag = getLanguageFlag(learningLanguage);
 
   const Header = () => (
     <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
@@ -48,29 +57,27 @@ export default function SettingsScreen() {
   );
 
   const [showLanguagePicker, setShowLanguagePicker] = useState<'native' | 'learning' | null>(null);
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
-  const quizDirectionOptions: { value: QuizDirection; label: string }[] = [
-    { value: 'native-to-learning', label: 'Native → Learning' },
-    { value: 'learning-to-native', label: 'Learning → Native' },
-    { value: 'random', label: 'Random' },
+  const quizModeOptions: { value: QuizMode; label: string }[] = [
+    { value: 'flashcard', label: 'Flashcard' },
+    { value: 'typing', label: 'Typing' },
+  ];
+
+  const quizDirectionOptions: { value: QuizDirection; parts: [string, string, string] }[] = [
+    { value: 'native-to-learning', parts: [nativeFlag, '→', learningFlag] },
+    { value: 'learning-to-native', parts: [learningFlag, '→', nativeFlag] },
+    { value: 'random', parts: [nativeFlag, '⇄', learningFlag] },
   ];
 
   const handleReset = () => {
-    Alert.alert(
-      'Reset App',
-      'All vocabulary, content, statistics, and Leitner progress will be deleted. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            await resetApp();
-            router.back();
-          },
-        },
-      ],
-    );
+    setShowResetDialog(true);
+  };
+
+  const confirmReset = async () => {
+    setShowResetDialog(false);
+    await resetApp();
+    router.back();
   };
 
   if (showLanguagePicker) {
@@ -85,26 +92,32 @@ export default function SettingsScreen() {
           {isNative ? 'Select Native Language' : 'Select Learning Language'}
         </Text>
         <ScrollView>
-          {languages.map((lang) => {
-            const selected = isNative
-              ? lang.code === nativeLanguage
-              : lang.code === learningLanguage;
-            return (
-              <Pressable
-                key={lang.code}
-                style={[styles.pickerItem, selected && styles.pickerItemSelected]}
-                onPress={() => {
-                  updateSetting(isNative ? 'nativeLanguage' : 'learningLanguage', lang.code);
-                  setShowLanguagePicker(null);
-                }}
-              >
-                <Text style={[styles.pickerItemText, selected && styles.pickerItemTextSelected]}>
-                  {lang.nativeName}
-                </Text>
-                <Text style={styles.pickerItemSubtext}>{lang.name}</Text>
-              </Pressable>
-            );
-          })}
+          {languages
+            .filter((lang) => isNative || lang.code !== nativeLanguage)
+            .map((lang) => {
+              const selected = isNative
+                ? lang.code === nativeLanguage
+                : lang.code === learningLanguage;
+              return (
+                <Pressable
+                  key={lang.code}
+                  style={[styles.pickerItem, selected && styles.pickerItemSelected]}
+                  onPress={() => {
+                    if (isNative && lang.code === learningLanguage) {
+                      // Swap: learning language takes the old native language
+                      updateSetting('learningLanguage', nativeLanguage);
+                    }
+                    updateSetting(isNative ? 'nativeLanguage' : 'learningLanguage', lang.code);
+                    setShowLanguagePicker(null);
+                  }}
+                >
+                  <Text style={[styles.pickerItemText, selected && styles.pickerItemTextSelected]}>
+                    {lang.nativeName}
+                  </Text>
+                  <Text style={styles.pickerItemSubtext}>{lang.name}</Text>
+                </Pressable>
+              );
+            })}
         </ScrollView>
       </View>
     );
@@ -150,7 +163,6 @@ export default function SettingsScreen() {
                 key={ui}
                 style={({ pressed }) => [
                   styles.levelChip,
-                  styles.cefrChip,
                   active && styles.levelChipActive,
                   pressed && styles.pressed,
                 ]}
@@ -164,27 +176,48 @@ export default function SettingsScreen() {
           })}
         </View>
 
+        {/* Quiz Mode */}
+        <Text style={styles.sectionTitle}>Quiz Mode</Text>
+        <View style={styles.chipRow}>
+          {quizModeOptions.map((opt) => (
+            <Pressable
+              key={opt.value}
+              testID={`quiz-mode-${opt.value}`}
+              style={({ pressed }) => [
+                styles.levelChip,
+                quizMode === opt.value && styles.levelChipActive,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => updateSetting('quizMode', opt.value)}
+            >
+              <Text
+                style={[styles.levelChipText, quizMode === opt.value && styles.levelChipTextActive]}
+              >
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         {/* Quiz Direction */}
         <Text style={styles.sectionTitle}>Quiz Direction</Text>
-        <View style={styles.chipRow}>
+        <Text style={styles.sectionHint}>Which language is shown as the question</Text>
+        <View style={styles.directionRow}>
           {quizDirectionOptions.map((opt) => (
             <Pressable
               key={opt.value}
               style={({ pressed }) => [
-                styles.levelChip,
+                styles.directionChip,
                 quizDirection === opt.value && styles.levelChipActive,
                 pressed && styles.pressed,
               ]}
               onPress={() => updateSetting('quizDirection', opt.value)}
             >
-              <Text
-                style={[
-                  styles.levelChipText,
-                  quizDirection === opt.value && styles.levelChipTextActive,
-                ]}
-              >
-                {opt.label}
-              </Text>
+              <View style={styles.directionContent}>
+                <Text style={styles.directionEmoji}>{opt.parts[0]}</Text>
+                <Text style={styles.directionArrow}>{opt.parts[1]}</Text>
+                <Text style={styles.directionEmoji}>{opt.parts[2]}</Text>
+              </View>
             </Pressable>
           ))}
         </View>
@@ -215,14 +248,27 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        {/* Reset */}
-        <View style={styles.resetSection}>
-          <Pressable testID="reset-app-btn" style={styles.resetButton} onPress={handleReset}>
-            <Ionicons name="trash-outline" size={16} color={colors.error} />
-            <Text style={styles.resetText}>Reset App</Text>
-          </Pressable>
-        </View>
+        {/* Reset App */}
+        <Text style={styles.sectionTitle}>Reset App</Text>
+        <Text style={styles.sectionHint}>
+          Delete all vocabulary and go back to initial settings
+        </Text>
+        <Pressable testID="reset-app-btn" style={styles.resetButton} onPress={handleReset}>
+          <Ionicons name="trash-outline" size={16} color={colors.error} />
+          <Text style={styles.resetText}>Reset</Text>
+        </Pressable>
       </ScrollView>
+
+      <ConfirmDialog
+        visible={showResetDialog}
+        title="Reset App"
+        message="All vocabulary, content, statistics, and Leitner progress will be deleted. This action cannot be undone."
+        cancelLabel="Cancel"
+        confirmLabel="Reset"
+        destructive
+        onCancel={() => setShowResetDialog(false)}
+        onConfirm={confirmReset}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -315,16 +361,41 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       gap: spacing.sm,
       flexWrap: 'wrap',
     },
+    directionRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    directionChip: {
+      flex: 1,
+      paddingVertical: spacing.sm + 2,
+      borderRadius: borderRadius.full,
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    directionContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    directionEmoji: {
+      fontSize: 18,
+    },
+    directionArrow: {
+      fontSize: 16,
+      fontWeight: '900',
+      color: '#FFFFFF',
+    },
     levelChip: {
+      flex: 1,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.sm,
       borderRadius: borderRadius.full,
       backgroundColor: c.glass,
       borderWidth: 1,
       borderColor: c.glassBorder,
-    },
-    cefrChip: {
-      minWidth: 52,
       alignItems: 'center',
     },
     levelChipActive: {
@@ -340,51 +411,10 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       color: '#FFFFFF',
       fontWeight: '600',
     },
-    radioRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      backgroundColor: c.glass,
-      borderWidth: 1,
-      borderColor: c.glassBorder,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      marginTop: spacing.sm,
-      gap: spacing.sm,
-    },
-    radioRowSelected: {
-      borderColor: c.primary,
-      borderWidth: 1,
-    },
-    radio: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      borderWidth: 2,
-      borderColor: c.glassBorder,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    radioSelected: {
-      borderColor: c.primary,
-    },
-    radioDot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
-      backgroundColor: c.primary,
-    },
-    radioLabel: {
-      fontSize: fontSize.md,
-      color: c.text,
-      fontWeight: '300',
-    },
-    resetSection: {
-      marginTop: spacing.xxl,
-    },
     resetButton: {
       flexDirection: 'row',
-      alignSelf: 'center',
       alignItems: 'center',
+      alignSelf: 'flex-start',
       gap: spacing.xs,
       backgroundColor: c.errorBgLight,
       borderWidth: 1,

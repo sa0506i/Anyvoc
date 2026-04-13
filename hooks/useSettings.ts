@@ -18,12 +18,14 @@ function getDeviceNativeLanguage(): string {
 }
 
 export type QuizDirection = 'native-to-learning' | 'learning-to-native' | 'random';
+export type QuizMode = 'flashcard' | 'typing';
 
 interface SettingsState {
   nativeLanguage: string;
   learningLanguage: string;
   level: string;
   quizDirection: QuizDirection;
+  quizMode: QuizMode;
   cardsPerRound: string;
   loaded: boolean;
 
@@ -37,6 +39,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   learningLanguage: 'en',
   level: 'A2',
   quizDirection: 'random',
+  quizMode: 'flashcard',
   cardsPerRound: '20',
   loaded: false,
 
@@ -66,6 +69,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       learningLanguage: settings['learningLanguage'] ?? 'en',
       level: settings['level'] ?? 'A2',
       quizDirection: (settings['quizDirection'] as QuizDirection) ?? 'random',
+      quizMode: (settings['quizMode'] as QuizMode) ?? 'flashcard',
       cardsPerRound: settings['cardsPerRound'] ?? '20',
       loaded: true,
     });
@@ -85,6 +89,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       learningLanguage: 'en',
       level: 'A2',
       quizDirection: 'random',
+      quizMode: 'flashcard',
       cardsPerRound: '20',
     });
   },

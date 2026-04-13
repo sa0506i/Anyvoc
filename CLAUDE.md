@@ -25,7 +25,9 @@ app/(tabs)/
 app/content/[id].tsx # Content detail (3 tabs: original / translation / vocab)
 app/settings.tsx     # Settings modal (gear icon top right)
 components/
-  FlashCard.tsx      # Flip card for trainer
+  ConfirmDialog.tsx  # Themed confirmation modal (replaces Alert.alert on Android)
+  FlashCard.tsx      # Flip card for trainer (flashcard mode)
+  TypingCard.tsx     # Type-answer card for trainer (typing mode)
   GlassCard.tsx      # Reusable glass-style card container
   HighlightedText.tsx# Text with yellow-highlighted vocab
   LearningMaturity.tsx # Leitner box distribution visual
@@ -45,6 +47,7 @@ lib/
   database.ts        # All SQLite access (sync API)
   leitner.ts         # getCardsForReview, selectRound, getStreakDays,
                      # getBestStreak, getAveragePerDay
+  matchAnswer.ts     # Local answer matching for typing quiz (offline, no LLM)
   shareHandler.ts    # Share intent processing
   urlExtractor.ts    # Web URL content extraction via Readability (Claude fallback)
   uuid.ts            # generateUUID()
@@ -185,6 +188,7 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 - `nativeLanguage`, `learningLanguage` → language codes
 - `level` → CEFR minimum level string e.g. `"B1"` (extract this level and above only)
 - `quizDirection` → `"native-to-learning"` | `"learning-to-native"` | `"random"`
+- `quizMode` → `"flashcard"` | `"typing"` (default: `"flashcard"`)
 - `cardsPerRound` → number of cards per trainer session (default `"20"`)
 - No API key is stored anywhere on device — the backend proxy holds it.
 
@@ -253,7 +257,7 @@ Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc -
 | CEFR classifier | `lib/classifier/classifier.test.ts` | 26 | Mocked Claude fallback |
 | Language detection | `lib/detectLanguage.test.ts` | 7 | No mocks (franc-min is deterministic) |
 | URL extraction | `lib/urlExtractor.test.ts` | 5 | `global.fetch` + mocked `callClaude` |
-| Architecture boundaries | `lib/__tests__/architecture.test.ts` | 80 | Pure file scanning, no mocks |
+| Architecture boundaries | `lib/__tests__/architecture.test.ts` | 100+ | Pure file scanning, no mocks |
 | Approved LLM fixtures | `lib/__tests__/approved-fixtures.test.ts` | 16 | `global.fetch` + mocked `callClaude` |
 | Build scripts | `scripts/build-freq.test.ts` | — | — |
 
@@ -374,7 +378,7 @@ Ask "could a computational sensor have caught this?" If yes, add one now — don
 | Tool | File | Type |
 |------|------|------|
 | ESLint (banned imports, unused vars) | `eslint.config.mjs` | Computational feedforward + feedback |
-| Architecture boundary tests (80 tests) | `lib/__tests__/architecture.test.ts` | Computational feedback |
+| Architecture boundary tests (100+ tests) | `lib/__tests__/architecture.test.ts` | Computational feedback |
 | Approved LLM response fixtures (16 tests) | `lib/__tests__/approved-fixtures.test.ts` | Behavioural feedback |
 | Claude Code PostEdit hook (tsc) | `.claude/settings.local.json` | Computational feedback |
 | Husky pre-commit (lint-staged + tsc) | `.husky/pre-commit` | Computational feedback |
@@ -435,7 +439,9 @@ Existing testIDs: `trainer-screen`, `content-screen`, `vocabulary-screen`,
 `content-list`, `menu-enter-text`, `menu-choose-image`, `menu-add-link`,
 `title-input`, `text-input`, `save-text-btn`, `vocab-search-input`, `vocab-list`,
 `settings-btn`, `settings-close-btn`, `native-language-btn`, `learning-language-btn`,
-`reset-app-btn`, `content-tab-original`, `content-tab-translation`, `content-tab-vocabulary`.
+`reset-app-btn`, `content-tab-original`, `content-tab-translation`, `content-tab-vocabulary`,
+`typing-card`, `typing-input`, `check-btn`, `give-up-btn`, `next-btn`, `feedback-box`,
+`quiz-mode-flashcard`, `quiz-mode-typing`.
 
 ## Known Issues / Watch Out
 - **Image picker on iOS:** ALWAYS add 500ms delay before `launchImageLibraryAsync`
@@ -443,3 +449,7 @@ Existing testIDs: `trainer-screen`, `content-screen`, `vocabulary-screen`,
 - **API key:** the app must never hold an Anthropic key. All Claude calls go through the backend proxy. Do not add client-side key storage, env vars, or `Authorization` headers.
 - **expo.log on Windows:** `Tee-Object` requires PowerShell (not CMD). If the file stays empty, check that the terminal is PowerShell 5+ and that `npx` resolves correctly (`where.exe npx`).
 - **Android emulator + Metro port conflict:** if Metro fails to start on port 8081, kill the stale process with `npx kill-port 8081` before restarting.
+- **Android Alert.alert():** Native alerts are unstyled on Android (harsh black/white). Use the `useAlert()` hook from `components/ConfirmDialog` instead — **everywhere** in app/ and components/. Architecture test (Rule 8) bans `Alert` imports and `Alert.alert()` calls in all client files.
+- **Language settings:** Native and learning language must never be the same. The learning language picker filters out the current native language. If native is changed to match learning, they swap automatically. Architecture test enforces the swap logic exists in `app/settings.tsx`.
+- **Error messages must be English:** User-facing error messages must use `getLanguageEnglishName()` (returns "German"), not `getLanguageName()` (returns "Deutsch"). Architecture test (Rule 9) enforces this in `shareProcessing.ts`.
+- **No console.error in app/ screens:** `console.error` triggers Expo LogBox red toast in dev mode. Use `console.warn` for expected/handled errors shown to the user via dialog. Architecture test (Rule 10) bans `console.error` in all app/ files.

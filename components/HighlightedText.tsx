@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Text, Alert, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
+import { useAlert } from './ConfirmDialog';
 import { fontSize, type ThemeColors } from '../constants/theme';
 
 interface HighlightRange {
@@ -24,6 +25,7 @@ export default function HighlightedText({
 }: HighlightedTextProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { confirm, AlertDialog } = useAlert();
 
   const sortedHighlights = [...highlights].sort((a, b) => a.start - b.start);
 
@@ -43,10 +45,15 @@ export default function HighlightedText({
   }
 
   const handleHighlightPress = (vocabId: string, word: string) => {
-    Alert.alert('Remove Vocabulary', `Remove "${word}" from the vocabulary list?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => onRemoveHighlight(vocabId) },
-    ]);
+    confirm(
+      'Remove Vocabulary',
+      `Remove "${word}" from the vocabulary list?`,
+      () => onRemoveHighlight(vocabId),
+      {
+        destructive: true,
+        confirmLabel: 'Remove',
+      },
+    );
   };
 
   const handleWordLongPress = (word: string) => {
@@ -75,21 +82,24 @@ export default function HighlightedText({
   };
 
   return (
-    <Text style={styles.text}>
-      {segments.map((seg, i) =>
-        seg.highlight ? (
-          <Text
-            key={i}
-            style={styles.highlighted}
-            onPress={() => handleHighlightPress(seg.highlight!.vocabId, seg.text)}
-          >
-            {seg.text}
-          </Text>
-        ) : (
-          renderPlainSegment(seg.text, String(i))
-        ),
-      )}
-    </Text>
+    <View>
+      <Text style={styles.text}>
+        {segments.map((seg, i) =>
+          seg.highlight ? (
+            <Text
+              key={i}
+              style={styles.highlighted}
+              onPress={() => handleHighlightPress(seg.highlight!.vocabId, seg.text)}
+            >
+              {seg.text}
+            </Text>
+          ) : (
+            renderPlainSegment(seg.text, String(i))
+          ),
+        )}
+      </Text>
+      <AlertDialog />
+    </View>
   );
 }
 

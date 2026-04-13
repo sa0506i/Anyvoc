@@ -145,6 +145,7 @@ export default function TabLayout() {
       screenOptions={{
         headerLeft: () => <Text style={{ fontSize: 22, marginLeft: 16 }}>{flag}</Text>,
         headerStyle: { backgroundColor: colors.backgroundMid },
+        headerTitleAlign: 'center',
         headerShadowVisible: false,
         headerTintColor: colors.text,
         headerTitleStyle: { color: colors.text },

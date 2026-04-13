@@ -5,7 +5,6 @@ import {
   ScrollView,
   FlatList,
   Pressable,
-  Alert,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
@@ -40,6 +39,7 @@ import {
   type SortOption,
 } from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
+import { useAlert } from '../../components/ConfirmDialog';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
 type Tab = 'original' | 'translation' | 'vocabulary';
@@ -53,6 +53,7 @@ export default function ContentDetailScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { alert, confirm, AlertDialog } = useAlert();
 
   const Header = ({ title }: { title: string }) => (
     <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
@@ -139,10 +140,14 @@ export default function ContentDetailScreen() {
   };
 
   const handleAddWord = (word: string) => {
-    Alert.alert('Add Vocabulary', `Add "${word}" to your vocabulary list?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Add', onPress: () => addWordToVocabulary(word) },
-    ]);
+    confirm(
+      'Add Vocabulary',
+      `Add "${word}" to your vocabulary list?`,
+      () => addWordToVocabulary(word),
+      {
+        confirmLabel: 'Add',
+      },
+    );
   };
 
   const addWordToVocabulary = async (word: string) => {
@@ -158,12 +163,12 @@ export default function ContentDetailScreen() {
       );
 
       if (!result.translation) {
-        Alert.alert('Error', 'Translation could not be determined.');
+        alert('Error', 'Translation could not be determined.');
         return;
       }
 
       if (vocabularyExists(db, result.original)) {
-        Alert.alert('Already exists', `"${result.original}" is already in your vocabulary list.`);
+        alert('Already exists', `"${result.original}" is already in your vocabulary list.`);
         return;
       }
 
@@ -184,12 +189,12 @@ export default function ContentDetailScreen() {
 
       insertVocabulary(db, newVocab);
       setVocabulary((prev) => [...prev, newVocab]);
-      Alert.alert('Added', `"${result.original}" → "${result.translation}"`);
+      alert('Added', `"${result.original}" → "${result.translation}"`);
     } catch (error) {
       if (error instanceof ClaudeAPIError) {
-        Alert.alert('API Error', error.message);
+        alert('API Error', error.message);
       } else {
-        Alert.alert('Error', 'Could not add word.');
+        alert('Error', 'Could not add word.');
       }
     } finally {
       setLoading(false);
@@ -344,6 +349,7 @@ export default function ContentDetailScreen() {
         onSave={handleSaveEdit}
         onCancel={() => setEditingVocab(null)}
       />
+      <AlertDialog />
     </View>
   );
 }

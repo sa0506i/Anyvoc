@@ -16,6 +16,7 @@ name: "Settings screen flow"
 - assertVisible: "Learning Language"
 - assertVisible: "Language Level"
 - assertVisible: "Quiz Direction"
+- assertVisible: "Quiz Mode"
 - assertVisible: "Cards Per Round"
 
 # Tap a CEFR level chip (B2)

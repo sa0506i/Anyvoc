@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, Alert, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +20,8 @@ import {
 import { useTrainerStore } from '../../hooks/useTrainer';
 import { useSettingsStore } from '../../hooks/useSettings';
 import FlashCard from '../../components/FlashCard';
+import TypingCard from '../../components/TypingCard';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import LearningMaturity from '../../components/LearningMaturity';
 import RecentDays from '../../components/ReviewCalendar';
 import EmptyState from '../../components/EmptyState';
@@ -36,6 +38,7 @@ export default function TrainerScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const quizDirection = useSettingsStore((s) => s.quizDirection);
+  const quizMode = useSettingsStore((s) => s.quizMode);
   const cardsPerRound = useSettingsStore((s) => s.cardsPerRound);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -67,6 +70,7 @@ export default function TrainerScreen() {
   const [dueCount, setDueCount] = useState(0);
   const [inSession, setInSession] = useState(false);
   const [allReviewDaysList, setAllReviewDaysList] = useState<string[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const refreshStats = useCallback(() => {
     const allVocab = getAllVocabulary(db);
@@ -122,17 +126,13 @@ export default function TrainerScreen() {
   };
 
   const handleDeleteDuringTraining = () => {
-    Alert.alert('Delete Card', 'Remove this word from your vocabulary?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          const vocabId = deleteCurrentCard();
-          deleteVocabulary(db, vocabId);
-        },
-      },
-    ]);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDelete = () => {
+    setShowDeleteDialog(false);
+    const vocabId = deleteCurrentCard();
+    deleteVocabulary(db, vocabId);
   };
 
   // Active training session
@@ -164,16 +164,39 @@ export default function TrainerScreen() {
         </View>
 
         <View style={styles.cardArea}>
-          <FlashCard
-            front={front}
-            back={back}
-            isRevealed={isFlipped}
-            onReveal={flipCard}
-            onCorrect={() => handleMark(true)}
-            onIncorrect={() => handleMark(false)}
-            onDelete={handleDeleteDuringTraining}
-          />
+          {quizMode === 'typing' ? (
+            <TypingCard
+              question={front}
+              expectedAnswer={back}
+              wordType={card.word_type}
+              level={card.level}
+              onCorrect={() => handleMark(true)}
+              onIncorrect={() => handleMark(false)}
+              onDelete={handleDeleteDuringTraining}
+            />
+          ) : (
+            <FlashCard
+              front={front}
+              back={back}
+              isRevealed={isFlipped}
+              onReveal={flipCard}
+              onCorrect={() => handleMark(true)}
+              onIncorrect={() => handleMark(false)}
+              onDelete={handleDeleteDuringTraining}
+            />
+          )}
         </View>
+
+        <ConfirmDialog
+          visible={showDeleteDialog}
+          title="Delete Card"
+          message="Remove this word from your vocabulary?"
+          cancelLabel="Cancel"
+          confirmLabel="Delete"
+          destructive
+          onCancel={() => setShowDeleteDialog(false)}
+          onConfirm={confirmDelete}
+        />
       </View>
     );
   }

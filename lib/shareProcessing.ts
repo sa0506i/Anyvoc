@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { extractVocabulary, translateText, detectLanguage, type SupportedLanguage } from './claude';
 import { insertContent, insertVocabularyBatch, type Content, type Vocabulary } from './database';
-import { getLanguageName, getLanguageEnglishName } from '../constants/languages';
+import { getLanguageEnglishName } from '../constants/languages';
 import { isAtOrAboveLevel } from '../constants/levels';
 import { generateUUID } from './uuid';
 
@@ -45,7 +45,7 @@ export async function processSharedText(
     if (sourceType === 'image') {
       throw new Error('No usable text could be found in this image. Please try a clearer image.');
     }
-    const detectedName = getLanguageName(detectedLang);
+    const detectedName = getLanguageEnglishName(detectedLang);
     throw new Error(
       `The content appears to be in ${detectedName}, but your learning language is set to ${learningName}. Please add content in your learning language.`,
     );
