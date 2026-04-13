@@ -15,3 +15,14 @@ backend/
 .expo/
 dist/
 web-build/
+
+# Dev tooling — not needed in EAS build
+.husky/
+coverage/
+scripts/
+knip.json
+eslint.config.mjs
+.prettierrc
+.prettierignore
+lib/__tests__/
+.maestro/

@@ -74,7 +74,7 @@ const W_AOA = 4.7804;
 const THETA_A1_A2 = -0.1559;
 const THETA_A2_B1 = 0.6753;
 const THETA_B1_B2 = 1.5918;
-const THETA_B2_C1 = 2.0130;
+const THETA_B2_C1 = 2.013;
 const THETA_C1_C2 = 2.6026;
 
 /**

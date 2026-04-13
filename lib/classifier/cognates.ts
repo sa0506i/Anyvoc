@@ -47,7 +47,7 @@ function getEnglishGloss(_word: string, _language: SupportedLanguage): string | 
 export function applyCognateAdjustment(
   word: string,
   language: SupportedLanguage,
-  difficulty: number
+  difficulty: number,
 ): number {
   const gloss = getEnglishGloss(word, language);
   // Placeholder per spec: NLD = 0 when no gloss is available.

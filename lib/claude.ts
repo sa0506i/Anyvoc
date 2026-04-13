@@ -47,7 +47,7 @@ interface CallClaudeOptions {
 export class ClaudeAPIError extends Error {
   constructor(
     message: string,
-    public statusCode?: number
+    public statusCode?: number,
   ) {
     super(message);
     this.name = 'ClaudeAPIError';
@@ -58,7 +58,7 @@ export async function callClaude(
   messages: ClaudeMessage[],
   systemPrompt: string,
   maxTokens: number = 4096,
-  options?: CallClaudeOptions
+  options?: CallClaudeOptions,
 ): Promise<string> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60_000);
@@ -85,7 +85,10 @@ export async function callClaude(
         throw new ClaudeAPIError('Service authentication error. Please try again later.', status);
       }
       if (status === 429) {
-        throw new ClaudeAPIError('API rate limit reached. Please wait a moment and try again.', status);
+        throw new ClaudeAPIError(
+          'API rate limit reached. Please wait a moment and try again.',
+          status,
+        );
       }
       const errorBody = await response.text().catch(() => '');
       throw new ClaudeAPIError(`API error (${status}): ${errorBody || 'Unknown error'}`, status);
@@ -112,8 +115,19 @@ export async function callClaude(
 
 /** ISO 639-3 (franc output) → ISO 639-1 (our language codes) for supported languages. */
 const ISO3_TO_ISO1: Record<string, string> = {
-  eng: 'en', deu: 'de', fra: 'fr', spa: 'es', ita: 'it', por: 'pt',
-  nld: 'nl', swe: 'sv', nob: 'no', nno: 'no', dan: 'da', pol: 'pl', ces: 'cs',
+  eng: 'en',
+  deu: 'de',
+  fra: 'fr',
+  spa: 'es',
+  ita: 'it',
+  por: 'pt',
+  nld: 'nl',
+  swe: 'sv',
+  nob: 'no',
+  nno: 'no',
+  dan: 'da',
+  pol: 'pl',
+  ces: 'cs',
 };
 
 /**
@@ -158,10 +172,7 @@ export function chunkText(text: string, maxChars: number = MAX_CHARS_PER_CHUNK):
   return chunks;
 }
 
-function buildVocabSystemPrompt(
-  nativeLanguageName: string,
-  learningLanguageName: string
-): string {
+function buildVocabSystemPrompt(nativeLanguageName: string, learningLanguageName: string): string {
   // CEFR classification is no longer the LLM's job — it is handled
   // deterministically by lib/classifier after extraction. The LLM only
   // needs to extract and format the words.
@@ -194,19 +205,16 @@ export async function extractVocabulary(
   text: string,
   nativeLanguageName: string,
   learningLanguageName: string,
-  learningLanguageCode: SupportedLanguage
+  learningLanguageCode: SupportedLanguage,
 ): Promise<ExtractedVocab[]> {
   const chunks = chunkText(text);
   const allVocabs: ExtractedVocab[] = [];
 
   for (const chunk of chunks) {
     const systemPrompt = buildVocabSystemPrompt(nativeLanguageName, learningLanguageName);
-    const responseText = await callClaude(
-      [{ role: 'user', content: chunk }],
-      systemPrompt,
-      8192,
-      { temperature: 0 }
-    );
+    const responseText = await callClaude([{ role: 'user', content: chunk }], systemPrompt, 8192, {
+      temperature: 0,
+    });
 
     const arrayStart = responseText.indexOf('[');
     if (arrayStart === -1) {
@@ -236,9 +244,18 @@ export async function extractVocabulary(
         let lastTopLevelCloseIdx = -1;
         for (let i = 0; i < tail.length; i++) {
           const c = tail[i];
-          if (escape) { escape = false; continue; }
-          if (c === '\\') { escape = true; continue; }
-          if (c === '"') { inString = !inString; continue; }
+          if (escape) {
+            escape = false;
+            continue;
+          }
+          if (c === '\\') {
+            escape = true;
+            continue;
+          }
+          if (c === '"') {
+            inString = !inString;
+            continue;
+          }
           if (inString) continue;
           if (c === '{') depth++;
           else if (c === '}') {
@@ -268,7 +285,7 @@ export async function extractVocabulary(
     } catch (err) {
       console.warn(
         `[claude] classifyWord failed for "${vocab.original}" (${learningLanguageCode}):`,
-        (err as Error).message
+        (err as Error).message,
       );
       vocab.level = 'B1';
     }
@@ -280,17 +297,14 @@ export async function extractVocabulary(
 export async function translateText(
   text: string,
   fromLanguageName: string,
-  toLanguageName: string
+  toLanguageName: string,
 ): Promise<string> {
   const chunks = chunkText(text);
   const translations: string[] = [];
 
   for (const chunk of chunks) {
     const systemPrompt = `You are a professional translator. Translate the following text from ${fromLanguageName} to ${toLanguageName}. Return only the translation, without any additional explanation.`;
-    const result = await callClaude(
-      [{ role: 'user', content: chunk }],
-      systemPrompt
-    );
+    const result = await callClaude([{ role: 'user', content: chunk }], systemPrompt);
     translations.push(result);
   }
 
@@ -301,7 +315,7 @@ export async function translateSingleWord(
   word: string,
   fromLanguageName: string,
   toLanguageName: string,
-  fromLanguageCode: SupportedLanguage
+  fromLanguageCode: SupportedLanguage,
 ): Promise<{ original: string; translation: string; level: string; type: string }> {
   // CEFR level is determined locally after the translation comes back —
   // the LLM is only responsible for formatting + translation.
@@ -318,12 +332,9 @@ Respond exclusively as a JSON object, with no additional text. Leave the level f
   "type": "noun|verb|adjective|phrase|other"
 }`;
 
-  const result = await callClaude(
-    [{ role: 'user', content: word }],
-    systemPrompt,
-    4096,
-    { temperature: 0 }
-  );
+  const result = await callClaude([{ role: 'user', content: word }], systemPrompt, 4096, {
+    temperature: 0,
+  });
 
   let parsed: { original: string; translation: string; level: string; type: string } = {
     original: word,
@@ -346,7 +357,7 @@ Respond exclusively as a JSON object, with no additional text. Leave the level f
   } catch (err) {
     console.warn(
       `[claude] classifyWord failed for "${parsed.original || word}" (${fromLanguageCode}):`,
-      (err as Error).message
+      (err as Error).message,
     );
     if (!parsed.level) parsed.level = 'B1';
   }

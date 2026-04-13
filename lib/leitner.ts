@@ -2,11 +2,11 @@ import type { Vocabulary } from './database';
 
 // Leitner box intervals in milliseconds
 const BOX_INTERVALS: Record<number, number> = {
-  1: 1 * 24 * 60 * 60 * 1000,   // 1 day
-  2: 2 * 24 * 60 * 60 * 1000,   // 2 days
-  3: 4 * 24 * 60 * 60 * 1000,   // 4 days
-  4: 8 * 24 * 60 * 60 * 1000,   // 8 days
-  5: 16 * 24 * 60 * 60 * 1000,  // 16 days
+  1: 1 * 24 * 60 * 60 * 1000, // 1 day
+  2: 2 * 24 * 60 * 60 * 1000, // 2 days
+  3: 4 * 24 * 60 * 60 * 1000, // 4 days
+  4: 8 * 24 * 60 * 60 * 1000, // 8 days
+  5: 16 * 24 * 60 * 60 * 1000, // 16 days
 };
 
 export function isDueForReview(vocab: Vocabulary, now: number = Date.now()): boolean {
@@ -107,9 +107,6 @@ export function getBestStreak(reviewDays: string[]): number {
 
 export function getAveragePerDay(allVocab: Vocabulary[], totalReviewDays: number): number {
   if (totalReviewDays === 0) return 0;
-  const totalReviews = allVocab.reduce(
-    (sum, v) => sum + v.correct_count + v.incorrect_count,
-    0
-  );
+  const totalReviews = allVocab.reduce((sum, v) => sum + v.correct_count + v.incorrect_count, 0);
   return Math.round((totalReviews / totalReviewDays) * 10) / 10;
 }

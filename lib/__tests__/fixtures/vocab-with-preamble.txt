@@ -1,0 +1,18 @@
+Here are the vocabulary items I extracted from the text:
+
+[
+  {
+    "original": "el libro",
+    "translation": "the book",
+    "level": "",
+    "type": "noun",
+    "source_forms": ["libros"]
+  },
+  {
+    "original": "escribir",
+    "translation": "to write",
+    "level": "",
+    "type": "verb",
+    "source_forms": ["escribe", "escribió"]
+  }
+]

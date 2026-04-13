@@ -1,0 +1,30 @@
+[
+  {
+    "original": "der Hund, die Hündin",
+    "translation": "the dog",
+    "level": "",
+    "type": "noun",
+    "source_forms": ["Hunde", "Hunden"]
+  },
+  {
+    "original": "laufen",
+    "translation": "to run",
+    "level": "",
+    "type": "verb",
+    "source_forms": ["läuft", "gelaufen"]
+  },
+  {
+    "original": "klein, kleine",
+    "translation": "small",
+    "level": "",
+    "type": "adjective",
+    "source_forms": ["kleinen", "kleiner"]
+  },
+  {
+    "original": "sich erinnern",
+    "translation": "to remember",
+    "level": "",
+    "type": "verb",
+    "source_forms": ["erinnert"]
+  }
+]

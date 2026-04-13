@@ -234,13 +234,15 @@ Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc -
 
 | Command | What runs | Requires emulator |
 |---------|-----------|-------------------|
-| `npm test` | `tsc --noEmit` + `jest` (all unit/integration tests) | No |
+| `npm test` | `tsc --noEmit` + `jest --coverage` (all unit/integration/arch tests + coverage thresholds) | No |
 | `npm run test:all` | `tsc --noEmit` + `jest` + `maestro` E2E flows | Yes |
 | `npm run test:e2e` | Maestro E2E flows only | Yes |
 | `npm run test:e2e:single -- .maestro/01-app-launches.yaml` | Single Maestro flow | Yes |
+| `npm run check:drift` | Dead code (knip) + security audit + coverage | No |
 
 `npm test` is the fast, always-runnable gate — run it after every change.
 `npm run test:all` is the full pipeline including E2E (needs emulator + Metro).
+`npm run check:drift` is the periodic drift sensor — run before releases or weekly.
 
 **Test suites (Jest):**
 | Suite | File | Tests | Mocking |
@@ -251,6 +253,8 @@ Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc -
 | CEFR classifier | `lib/classifier/classifier.test.ts` | 26 | Mocked Claude fallback |
 | Language detection | `lib/detectLanguage.test.ts` | 7 | No mocks (franc-min is deterministic) |
 | URL extraction | `lib/urlExtractor.test.ts` | 5 | `global.fetch` + mocked `callClaude` |
+| Architecture boundaries | `lib/__tests__/architecture.test.ts` | 80 | Pure file scanning, no mocks |
+| Approved LLM fixtures | `lib/__tests__/approved-fixtures.test.ts` | 16 | `global.fetch` + mocked `callClaude` |
 | Build scripts | `scripts/build-freq.test.ts` | — | — |
 
 **TypeScript check only:**
@@ -338,6 +342,45 @@ adb logcat -c                                        # clear before repro
 - Add any form of API key to client code (see Security in Tech Stack)
 - Switch the LLM model without updating both `lib/claude.ts` (MODEL constant) and `backend/server.js` (MISTRAL_MODEL constant)
 - Use `android/` or `ios/` folder paths — managed workflow, those folders are gitignored build caches
+
+### Harness: keeping architecture rules enforced
+
+This project uses a layered "harness" (feedforward guides + feedback sensors) to
+keep Claude Code aligned with architecture decisions. **When introducing a new
+pattern or architectural rule, always close the steering loop:**
+
+**Steering-loop checklist — run through this when any of these happen:**
+- A new module boundary or import restriction is introduced
+- A new UI pattern or data-access pattern is established
+- A dependency is added or removed
+- An existing rule in this file is changed
+
+| Step | Action | Where |
+|------|--------|-------|
+| 1. Document | Add/update the rule in this `CLAUDE.md` file | `CLAUDE.md` |
+| 2. Enforce computationally | Add an ESLint rule (`eslint.config.mjs`) or architecture test (`lib/__tests__/architecture.test.ts`) that catches violations deterministically | Source |
+| 3. Optimise error messages | Write the lint/test error message as a self-correction instruction: what's wrong, how to fix it, which CLAUDE.md section to read | Source |
+| 4. Verify | Run `npm test` to confirm the new sensor passes on current code and would fail on a violation | Terminal |
+
+**Examples of the pattern:**
+- CLAUDE.md says "no Node imports in lib/" → `no-restricted-imports` ESLint rule + architecture test both enforce it with messages like *"Move this to scripts/. See CLAUDE.md Hard rule section."*
+- CLAUDE.md says "no API keys in client code" → architecture test scans for `Authorization`, `ANTHROPIC_API_KEY`, `expo-secure-store` patterns
+- CLAUDE.md says "use theme colors, not hex" → architecture test catches new hardcoded hex values (with `#FFFFFF` baselined)
+
+**If a review or test catches something the harness missed:**
+Ask "could a computational sensor have caught this?" If yes, add one now — don't just fix the instance. The goal is that the same class of mistake never reaches human review again.
+
+**Available harness tools:**
+| Tool | File | Type |
+|------|------|------|
+| ESLint (banned imports, unused vars) | `eslint.config.mjs` | Computational feedforward + feedback |
+| Architecture boundary tests (80 tests) | `lib/__tests__/architecture.test.ts` | Computational feedback |
+| Approved LLM response fixtures (16 tests) | `lib/__tests__/approved-fixtures.test.ts` | Behavioural feedback |
+| Claude Code PostEdit hook (tsc) | `.claude/settings.local.json` | Computational feedback |
+| Husky pre-commit (lint-staged + tsc) | `.husky/pre-commit` | Computational feedback |
+| Dead code detection | `npm run check:dead-code` (knip) | Drift sensor |
+| Security audit | `npm run check:security` (npm audit) | Drift sensor |
+| Coverage thresholds | `jest.config.js` coverageThreshold | Drift sensor |
 
 ### Reading logs efficiently
 `expo.log` is append-only during a session. Relevant patterns to grep for:

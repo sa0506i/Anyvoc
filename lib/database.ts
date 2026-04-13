@@ -74,7 +74,7 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
 
   // Backfill review_days from existing vocabulary last_reviewed timestamps
   const reviewed = db.getAllSync<{ last_reviewed: number }>(
-    'SELECT DISTINCT last_reviewed FROM vocabulary WHERE last_reviewed IS NOT NULL'
+    'SELECT DISTINCT last_reviewed FROM vocabulary WHERE last_reviewed IS NOT NULL',
   );
   for (const row of reviewed) {
     const d = new Date(row.last_reviewed);
@@ -148,11 +148,15 @@ export function insertContent(db: SQLiteDatabase, content: Content): void {
       content.source_type,
       content.source_url,
       content.created_at,
-    ]
+    ],
   );
 }
 
-export function updateContentTranslation(db: SQLiteDatabase, id: string, translatedText: string): void {
+export function updateContentTranslation(
+  db: SQLiteDatabase,
+  id: string,
+  translatedText: string,
+): void {
   db.runSync('UPDATE contents SET translated_text = ? WHERE id = ?', [translatedText, id]);
 }
 
@@ -172,7 +176,7 @@ export function getAllVocabulary(db: SQLiteDatabase): Vocabulary[] {
 export function getVocabularyByContentId(db: SQLiteDatabase, contentId: string): Vocabulary[] {
   return db.getAllSync<Vocabulary>(
     'SELECT * FROM vocabulary WHERE content_id = ? ORDER BY created_at ASC',
-    [contentId]
+    [contentId],
   );
 }
 
@@ -199,7 +203,7 @@ export function insertVocabulary(db: SQLiteDatabase, vocab: Vocabulary): void {
       vocab.correct_count,
       vocab.incorrect_count,
       vocab.created_at,
-    ]
+    ],
   );
 }
 
@@ -207,11 +211,15 @@ export function insertVocabularyBatch(db: SQLiteDatabase, vocabs: Vocabulary[]):
   let insertedBefore = 0;
   let insertedAfter = 0;
   db.withTransactionSync(() => {
-    insertedBefore = (db.getFirstSync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM vocabulary') ?? { cnt: 0 }).cnt;
+    insertedBefore = (
+      db.getFirstSync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM vocabulary') ?? { cnt: 0 }
+    ).cnt;
     for (const vocab of vocabs) {
       insertVocabulary(db, vocab);
     }
-    insertedAfter = (db.getFirstSync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM vocabulary') ?? { cnt: 0 }).cnt;
+    insertedAfter = (
+      db.getFirstSync<{ cnt: number }>('SELECT COUNT(*) as cnt FROM vocabulary') ?? { cnt: 0 }
+    ).cnt;
   });
   return insertedAfter - insertedBefore;
 }
@@ -229,10 +237,9 @@ export function getAllReviewDays(db: SQLiteDatabase): string[] {
 
 export function getReviewDaysForMonth(db: SQLiteDatabase, year: number, month: number): string[] {
   const prefix = `${year}-${String(month + 1).padStart(2, '0')}-`;
-  const rows = db.getAllSync<{ day: string }>(
-    'SELECT day FROM review_days WHERE day LIKE ?',
-    [`${prefix}%`]
-  );
+  const rows = db.getAllSync<{ day: string }>('SELECT day FROM review_days WHERE day LIKE ?', [
+    `${prefix}%`,
+  ]);
   return rows.map((r) => r.day);
 }
 
@@ -240,18 +247,18 @@ export function updateVocabularyReview(
   db: SQLiteDatabase,
   id: string,
   leitnerBox: number,
-  correct: boolean
+  correct: boolean,
 ): void {
   const now = Date.now();
   if (correct) {
     db.runSync(
       'UPDATE vocabulary SET leitner_box = ?, last_reviewed = ?, correct_count = correct_count + 1 WHERE id = ?',
-      [leitnerBox, now, id]
+      [leitnerBox, now, id],
     );
   } else {
     db.runSync(
       'UPDATE vocabulary SET leitner_box = ?, last_reviewed = ?, incorrect_count = incorrect_count + 1 WHERE id = ?',
-      [leitnerBox, now, id]
+      [leitnerBox, now, id],
     );
   }
   recordReviewDay(db);
@@ -261,12 +268,13 @@ export function updateVocabularyFields(
   db: SQLiteDatabase,
   id: string,
   original: string,
-  translation: string
+  translation: string,
 ): void {
-  db.runSync(
-    'UPDATE vocabulary SET original = ?, translation = ? WHERE id = ?',
-    [original, translation, id]
-  );
+  db.runSync('UPDATE vocabulary SET original = ?, translation = ? WHERE id = ?', [
+    original,
+    translation,
+    id,
+  ]);
 }
 
 export function deleteVocabulary(db: SQLiteDatabase, id: string): void {
@@ -283,10 +291,11 @@ export function getVocabularyStats(db: SQLiteDatabase): {
   learnedToday: number;
   learnedThisWeek: number;
 } {
-  const total = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM vocabulary')?.count ?? 0;
+  const total =
+    db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM vocabulary')?.count ?? 0;
 
   const boxRows = db.getAllSync<{ leitner_box: number; count: number }>(
-    'SELECT leitner_box, COUNT(*) as count FROM vocabulary GROUP BY leitner_box'
+    'SELECT leitner_box, COUNT(*) as count FROM vocabulary GROUP BY leitner_box',
   );
   const byBox: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
   for (const row of boxRows) {
@@ -300,13 +309,13 @@ export function getVocabularyStats(db: SQLiteDatabase): {
   const learnedToday =
     db.getFirstSync<{ count: number }>(
       'SELECT COUNT(*) as count FROM vocabulary WHERE last_reviewed >= ?',
-      [todayStart]
+      [todayStart],
     )?.count ?? 0;
 
   const learnedThisWeek =
     db.getFirstSync<{ count: number }>(
       'SELECT COUNT(*) as count FROM vocabulary WHERE last_reviewed >= ?',
-      [weekStart]
+      [weekStart],
     )?.count ?? 0;
 
   return { total, byBox, learnedToday, learnedThisWeek };

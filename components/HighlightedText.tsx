@@ -43,14 +43,10 @@ export default function HighlightedText({
   }
 
   const handleHighlightPress = (vocabId: string, word: string) => {
-    Alert.alert(
-      'Remove Vocabulary',
-      `Remove "${word}" from the vocabulary list?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => onRemoveHighlight(vocabId) },
-      ]
-    );
+    Alert.alert('Remove Vocabulary', `Remove "${word}" from the vocabulary list?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => onRemoveHighlight(vocabId) },
+    ]);
   };
 
   const handleWordLongPress = (word: string) => {
@@ -69,10 +65,7 @@ export default function HighlightedText({
       const isWord = /\p{L}/u.test(token);
       if (isWord) {
         return (
-          <Text
-            key={`${keyPrefix}-${j}`}
-            onLongPress={() => handleWordLongPress(token)}
-          >
+          <Text key={`${keyPrefix}-${j}`} onLongPress={() => handleWordLongPress(token)}>
             {token}
           </Text>
         );
@@ -94,7 +87,7 @@ export default function HighlightedText({
           </Text>
         ) : (
           renderPlainSegment(seg.text, String(i))
-        )
+        ),
       )}
     </Text>
   );

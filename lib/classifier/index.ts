@@ -46,7 +46,7 @@ function assertSupported(language: string): asserts language is SupportedLanguag
   if (!(SUPPORTED_LANGUAGES as readonly string[]).includes(language)) {
     throw new Error(
       `Unsupported language code "${language}". ` +
-        `Supported codes: ${SUPPORTED_LANGUAGES.join(', ')}`
+        `Supported codes: ${SUPPORTED_LANGUAGES.join(', ')}`,
     );
   }
 }
@@ -77,7 +77,7 @@ function classifyLocally(word: string, language: SupportedLanguage): LocalClassi
 export async function classifyWord(
   word: string,
   language: string,
-  claudeFn?: ClaudeFallbackFn
+  claudeFn?: ClaudeFallbackFn,
 ): Promise<CEFRLevel> {
   assertSupported(language);
   const local = classifyLocally(word, language);
@@ -88,7 +88,12 @@ export async function classifyWord(
   const cached = getCached(word, language);
   if (cached) return cached;
 
-  const apiResult = await classifyViaClaude(word, language, getLanguageEnglishName(language), claudeFn);
+  const apiResult = await classifyViaClaude(
+    word,
+    language,
+    getLanguageEnglishName(language),
+    claudeFn,
+  );
   if (apiResult) {
     setCached(word, language, apiResult);
     return apiResult;
@@ -103,7 +108,7 @@ export async function classifyWord(
 export async function classifyWordWithConfidence(
   word: string,
   language: string,
-  claudeFn?: ClaudeFallbackFn
+  claudeFn?: ClaudeFallbackFn,
 ): Promise<{
   level: CEFRLevel;
   confidence: Confidence;
@@ -131,7 +136,12 @@ export async function classifyWordWithConfidence(
     };
   }
 
-  const apiResult = await classifyViaClaude(word, language, getLanguageEnglishName(language), claudeFn);
+  const apiResult = await classifyViaClaude(
+    word,
+    language,
+    getLanguageEnglishName(language),
+    claudeFn,
+  );
   if (apiResult) {
     setCached(word, language, apiResult);
     return {

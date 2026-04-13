@@ -44,24 +44,32 @@ async function fetchHtml(url: string): Promise<string> {
 
     if (!response.ok) {
       throw new Error(
-        `Could not fetch the URL (HTTP ${response.status}). The website may be blocking automated access or the link may be invalid.`
+        `Could not fetch the URL (HTTP ${response.status}). The website may be blocking automated access or the link may be invalid.`,
       );
     }
 
     const contentType = response.headers.get('content-type') ?? '';
-    if (!contentType.includes('text/html') && !contentType.includes('text/plain') && !contentType.includes('xhtml')) {
+    if (
+      !contentType.includes('text/html') &&
+      !contentType.includes('text/plain') &&
+      !contentType.includes('xhtml')
+    ) {
       throw new Error('This URL does not point to an HTML page. Only web articles are supported.');
     }
 
     const html = await response.text();
     return html;
   } catch (error) {
-    if (error instanceof Error &&
-        (error.message.startsWith('Could not fetch') || error.message.startsWith('This URL does not') || error.message.startsWith('Please enter'))) {
+    if (
+      error instanceof Error &&
+      (error.message.startsWith('Could not fetch') ||
+        error.message.startsWith('This URL does not') ||
+        error.message.startsWith('Please enter'))
+    ) {
       throw error;
     }
     throw new Error(
-      'Could not fetch the URL. The website may be blocking automated access or the link may be invalid.'
+      'Could not fetch the URL. The website may be blocking automated access or the link may be invalid.',
     );
   } finally {
     clearTimeout(timeout);
@@ -77,7 +85,11 @@ function extractWithReadability(html: string): { title: string; text: string } |
     const { document } = parseHTML(html);
     const reader = new Readability(document, { charThreshold: 50 });
     const article = reader.parse();
-    if (!article || !article.textContent || article.textContent.trim().length < READABILITY_MIN_LENGTH) {
+    if (
+      !article ||
+      !article.textContent ||
+      article.textContent.trim().length < READABILITY_MIN_LENGTH
+    ) {
       return null;
     }
     return {
@@ -92,7 +104,10 @@ function extractWithReadability(html: string): { title: string; text: string } |
 /**
  * Fallback: extract article content using Claude API (existing logic).
  */
-async function extractWithClaude(cleanedHtml: string, url: string): Promise<{ title: string; text: string }> {
+async function extractWithClaude(
+  cleanedHtml: string,
+  url: string,
+): Promise<{ title: string; text: string }> {
   const systemPrompt = `You are an article extraction assistant. Given raw HTML of a webpage, extract ONLY the main article content as clean plain text.
 
 Rules:
@@ -107,11 +122,7 @@ TITLE: <the article title>
 ---
 <the article body text>`;
 
-  const result = await callClaude(
-    [{ role: 'user', content: cleanedHtml }],
-    systemPrompt,
-    8192
-  );
+  const result = await callClaude([{ role: 'user', content: cleanedHtml }], systemPrompt, 8192);
 
   if (result.includes('NO_ARTICLE_CONTENT')) {
     throw new Error('No meaningful article content could be extracted from this URL.');

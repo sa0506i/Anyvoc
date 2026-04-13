@@ -28,14 +28,22 @@ export function getLanguageEnglishName(code: string): string {
 }
 
 const languageToCountry: Record<string, string> = {
-  de: 'DE', en: 'GB', fr: 'FR', es: 'ES', it: 'IT', pt: 'PT',
-  nl: 'NL', sv: 'SE', no: 'NO', da: 'DK', pl: 'PL', cs: 'CZ',
+  de: 'DE',
+  en: 'GB',
+  fr: 'FR',
+  es: 'ES',
+  it: 'IT',
+  pt: 'PT',
+  nl: 'NL',
+  sv: 'SE',
+  no: 'NO',
+  da: 'DK',
+  pl: 'PL',
+  cs: 'CZ',
 };
 
 export function getLanguageFlag(code: string): string {
   const country = languageToCountry[code];
   if (!country) return '';
-  return String.fromCodePoint(
-    ...country.split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
-  );
+  return String.fromCodePoint(...country.split('').map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
 }

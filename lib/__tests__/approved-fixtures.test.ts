@@ -1,0 +1,258 @@
+/**
+ * Approved Fixtures Tests — "Behavioural Harness"
+ *
+ * These tests load known-good LLM response fixtures and verify that
+ * the parsing logic in lib/claude.ts and lib/urlExtractor.ts handles
+ * them correctly. They catch regressions when prompt templates or
+ * parsing logic changes.
+ *
+ * Each fixture represents a real-world LLM response pattern.
+ * When a test fails, it means the parsing contract has broken.
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Mock classifyWord before importing claude.ts
+jest.mock('../classifier', () => ({
+  classifyWord: jest.fn().mockResolvedValue('B1'),
+}));
+
+// Mock callClaude for URL extractor tests
+jest.mock('../claude', () => {
+  const actual = jest.requireActual('../claude');
+  return {
+    ...actual,
+    callClaude: jest.fn(),
+  };
+});
+
+import { extractVocabulary, translateSingleWord } from '../claude';
+import { fetchArticleContent } from '../urlExtractor';
+import { callClaude } from '../claude';
+
+const mockedCallClaude = callClaude as jest.MockedFunction<typeof callClaude>;
+
+const FIXTURES = path.join(__dirname, 'fixtures');
+
+function loadFixture(name: string): string {
+  return fs.readFileSync(path.join(FIXTURES, name), 'utf8');
+}
+
+/** Mock global.fetch to return an LLM-style response */
+function mockFetchOk(text: string) {
+  (global.fetch as jest.Mock) = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      content: [{ type: 'text', text }],
+    }),
+  });
+}
+
+function mockFetchHtml(html: string) {
+  (global.fetch as jest.Mock) = jest.fn().mockResolvedValue({
+    ok: true,
+    status: 200,
+    headers: { get: (h: string) => (h === 'content-type' ? 'text/html' : null) },
+    text: async () => html,
+  });
+}
+
+beforeEach(() => {
+  jest.restoreAllMocks();
+  mockedCallClaude.mockReset();
+});
+
+// ─────────────────────────────────────────────────────────────
+// extractVocabulary fixtures
+// ─────────────────────────────────────────────────────────────
+
+describe('Approved Fixtures: extractVocabulary', () => {
+  it('parses clean JSON array with multiple word types', async () => {
+    const fixture = loadFixture('vocab-clean.json');
+    mockFetchOk(fixture);
+    const result = await extractVocabulary('test text', 'English', 'German', 'de');
+
+    expect(result).toHaveLength(4);
+    expect(result[0].original).toBe('der Hund, die Hündin');
+    expect(result[0].translation).toBe('the dog');
+    expect(result[0].type).toBe('noun');
+    expect(result[0].source_forms).toEqual(['Hunde', 'Hunden']);
+    // classifyWord mock returns B1 for all
+    expect(result[0].level).toBe('B1');
+
+    // Verify all types are preserved
+    expect(result.map((v) => v.type)).toEqual(['noun', 'verb', 'adjective', 'verb']);
+  });
+
+  it('strips markdown fences from wrapped response', async () => {
+    const fixture = loadFixture('vocab-markdown-wrapped.txt');
+    mockFetchOk(fixture);
+    const result = await extractVocabulary('test text', 'German', 'French', 'fr');
+
+    expect(result).toHaveLength(2);
+    expect(result[0].original).toBe('le médecin, la médecin');
+    expect(result[1].original).toBe('se souvenir');
+    expect(result[1].type).toBe('verb');
+  });
+
+  it('repairs truncated JSON (cut mid-object) recovering complete items', async () => {
+    const fixture = loadFixture('vocab-truncated-mid-object.txt');
+    mockFetchOk(fixture);
+    const result = await extractVocabulary('test text', 'English', 'Portuguese', 'pt');
+
+    // Should recover the 2 complete objects before the truncated third
+    expect(result.length).toBeGreaterThanOrEqual(2);
+    expect(result[0].original).toBe('o passaporte');
+    expect(result[1].original).toBe('acordar-se');
+  });
+
+  it('repairs truncated JSON (cut mid-string) recovering complete items', async () => {
+    const fixture = loadFixture('vocab-truncated-mid-string.txt');
+    mockFetchOk(fixture);
+    const result = await extractVocabulary('test text', 'English', 'German', 'de');
+
+    // Should recover at least the 2 complete objects
+    expect(result.length).toBeGreaterThanOrEqual(2);
+    expect(result[0].original).toBe('die Straßenbahn');
+    expect(result[1].original).toBe('die Sehenswürdigkeit');
+  });
+
+  it('extracts JSON array after conversational preamble', async () => {
+    const fixture = loadFixture('vocab-with-preamble.txt');
+    mockFetchOk(fixture);
+    const result = await extractVocabulary('test text', 'English', 'Spanish', 'es');
+
+    expect(result).toHaveLength(2);
+    expect(result[0].original).toBe('el libro');
+    expect(result[1].original).toBe('escribir');
+  });
+
+  it('handles special characters (umlauts, accents, cedillas, hyphens)', async () => {
+    const fixture = loadFixture('vocab-special-chars.json');
+    mockFetchOk(fixture);
+    const result = await extractVocabulary('test text', 'English', 'French', 'fr');
+
+    expect(result).toHaveLength(4);
+    expect(result[0].original).toBe('die Gemütlichkeit');
+    expect(result[1].original).toBe('naïf, naïve');
+    expect(result[2].original).toBe("l'après-midi");
+    expect(result[3].original).toBe('açúcar');
+  });
+
+  it('returns empty array for empty JSON array response', async () => {
+    const fixture = loadFixture('vocab-empty-array.json');
+    mockFetchOk(fixture);
+    const result = await extractVocabulary('test text', 'English', 'German', 'de');
+
+    expect(result).toEqual([]);
+  });
+
+  it('preserves complex source_forms arrays', async () => {
+    const fixture = loadFixture('vocab-source-forms-complex.json');
+    mockFetchOk(fixture);
+    const result = await extractVocabulary('test text', 'English', 'Portuguese', 'pt');
+
+    expect(result).toHaveLength(3);
+    expect(result[0].source_forms).toEqual(['rivais', 'rival']);
+    expect(result[1].source_forms).toEqual(['vou', 'vai', 'vamos', 'foram', 'ido']);
+    expect(result[2].source_forms).toEqual(['Brüder', 'Bruders', 'Brüdern']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// translateSingleWord fixtures
+// ─────────────────────────────────────────────────────────────
+
+describe('Approved Fixtures: translateSingleWord', () => {
+  it('parses clean JSON object', async () => {
+    const fixture = loadFixture('translate-clean.json');
+    mockFetchOk(fixture);
+    const result = await translateSingleWord('Arzt', 'German', 'English', 'de');
+
+    expect(result.original).toBe('der Arzt, die Ärztin');
+    expect(result.translation).toBe('the doctor');
+    expect(result.type).toBe('noun');
+    expect(result.level).toBe('B1');
+  });
+
+  it('strips markdown fences from JSON object', async () => {
+    const fixture = loadFixture('translate-with-markdown.txt');
+    mockFetchOk(fixture);
+    const result = await translateSingleWord('beau', 'French', 'English', 'fr');
+
+    expect(result.original).toBe('beau, belle');
+    expect(result.translation).toBe('beautiful, handsome');
+    expect(result.type).toBe('adjective');
+  });
+
+  it('extracts JSON object surrounded by explanation text', async () => {
+    const fixture = loadFixture('translate-with-explanation.txt');
+    mockFetchOk(fixture);
+    const result = await translateSingleWord('erinnern', 'German', 'English', 'de');
+
+    expect(result.original).toBe('sich erinnern');
+    expect(result.translation).toBe('to remember');
+    expect(result.type).toBe('verb');
+  });
+
+  it('handles German noun with article + feminine form', async () => {
+    const fixture = loadFixture('translate-german-noun.json');
+    mockFetchOk(fixture);
+    const result = await translateSingleWord('Lehrer', 'German', 'English', 'de');
+
+    expect(result.original).toBe('der Lehrer, die Lehrerin');
+    expect(result.type).toBe('noun');
+  });
+
+  it('handles Portuguese reflexive verb', async () => {
+    const fixture = loadFixture('translate-reflexive-verb.json');
+    mockFetchOk(fixture);
+    const result = await translateSingleWord('acordar-se', 'Portuguese', 'English', 'pt');
+
+    expect(result.original).toBe('acordar-se');
+    expect(result.type).toBe('verb');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// URL extraction fixtures (via callClaude mock)
+// ─────────────────────────────────────────────────────────────
+
+// Minimal HTML that triggers Claude fallback (Readability will find <100 chars)
+const THIN_HTML = `<!DOCTYPE html><html><head><title>X</title></head><body><p>Hi</p></body></html>`;
+
+describe('Approved Fixtures: URL extraction (Claude fallback)', () => {
+  it('parses TITLE + separator + body format', async () => {
+    const fixture = loadFixture('url-extract-clean.txt');
+    mockFetchHtml(THIN_HTML);
+    mockedCallClaude.mockResolvedValue(fixture);
+    const result = await fetchArticleContent('https://example.com/article');
+
+    expect(result.title).toBe('Die Zukunft der künstlichen Intelligenz in Europa');
+    expect(result.text).toContain('Europäische Union');
+    expect(result.text).toContain('Sprachmodelle');
+    expect(result.text.length).toBeGreaterThan(50);
+  });
+
+  it('uses URL as title when separator is missing', async () => {
+    const fixture = loadFixture('url-extract-no-separator.txt');
+    mockFetchHtml(THIN_HTML);
+    mockedCallClaude.mockResolvedValue(fixture);
+    const result = await fetchArticleContent('https://example.com/blog');
+
+    expect(result.title).toBe('https://example.com/blog');
+    expect(result.text).toContain('machine learning');
+  });
+
+  it('throws on NO_ARTICLE_CONTENT response', async () => {
+    const fixture = loadFixture('url-extract-no-article.txt');
+    mockFetchHtml(THIN_HTML);
+    mockedCallClaude.mockResolvedValue(fixture);
+
+    await expect(fetchArticleContent('https://example.com/login')).rejects.toThrow(
+      'No meaningful article content',
+    );
+  });
+});

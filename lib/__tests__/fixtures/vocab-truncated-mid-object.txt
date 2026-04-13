@@ -1,0 +1,1 @@
+[{"original":"o passaporte","translation":"the passport","level":"","type":"noun","source_forms":["passaportes"]},{"original":"acordar-se","translation":"to remember","level":"","type":"verb","source_forms":["acorda"]},{"original":"bonito, bonita","translation":"beautiful","level":"","type":"adjective","source_for

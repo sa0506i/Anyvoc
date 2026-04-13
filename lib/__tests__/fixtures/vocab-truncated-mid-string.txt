@@ -1,0 +1,1 @@
+[{"original":"die Straßenbahn","translation":"the tram","level":"","type":"noun","source_forms":["Straßenbahnen"]},{"original":"die Sehenswürdigkeit","translation":"the sight (tourist attraction)","level":"","type":"noun","source_forms":["Sehenswürdigkeiten"]},{"original":"überwältigend","translation":"overwhelm

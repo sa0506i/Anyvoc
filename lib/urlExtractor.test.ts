@@ -66,7 +66,7 @@ describe('fetchArticleContent', () => {
   it('falls back to Claude when Readability returns insufficient content', async () => {
     mockFetchHtml(NO_ARTICLE_HTML);
     mockedCallClaude.mockResolvedValue(
-      'TITLE: Fallback Title\n---\nThis is the fallback article content extracted by Claude from the HTML page with sufficient length to pass validation checks.'
+      'TITLE: Fallback Title\n---\nThis is the fallback article content extracted by Claude from the HTML page with sufficient length to pass validation checks.',
     );
     const result = await fetchArticleContent('https://example.com/login');
     expect(mockedCallClaude).toHaveBeenCalled();
@@ -77,18 +77,17 @@ describe('fetchArticleContent', () => {
   it('throws when both Readability and Claude fail', async () => {
     mockFetchHtml(NO_ARTICLE_HTML);
     mockedCallClaude.mockResolvedValue('NO_ARTICLE_CONTENT');
-    await expect(fetchArticleContent('https://example.com/login'))
-      .rejects.toThrow('No meaningful article content');
+    await expect(fetchArticleContent('https://example.com/login')).rejects.toThrow(
+      'No meaningful article content',
+    );
   });
 
   it('rejects non-HTTP URLs', async () => {
-    await expect(fetchArticleContent('ftp://example.com'))
-      .rejects.toThrow('complete URL');
+    await expect(fetchArticleContent('ftp://example.com')).rejects.toThrow('complete URL');
   });
 
   it('rejects non-HTML content types', async () => {
     mockFetchHtml('binary data', 'application/pdf');
-    await expect(fetchArticleContent('https://example.com/file.pdf'))
-      .rejects.toThrow('HTML page');
+    await expect(fetchArticleContent('https://example.com/file.pdf')).rejects.toThrow('HTML page');
   });
 });

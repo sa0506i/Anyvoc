@@ -1,8 +1,4 @@
-import {
-  darkColors,
-  getLevelColors,
-  getBoxColors,
-} from '../constants/theme';
+import { darkColors, getLevelColors, getBoxColors } from '../constants/theme';
 
 export function useTheme() {
   const colors = darkColors;

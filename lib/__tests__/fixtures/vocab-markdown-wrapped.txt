@@ -1,0 +1,18 @@
+```json
+[
+  {
+    "original": "le médecin, la médecin",
+    "translation": "the doctor",
+    "level": "",
+    "type": "noun",
+    "source_forms": ["médecins"]
+  },
+  {
+    "original": "se souvenir",
+    "translation": "to remember",
+    "level": "",
+    "type": "verb",
+    "source_forms": ["souviens", "souvient"]
+  }
+]
+```

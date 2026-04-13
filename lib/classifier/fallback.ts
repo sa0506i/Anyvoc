@@ -19,7 +19,7 @@ export type ClaudeFallbackFn = (
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
   systemPrompt: string,
   maxTokens: number,
-  options?: { temperature?: number }
+  options?: { temperature?: number },
 ) => Promise<string>;
 
 export type Confidence = 'high' | 'medium' | 'low';
@@ -73,11 +73,11 @@ export async function classifyViaClaude(
   word: string,
   language: SupportedLanguage,
   languageName: string,
-  claudeFn: ClaudeFallbackFn
+  claudeFn: ClaudeFallbackFn,
 ): Promise<CEFRLevel | null> {
   if (!tryConsumeRateBudget()) {
     console.warn(
-      `[classifier] rate limit reached (${RATE_LIMIT}/min) — using local label for "${word}" (${language})`
+      `[classifier] rate limit reached (${RATE_LIMIT}/min) — using local label for "${word}" (${language})`,
     );
     return null;
   }
@@ -93,12 +93,12 @@ export async function classifyViaClaude(
       ],
       SYSTEM_PROMPT,
       10,
-      { temperature: 0 }
+      { temperature: 0 },
     );
   } catch (err) {
     console.warn(
       `[classifier] Claude fallback call failed for "${word}" (${language}):`,
-      (err as Error).message
+      (err as Error).message,
     );
     return null;
   }
@@ -109,7 +109,7 @@ export async function classifyViaClaude(
   const match = response.match(/\b(A1|A2|B1|B2|C1|C2)\b/);
   if (!match || !isValidCefr(match[1])) {
     console.warn(
-      `[classifier] invalid Claude fallback response for "${word}" (${language}): ${response}`
+      `[classifier] invalid Claude fallback response for "${word}" (${language}): ${response}`,
     );
     return null;
   }

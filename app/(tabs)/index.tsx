@@ -10,7 +10,13 @@ import {
   getVocabularyStats,
   getAllReviewDays,
 } from '../../lib/database';
-import { getCardsForReview, selectRound, getStreakDays, getBestStreak, getAveragePerDay } from '../../lib/leitner';
+import {
+  getCardsForReview,
+  selectRound,
+  getStreakDays,
+  getBestStreak,
+  getAveragePerDay,
+} from '../../lib/leitner';
 import { useTrainerStore } from '../../hooks/useTrainer';
 import { useSettingsStore } from '../../hooks/useSettings';
 import FlashCard from '../../components/FlashCard';
@@ -18,7 +24,13 @@ import LearningMaturity from '../../components/LearningMaturity';
 import RecentDays from '../../components/ReviewCalendar';
 import EmptyState from '../../components/EmptyState';
 import { useTheme } from '../../hooks/useTheme';
-import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from '../../constants/theme';
+import {
+  spacing,
+  fontSize,
+  borderRadius,
+  marineShadow,
+  type ThemeColors,
+} from '../../constants/theme';
 
 export default function TrainerScreen() {
   const db = useSQLiteContext();
@@ -72,7 +84,7 @@ export default function TrainerScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!inSession) refreshStats();
-    }, [inSession, refreshStats])
+    }, [inSession, refreshStats]),
   );
 
   const handleStartRound = (practice = false) => {
@@ -110,21 +122,17 @@ export default function TrainerScreen() {
   };
 
   const handleDeleteDuringTraining = () => {
-    Alert.alert(
-      'Delete Card',
-      'Remove this word from your vocabulary?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            const vocabId = deleteCurrentCard();
-            deleteVocabulary(db, vocabId);
-          },
+    Alert.alert('Delete Card', 'Remove this word from your vocabulary?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          const vocabId = deleteCurrentCard();
+          deleteVocabulary(db, vocabId);
         },
-      ]
-    );
+      },
+    ]);
   };
 
   // Active training session
@@ -176,7 +184,9 @@ export default function TrainerScreen() {
       <View style={styles.container}>
         <View style={styles.resultsContainer}>
           <Ionicons name="trophy-outline" size={64} color={colors.primary} />
-          <Text testID="round-complete-text" style={styles.resultsTitle}>Round Complete!</Text>
+          <Text testID="round-complete-text" style={styles.resultsTitle}>
+            Round Complete!
+          </Text>
           <View style={styles.resultsRow}>
             <View style={styles.resultBox}>
               <Text style={[styles.resultNumber, { color: colors.success }]}>
@@ -194,9 +204,7 @@ export default function TrainerScreen() {
 
           {missedCards.length > 0 && (
             <Pressable style={styles.retryButton} onPress={startRetry}>
-              <Text style={styles.retryButtonText}>
-                Retry {missedCards.length} missed words
-              </Text>
+              <Text style={styles.retryButtonText}>Retry {missedCards.length} missed words</Text>
             </Pressable>
           )}
 
@@ -219,7 +227,11 @@ export default function TrainerScreen() {
 
   // Home / stats view
   return (
-    <ScrollView testID="trainer-screen" style={styles.container} contentContainerStyle={styles.homeContent}>
+    <ScrollView
+      testID="trainer-screen"
+      style={styles.container}
+      contentContainerStyle={styles.homeContent}
+    >
       {/* Statistics */}
       {stats && stats.total > 0 && (
         <>
@@ -231,16 +243,12 @@ export default function TrainerScreen() {
             >
               <Text style={styles.statNumber}>{stats.learnedToday}</Text>
               <Text style={styles.statLabel}>Learned Today</Text>
-              {avgPerDay > 0 && (
-                <Text style={styles.statSubtitle}>Avg: {avgPerDay}/day</Text>
-              )}
+              {avgPerDay > 0 && <Text style={styles.statSubtitle}>Avg: {avgPerDay}/day</Text>}
             </Pressable>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{streak}</Text>
               <Text style={styles.statLabel}>Day Streak</Text>
-              {bestStreakVal > 0 && (
-                <Text style={styles.statSubtitle}>Best: {bestStreakVal}</Text>
-              )}
+              {bestStreakVal > 0 && <Text style={styles.statSubtitle}>Best: {bestStreakVal}</Text>}
             </View>
           </View>
 
@@ -256,12 +264,20 @@ export default function TrainerScreen() {
 
       {/* Start button */}
       {dueCount > 0 ? (
-        <Pressable testID="start-training-btn" style={styles.startButton} onPress={() => handleStartRound(false)}>
+        <Pressable
+          testID="start-training-btn"
+          style={styles.startButton}
+          onPress={() => handleStartRound(false)}
+        >
           <Ionicons name="play" size={24} color="#FFFFFF" />
           <Text style={styles.startButtonText}>Start Training ({dueCount} due)</Text>
         </Pressable>
       ) : (
-        <Pressable testID="continue-training-btn" style={styles.continueButton} onPress={() => handleStartRound(true)}>
+        <Pressable
+          testID="continue-training-btn"
+          style={styles.continueButton}
+          onPress={() => handleStartRound(true)}
+        >
           <Ionicons name="play" size={24} color={colors.textSecondary} />
           <Text style={styles.continueButtonText}>Continue Training (0 due)</Text>
         </Pressable>

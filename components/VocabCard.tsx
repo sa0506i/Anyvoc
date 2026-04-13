@@ -34,11 +34,15 @@ export default function VocabCard({
           <Text style={styles.translation}>{translation}</Text>
         </View>
         <View style={styles.badges}>
-          <View style={[styles.levelBadge, { backgroundColor: levelColors[level] ?? colors.border }]}>
+          <View
+            style={[styles.levelBadge, { backgroundColor: levelColors[level] ?? colors.border }]}
+          >
             <Text style={styles.levelText}>{displayLevel(level)}</Text>
           </View>
           {leitnerBox !== undefined && (
-            <View style={[styles.boxBadge, { backgroundColor: boxColors[leitnerBox] ?? colors.border }]}>
+            <View
+              style={[styles.boxBadge, { backgroundColor: boxColors[leitnerBox] ?? colors.border }]}
+            >
               <Text style={styles.boxText}>{leitnerBox}</Text>
             </View>
           )}
@@ -46,7 +50,11 @@ export default function VocabCard({
       </View>
       <View style={styles.footer}>
         <Text style={styles.wordType}>{wordType}</Text>
-        {sourceName && <Text style={styles.source} numberOfLines={1}>{sourceName}</Text>}
+        {sourceName && (
+          <Text style={styles.source} numberOfLines={1}>
+            {sourceName}
+          </Text>
+        )}
       </View>
     </Pressable>
   );

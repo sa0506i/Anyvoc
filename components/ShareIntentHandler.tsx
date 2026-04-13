@@ -71,9 +71,8 @@ export default function ShareIntentHandler() {
         if (parsed.type === 'link' && parsed.url) {
           shareStore.setMessage('Fetching article...');
           const article = await fetchArticleContent(parsed.url);
-          text = article.title !== parsed.url
-            ? `${article.title}\n\n${article.text}`
-            : article.text;
+          text =
+            article.title !== parsed.url ? `${article.title}\n\n${article.text}` : article.text;
           title = article.title;
           sourceType = 'link';
           sourceUrl = parsed.url;
@@ -103,7 +102,7 @@ export default function ShareIntentHandler() {
         if (result.belowLevel) {
           Alert.alert(
             'Done',
-            `${result.foundTotal} vocabulary items found, but all were below your level. Try lowering your level in settings.`
+            `${result.foundTotal} vocabulary items found, but all were below your level. Try lowering your level in settings.`,
           );
         } else {
           Alert.alert('Done', `${result.inserted} vocabulary items extracted.`);
@@ -123,7 +122,6 @@ export default function ShareIntentHandler() {
     };
 
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasShareIntent]);
 
   return null;

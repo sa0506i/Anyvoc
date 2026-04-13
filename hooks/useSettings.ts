@@ -100,7 +100,10 @@ export function useSettingsActions() {
 
   return {
     loadSettings: useCallback(() => loadSettings(db), [db, loadSettings]),
-    updateSetting: useCallback((key: string, value: string) => updateSetting(db, key, value), [db, updateSetting]),
+    updateSetting: useCallback(
+      (key: string, value: string) => updateSetting(db, key, value),
+      [db, updateSetting],
+    ),
     resetApp: useCallback(() => resetApp(db), [db, resetApp]),
   };
 }
@@ -116,7 +119,10 @@ export function useSettings() {
   return {
     ...store,
     loadSettings: useCallback(() => store.loadSettings(db), [db, store.loadSettings]),
-    updateSetting: useCallback((key: string, value: string) => store.updateSetting(db, key, value), [db, store.updateSetting]),
+    updateSetting: useCallback(
+      (key: string, value: string) => store.updateSetting(db, key, value),
+      [db, store.updateSetting],
+    ),
     resetApp: useCallback(() => store.resetApp(db), [db, store.resetApp]),
   };
 }

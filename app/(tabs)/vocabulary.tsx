@@ -1,17 +1,15 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  FlatList,
-  Pressable,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, TextInput, FlatList, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getAllVocabulary, deleteVocabulary, updateVocabularyFields, type Vocabulary } from '../../lib/database';
+import {
+  getAllVocabulary,
+  deleteVocabulary,
+  updateVocabularyFields,
+  type Vocabulary,
+} from '../../lib/database';
 import { useVocabularyList } from '../../hooks/useVocabulary';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
@@ -22,10 +20,7 @@ import { SORT_OPTIONS, sortVocabulary } from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
-type ActiveFilter =
-  | { type: 'box'; box: number }
-  | { type: 'learnedToday' }
-  | null;
+type ActiveFilter = { type: 'box'; box: number } | { type: 'learnedToday' } | null;
 
 export default function VocabularyScreen() {
   const db = useSQLiteContext();
@@ -81,9 +76,7 @@ export default function VocabularyScreen() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
-        (v) =>
-          v.original.toLowerCase().includes(q) ||
-          v.translation.toLowerCase().includes(q)
+        (v) => v.original.toLowerCase().includes(q) || v.translation.toLowerCase().includes(q),
       );
     }
 
@@ -99,7 +92,7 @@ export default function VocabularyScreen() {
     if (!editingVocab) return;
     updateVocabularyFields(db, editingVocab.id, original, translation);
     setVocabulary((prev) =>
-      prev.map((v) => v.id === editingVocab.id ? { ...v, original, translation } : v)
+      prev.map((v) => (v.id === editingVocab.id ? { ...v, original, translation } : v)),
     );
     setEditingVocab(null);
   };
@@ -141,7 +134,11 @@ export default function VocabularyScreen() {
         {SORT_OPTIONS.map((opt) => (
           <Pressable
             key={opt.value}
-            style={({ pressed }) => [styles.sortChip, sortBy === opt.value && styles.sortChipActive, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.sortChip,
+              sortBy === opt.value && styles.sortChipActive,
+              pressed && styles.pressed,
+            ]}
             onPress={() => setSortBy(opt.value)}
           >
             <Text style={[styles.sortChipText, sortBy === opt.value && styles.sortChipTextActive]}>
@@ -172,15 +169,9 @@ export default function VocabularyScreen() {
         testID="vocab-list"
         data={filteredAndSorted}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.list,
-          { paddingBottom: spacing.xl + 60 + insets.bottom },
-        ]}
+        contentContainerStyle={[styles.list, { paddingBottom: spacing.xl + 60 + insets.bottom }]}
         renderItem={({ item }) => (
-          <SwipeToDelete
-            onDelete={() => handleDelete(item)}
-            onEdit={() => setEditingVocab(item)}
-          >
+          <SwipeToDelete onDelete={() => handleDelete(item)} onEdit={() => setEditingVocab(item)}>
             <VocabCard
               original={item.original}
               translation={item.translation}
@@ -198,9 +189,7 @@ export default function VocabularyScreen() {
         }
         ListFooterComponent={
           filteredAndSorted.length > 0 ? (
-            <Text style={styles.swipeHint}>
-              Swipe right to edit  ·  Swipe left to delete
-            </Text>
+            <Text style={styles.swipeHint}>Swipe right to edit · Swipe left to delete</Text>
           ) : null
         }
       />

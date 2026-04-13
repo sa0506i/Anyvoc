@@ -61,31 +61,49 @@ describe('isDueForReview', () => {
 
   it('box 2 is due after 2 days', () => {
     const now = Date.now();
-    expect(isDueForReview(makeVocab({ leitner_box: 2, last_reviewed: now - 2 * DAY }), now)).toBe(true);
-    expect(isDueForReview(makeVocab({ leitner_box: 2, last_reviewed: now - 1 * DAY }), now)).toBe(false);
+    expect(isDueForReview(makeVocab({ leitner_box: 2, last_reviewed: now - 2 * DAY }), now)).toBe(
+      true,
+    );
+    expect(isDueForReview(makeVocab({ leitner_box: 2, last_reviewed: now - 1 * DAY }), now)).toBe(
+      false,
+    );
   });
 
   it('box 3 is due after 4 days', () => {
     const now = Date.now();
-    expect(isDueForReview(makeVocab({ leitner_box: 3, last_reviewed: now - 4 * DAY }), now)).toBe(true);
-    expect(isDueForReview(makeVocab({ leitner_box: 3, last_reviewed: now - 3 * DAY }), now)).toBe(false);
+    expect(isDueForReview(makeVocab({ leitner_box: 3, last_reviewed: now - 4 * DAY }), now)).toBe(
+      true,
+    );
+    expect(isDueForReview(makeVocab({ leitner_box: 3, last_reviewed: now - 3 * DAY }), now)).toBe(
+      false,
+    );
   });
 
   it('box 4 is due after 8 days', () => {
     const now = Date.now();
-    expect(isDueForReview(makeVocab({ leitner_box: 4, last_reviewed: now - 8 * DAY }), now)).toBe(true);
-    expect(isDueForReview(makeVocab({ leitner_box: 4, last_reviewed: now - 7 * DAY }), now)).toBe(false);
+    expect(isDueForReview(makeVocab({ leitner_box: 4, last_reviewed: now - 8 * DAY }), now)).toBe(
+      true,
+    );
+    expect(isDueForReview(makeVocab({ leitner_box: 4, last_reviewed: now - 7 * DAY }), now)).toBe(
+      false,
+    );
   });
 
   it('box 5 is due after 16 days', () => {
     const now = Date.now();
-    expect(isDueForReview(makeVocab({ leitner_box: 5, last_reviewed: now - 16 * DAY }), now)).toBe(true);
-    expect(isDueForReview(makeVocab({ leitner_box: 5, last_reviewed: now - 15 * DAY }), now)).toBe(false);
+    expect(isDueForReview(makeVocab({ leitner_box: 5, last_reviewed: now - 16 * DAY }), now)).toBe(
+      true,
+    );
+    expect(isDueForReview(makeVocab({ leitner_box: 5, last_reviewed: now - 15 * DAY }), now)).toBe(
+      false,
+    );
   });
 
   it('unknown box falls back to box 1 interval', () => {
     const now = Date.now();
-    expect(isDueForReview(makeVocab({ leitner_box: 99, last_reviewed: now - 1 * DAY }), now)).toBe(true);
+    expect(isDueForReview(makeVocab({ leitner_box: 99, last_reviewed: now - 1 * DAY }), now)).toBe(
+      true,
+    );
   });
 });
 
@@ -131,14 +149,14 @@ describe('selectRound', () => {
 
   it('limits to count parameter', () => {
     const cards = Array.from({ length: 50 }, (_, i) =>
-      makeVocab({ id: `v${i}`, last_reviewed: null })
+      makeVocab({ id: `v${i}`, last_reviewed: null }),
     );
     expect(selectRound(cards, 20)).toHaveLength(20);
   });
 
   it('defaults to 20 cards', () => {
     const cards = Array.from({ length: 30 }, (_, i) =>
-      makeVocab({ id: `v${i}`, last_reviewed: null })
+      makeVocab({ id: `v${i}`, last_reviewed: null }),
     );
     expect(selectRound(cards)).toHaveLength(20);
   });
@@ -149,10 +167,7 @@ describe('selectRound', () => {
   });
 
   it('does not mutate the input array', () => {
-    const cards = [
-      makeVocab({ id: 'b', leitner_box: 2 }),
-      makeVocab({ id: 'a', leitner_box: 1 }),
-    ];
+    const cards = [makeVocab({ id: 'b', leitner_box: 2 }), makeVocab({ id: 'a', leitner_box: 1 })];
     const original = cards.map((c) => c.id);
     selectRound(cards);
     expect(cards.map((c) => c.id)).toEqual(original);
@@ -253,11 +268,17 @@ describe('getBestStreak', () => {
   });
 
   it('finds best streak with gaps', () => {
-    expect(getBestStreak([
-      '2025-01-01', '2025-01-02',          // streak of 2
-      '2025-01-10', '2025-01-11', '2025-01-12', '2025-01-13', // streak of 4
-      '2025-01-20',                         // streak of 1
-    ])).toBe(4);
+    expect(
+      getBestStreak([
+        '2025-01-01',
+        '2025-01-02', // streak of 2
+        '2025-01-10',
+        '2025-01-11',
+        '2025-01-12',
+        '2025-01-13', // streak of 4
+        '2025-01-20', // streak of 1
+      ]),
+    ).toBe(4);
   });
 
   it('handles duplicate days', () => {

@@ -1,0 +1,7 @@
+TITLE: Die Zukunft der künstlichen Intelligenz in Europa
+---
+Die Europäische Union hat einen neuen Rahmen für die Regulierung von künstlicher Intelligenz vorgestellt. Der sogenannte AI Act soll sicherstellen, dass KI-Systeme sicher und transparent eingesetzt werden.
+
+Experten begrüßen den Vorstoß, warnen jedoch vor einer Überregulierung, die Innovation hemmen könnte. Besonders im Bereich der Sprachmodelle gibt es noch viele offene Fragen.
+
+Die Umsetzung des Gesetzes wird voraussichtlich bis 2027 abgeschlossen sein. Bis dahin müssen Unternehmen ihre Systeme an die neuen Anforderungen anpassen.

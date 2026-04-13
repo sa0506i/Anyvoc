@@ -112,9 +112,9 @@ describe('sortVocabulary', () => {
 
   it('sorts alphabetically (stripping articles)', () => {
     const sorted = sortVocabulary(items, 'alphabetical');
-    expect(sorted[0].original).toBe('das Haus');  // haus
-    expect(sorted[1].original).toBe('der Hund');   // hund
-    expect(sorted[2].original).toBe('die Katze');  // katze
+    expect(sorted[0].original).toBe('das Haus'); // haus
+    expect(sorted[1].original).toBe('der Hund'); // hund
+    expect(sorted[2].original).toBe('die Katze'); // katze
   });
 
   it('sorts by CEFR level', () => {

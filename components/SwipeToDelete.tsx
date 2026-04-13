@@ -26,9 +26,7 @@ export default function SwipeToDelete({ children, onDelete, onEdit }: SwipeToDel
     onEdit?.();
   };
 
-  const renderRightActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-  ) => {
+  const renderRightActions = (progress: Animated.AnimatedInterpolation<number>) => {
     const scale = progress.interpolate({
       inputRange: [0, 1],
       outputRange: [0.5, 1],
@@ -44,9 +42,7 @@ export default function SwipeToDelete({ children, onDelete, onEdit }: SwipeToDel
     );
   };
 
-  const renderLeftActions = (
-    progress: Animated.AnimatedInterpolation<number>,
-  ) => {
+  const renderLeftActions = (progress: Animated.AnimatedInterpolation<number>) => {
     if (!onEdit) return null;
 
     const scale = progress.interpolate({

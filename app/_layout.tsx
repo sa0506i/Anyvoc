@@ -33,19 +33,22 @@ function RootNavigator() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const navigationTheme = useMemo(() => ({
-    ...DarkTheme,
-    dark: true,
-    colors: {
-      ...DarkTheme.colors,
-      primary: colors.primary,
-      background: colors.background,
-      card: colors.backgroundMid,
-      text: colors.text,
-      border: colors.glassBorder,
-      notification: colors.primary,
-    },
-  }), [colors]);
+  const navigationTheme = useMemo(
+    () => ({
+      ...DarkTheme,
+      dark: true,
+      colors: {
+        ...DarkTheme.colors,
+        primary: colors.primary,
+        background: colors.background,
+        card: colors.backgroundMid,
+        text: colors.text,
+        border: colors.glassBorder,
+        notification: colors.primary,
+      },
+    }),
+    [colors],
+  );
 
   useEffect(() => {
     loadSettings();
@@ -53,37 +56,37 @@ function RootNavigator() {
 
   return (
     <ShareIntentProvider>
-    <ThemeProvider value={navigationTheme}>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: colors.backgroundMid },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-          contentStyle: { backgroundColor: colors.background },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="settings"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
+      <ThemeProvider value={navigationTheme}>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: colors.backgroundMid },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+            contentStyle: { backgroundColor: colors.background },
           }}
-        />
-        <Stack.Screen
-          name="content/[id]"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-          }}
-        />
-      </Stack>
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="settings"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="content/[id]"
+            options={{
+              presentation: 'modal',
+              headerShown: false,
+            }}
+          />
+        </Stack>
 
-      <ShareIntentHandler />
-      <GlobalLoadingOverlay />
-    </ThemeProvider>
+        <ShareIntentHandler />
+        <GlobalLoadingOverlay />
+      </ThemeProvider>
     </ShareIntentProvider>
   );
 }

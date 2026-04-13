@@ -13,10 +13,7 @@ jest.mock('../claude', () => ({
 }));
 
 import { callClaude } from '../claude';
-import {
-  classifyWord,
-  classifyWordWithConfidence,
-} from './index';
+import { classifyWord, classifyWordWithConfidence } from './index';
 import { clearCache, __resetDbForTests } from './cache';
 import { __resetRateLimitForTests } from './fallback';
 
@@ -29,8 +26,7 @@ beforeEach(() => {
   __resetRateLimitForTests();
 });
 
-const isCefr = (s: string) =>
-  (CEFR_LEVELS as readonly string[]).includes(s);
+const isCefr = (s: string) => (CEFR_LEVELS as readonly string[]).includes(s);
 
 describe('classifyWord — local classification', () => {
   it('cat (en) → A1', async () => {
@@ -89,7 +85,8 @@ describe('classifyWord — local classification', () => {
 
   it('always returns a valid CEFR label', async () => {
     for (const word of ['the', 'cat', 'xqzpv', 'der', 'chat', 'phénoménologie']) {
-      const lang = word === 'chat' || word === 'phénoménologie' ? 'fr' : word === 'der' ? 'de' : 'en';
+      const lang =
+        word === 'chat' || word === 'phénoménologie' ? 'fr' : word === 'der' ? 'de' : 'en';
       const lvl = await classifyWord(word, lang);
       expect(isCefr(lvl)).toBe(true);
     }

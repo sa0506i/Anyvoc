@@ -1,0 +1,8 @@
+```json
+{
+  "original": "beau, belle",
+  "translation": "beautiful, handsome",
+  "level": "",
+  "type": "adjective"
+}
+```

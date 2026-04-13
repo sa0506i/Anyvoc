@@ -29,18 +29,42 @@ interface FreqPayload {
 function loadFreq(language: SupportedLanguage): Map<string, number> {
   let payload: FreqPayload;
   switch (language) {
-    case 'en': payload = require('../data/freq_en.json'); break;
-    case 'de': payload = require('../data/freq_de.json'); break;
-    case 'fr': payload = require('../data/freq_fr.json'); break;
-    case 'es': payload = require('../data/freq_es.json'); break;
-    case 'it': payload = require('../data/freq_it.json'); break;
-    case 'pt': payload = require('../data/freq_pt.json'); break;
-    case 'nl': payload = require('../data/freq_nl.json'); break;
-    case 'sv': payload = require('../data/freq_sv.json'); break;
-    case 'no': payload = require('../data/freq_no.json'); break;
-    case 'da': payload = require('../data/freq_da.json'); break;
-    case 'pl': payload = require('../data/freq_pl.json'); break;
-    case 'cs': payload = require('../data/freq_cs.json'); break;
+    case 'en':
+      payload = require('../data/freq_en.json');
+      break;
+    case 'de':
+      payload = require('../data/freq_de.json');
+      break;
+    case 'fr':
+      payload = require('../data/freq_fr.json');
+      break;
+    case 'es':
+      payload = require('../data/freq_es.json');
+      break;
+    case 'it':
+      payload = require('../data/freq_it.json');
+      break;
+    case 'pt':
+      payload = require('../data/freq_pt.json');
+      break;
+    case 'nl':
+      payload = require('../data/freq_nl.json');
+      break;
+    case 'sv':
+      payload = require('../data/freq_sv.json');
+      break;
+    case 'no':
+      payload = require('../data/freq_no.json');
+      break;
+    case 'da':
+      payload = require('../data/freq_da.json');
+      break;
+    case 'pl':
+      payload = require('../data/freq_pl.json');
+      break;
+    case 'cs':
+      payload = require('../data/freq_cs.json');
+      break;
   }
   const map = new Map<string, number>();
   const keys = payload.keys;
@@ -56,18 +80,30 @@ function loadFreq(language: SupportedLanguage): Map<string, number> {
 // { __empty: true, words: {} } — getAoa() falls back gracefully.
 function loadAoa(language: SupportedLanguage): Record<string, number> {
   switch (language) {
-    case 'en': return require('../data/aoa_en.json').words ?? {};
-    case 'de': return require('../data/aoa_de.json').words ?? {};
-    case 'fr': return require('../data/aoa_fr.json').words ?? {};
-    case 'es': return require('../data/aoa_es.json').words ?? {};
-    case 'it': return require('../data/aoa_it.json').words ?? {};
-    case 'pt': return require('../data/aoa_pt.json').words ?? {};
-    case 'nl': return require('../data/aoa_nl.json').words ?? {};
-    case 'sv': return require('../data/aoa_sv.json').words ?? {};
-    case 'no': return require('../data/aoa_no.json').words ?? {};
-    case 'da': return require('../data/aoa_da.json').words ?? {};
-    case 'pl': return require('../data/aoa_pl.json').words ?? {};
-    case 'cs': return require('../data/aoa_cs.json').words ?? {};
+    case 'en':
+      return require('../data/aoa_en.json').words ?? {};
+    case 'de':
+      return require('../data/aoa_de.json').words ?? {};
+    case 'fr':
+      return require('../data/aoa_fr.json').words ?? {};
+    case 'es':
+      return require('../data/aoa_es.json').words ?? {};
+    case 'it':
+      return require('../data/aoa_it.json').words ?? {};
+    case 'pt':
+      return require('../data/aoa_pt.json').words ?? {};
+    case 'nl':
+      return require('../data/aoa_nl.json').words ?? {};
+    case 'sv':
+      return require('../data/aoa_sv.json').words ?? {};
+    case 'no':
+      return require('../data/aoa_no.json').words ?? {};
+    case 'da':
+      return require('../data/aoa_da.json').words ?? {};
+    case 'pl':
+      return require('../data/aoa_pl.json').words ?? {};
+    case 'cs':
+      return require('../data/aoa_cs.json').words ?? {};
   }
 }
 
@@ -102,26 +138,67 @@ function getAoa(language: SupportedLanguage): Record<string, number> {
 // differently on auto-extract vs manual add.
 const ARTICLE_PREFIXES = new Set([
   // German
-  'der', 'die', 'das', 'den', 'dem', 'des',
-  'ein', 'eine', 'einen', 'einem', 'eines', 'einer',
+  'der',
+  'die',
+  'das',
+  'den',
+  'dem',
+  'des',
+  'ein',
+  'eine',
+  'einen',
+  'einem',
+  'eines',
+  'einer',
   // French
-  'le', 'la', 'les', 'l',
-  'un', 'une', 'des', 'du',
+  'le',
+  'la',
+  'les',
+  'l',
+  'un',
+  'une',
+  'des',
+  'du',
   // Spanish
-  'el', 'la', 'los', 'las',
-  'un', 'una', 'unos', 'unas',
+  'el',
+  'la',
+  'los',
+  'las',
+  'un',
+  'una',
+  'unos',
+  'unas',
   // Italian
-  'il', 'lo', 'la', 'i', 'gli', 'le',
-  'un', 'uno', 'una',
+  'il',
+  'lo',
+  'la',
+  'i',
+  'gli',
+  'le',
+  'un',
+  'uno',
+  'una',
   // Portuguese
-  'o', 'a', 'os', 'as',
-  'um', 'uma', 'uns', 'umas',
+  'o',
+  'a',
+  'os',
+  'as',
+  'um',
+  'uma',
+  'uns',
+  'umas',
   // Dutch
-  'de', 'het', 'een',
+  'de',
+  'het',
+  'een',
   // Swedish / Danish / Norwegian
-  'en', 'ett', 'et',
+  'en',
+  'ett',
+  'et',
   // Reflexive pronouns
-  'sich', 'se', 'si',
+  'sich',
+  'se',
+  'si',
 ]);
 
 function normaliseLookupKey(word: string): string {
@@ -211,8 +288,7 @@ export function extractFeatures(word: string, language: SupportedLanguage): Feat
     }
   }
 
-  const fallbackCount =
-    (usedFallback.zipf ? 1 : 0) + (usedFallback.aoa ? 1 : 0);
+  const fallbackCount = (usedFallback.zipf ? 1 : 0) + (usedFallback.aoa ? 1 : 0);
 
   return { zipfNorm, aoaNorm, zipf, fallbackCount, usedFallback };
 }

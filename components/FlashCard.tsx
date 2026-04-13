@@ -2,7 +2,13 @@ import { useMemo, useRef, useEffect } from 'react';
 import { View, Text, Pressable, Animated, Easing, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../hooks/useTheme';
-import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from '../constants/theme';
+import {
+  spacing,
+  fontSize,
+  borderRadius,
+  marineShadow,
+  type ThemeColors,
+} from '../constants/theme';
 
 interface FlashCardProps {
   front: string;
@@ -120,7 +126,11 @@ export default function FlashCard({
         <View style={styles.buttonRow}>
           <Pressable
             testID="incorrect-btn"
-            style={({ pressed }) => [styles.answerButton, styles.incorrectButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.answerButton,
+              styles.incorrectButton,
+              pressed && styles.pressed,
+            ]}
             onPress={onIncorrect}
           >
             <Ionicons name="close" size={24} color={colors.error} />
@@ -128,7 +138,11 @@ export default function FlashCard({
           </Pressable>
           <Pressable
             testID="correct-btn"
-            style={({ pressed }) => [styles.answerButton, styles.correctButton, pressed && styles.pressed]}
+            style={({ pressed }) => [
+              styles.answerButton,
+              styles.correctButton,
+              pressed && styles.pressed,
+            ]}
             onPress={onCorrect}
           >
             <Ionicons name="checkmark" size={24} color={colors.success} />

@@ -56,7 +56,7 @@ function getDb(): MinimalDb | null {
          level TEXT NOT NULL,
          created_at INTEGER NOT NULL,
          PRIMARY KEY (word, language)
-       )`
+       )`,
     );
     dbInstance = db;
     return db;
@@ -76,15 +76,15 @@ export function getCached(word: string, language: SupportedLanguage): CEFRLevel 
   try {
     const row = db.getFirstSync<{ level: string; created_at: number }>(
       'SELECT level, created_at FROM classifier_fallback_cache WHERE word = ? AND language = ?',
-      [word.toLowerCase(), language]
+      [word.toLowerCase(), language],
     );
     if (!row) return null;
     if (Date.now() - row.created_at > TTL_MS) {
       // Stale entry — drop it.
-      db.runSync(
-        'DELETE FROM classifier_fallback_cache WHERE word = ? AND language = ?',
-        [word.toLowerCase(), language]
-      );
+      db.runSync('DELETE FROM classifier_fallback_cache WHERE word = ? AND language = ?', [
+        word.toLowerCase(),
+        language,
+      ]);
       return null;
     }
     const lvl = row.level as CEFRLevel;
@@ -95,11 +95,7 @@ export function getCached(word: string, language: SupportedLanguage): CEFRLevel 
   }
 }
 
-export function setCached(
-  word: string,
-  language: SupportedLanguage,
-  level: CEFRLevel
-): void {
+export function setCached(word: string, language: SupportedLanguage, level: CEFRLevel): void {
   const k = key(word, language);
   memCache.set(k, level);
   const db = getDb();
@@ -108,7 +104,7 @@ export function setCached(
     db.runSync(
       `INSERT OR REPLACE INTO classifier_fallback_cache (word, language, level, created_at)
        VALUES (?, ?, ?, ?)`,
-      [word.toLowerCase(), language, level, Date.now()]
+      [word.toLowerCase(), language, level, Date.now()],
     );
   } catch {
     /* ignore */

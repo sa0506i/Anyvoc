@@ -3,7 +3,8 @@ import { CEFR_LEVELS } from '../constants/levels';
 // Articles and reflexive pronouns to strip from vocab entries.
 // Used for both text-matching (search terms) and A–Z sorting (so that
 // "o gato" sorts under "g", not under "o").
-export const STRIP_PREFIX = /^(ein|eine|einen|einem|einer|der|die|das|dem|den|des|un|une|des|du|le|la|les|l'|el|la|los|las|un|una|unos|unas|il|lo|la|i|gli|le|un|uno|una|un'|the|a|an|o|os|a|as|um|uma|uns|umas|de|het|een|en|ett|się|se|si|s'|sich)\s+/i;
+export const STRIP_PREFIX =
+  /^(ein|eine|einen|einem|einer|der|die|das|dem|den|des|un|une|des|du|le|la|les|l'|el|la|los|las|un|una|unos|unas|il|lo|la|i|gli|le|un|uno|una|un'|the|a|an|o|os|a|as|um|uma|uns|umas|de|het|een|en|ett|się|se|si|s'|sich)\s+/i;
 
 export type SortOption = 'date' | 'alphabetical' | 'level' | 'box';
 
@@ -40,7 +41,10 @@ export function extractSearchTerms(original: string): string[] {
   const terms = new Set<string>();
 
   // Split on comma to handle multiple forms
-  const parts = original.split(/,/).map((p) => p.trim()).filter(Boolean);
+  const parts = original
+    .split(/,/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
   for (const part of parts) {
     // Strip leading articles / reflexive pronouns
@@ -65,10 +69,9 @@ export function extractSearchTerms(original: string): string[] {
 }
 
 /** Sort vocabulary entries by the given option. Returns a new sorted array. */
-export function sortVocabulary<T extends { original: string; level: string; leitner_box: number; created_at: number }>(
-  items: T[],
-  by: SortOption
-): T[] {
+export function sortVocabulary<
+  T extends { original: string; level: string; leitner_box: number; created_at: number },
+>(items: T[], by: SortOption): T[] {
   return [...items].sort((a, b) => {
     switch (by) {
       case 'alphabetical':

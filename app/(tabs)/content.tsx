@@ -17,11 +17,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  getContents,
-  deleteContent,
-  type Content,
-} from '../../lib/database';
+import { getContents, deleteContent, type Content } from '../../lib/database';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import { ClaudeAPIError } from '../../lib/claude';
@@ -31,7 +27,13 @@ import { fetchArticleContent } from '../../lib/urlExtractor';
 import { useSettingsStore } from '../../hooks/useSettings';
 import { useTheme } from '../../hooks/useTheme';
 import { useUIStore } from '../../hooks/useUIStore';
-import { spacing, fontSize, borderRadius, marineShadow, type ThemeColors } from '../../constants/theme';
+import {
+  spacing,
+  fontSize,
+  borderRadius,
+  marineShadow,
+  type ThemeColors,
+} from '../../constants/theme';
 
 type ContentWithCount = Content & { vocab_count: number };
 
@@ -79,7 +81,12 @@ export default function ContentsScreen() {
     if (contentRefreshNonce > 0) loadContents();
   }, [contentRefreshNonce, loadContents]);
 
-  const processText = async (text: string, title: string, sourceType: Content['source_type'], sourceUrl?: string) => {
+  const processText = async (
+    text: string,
+    title: string,
+    sourceType: Content['source_type'],
+    sourceUrl?: string,
+  ) => {
     setLoading(true);
     try {
       const result = await processSharedText(
@@ -95,7 +102,7 @@ export default function ContentsScreen() {
       if (result.belowLevel) {
         Alert.alert(
           'Done',
-          `${result.foundTotal} vocabulary items found, but all were below your level (${displayLevel(level)}). Try lowering your level in settings.`
+          `${result.foundTotal} vocabulary items found, but all were below your level (${displayLevel(level)}). Try lowering your level in settings.`,
         );
       } else {
         Alert.alert('Done', `${result.inserted} vocabulary items extracted.`);
@@ -132,7 +139,10 @@ export default function ContentsScreen() {
       // Request permission first (required on iOS)
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission Required', 'Please allow access to your photos in device settings.');
+        Alert.alert(
+          'Permission Required',
+          'Please allow access to your photos in device settings.',
+        );
         return;
       }
 
@@ -157,7 +167,7 @@ export default function ContentsScreen() {
       const manipulated = await manipulateAsync(
         asset.uri,
         needsResize ? [{ resize: { width: MAX_DIMENSION } }] : [],
-        { format: SaveFormat.JPEG, compress: 0.6 }
+        { format: SaveFormat.JPEG, compress: 0.6 },
       );
 
       const extractedText = await extractTextFromImageLocal(manipulated.uri);
@@ -169,9 +179,12 @@ export default function ContentsScreen() {
       await processText(extractedText, title, 'image');
       return;
     } catch (error) {
-      const msg = error instanceof ClaudeAPIError
-        ? error.message
-        : error instanceof Error ? error.message : String(error);
+      const msg =
+        error instanceof ClaudeAPIError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : String(error);
       Alert.alert('Image Error', msg);
     } finally {
       setLoading(false);
@@ -233,8 +246,8 @@ export default function ContentsScreen() {
               item.source_type === 'image'
                 ? 'image-outline'
                 : item.source_type === 'link'
-                ? 'link-outline'
-                : 'document-text-outline'
+                  ? 'link-outline'
+                  : 'document-text-outline'
             }
             size={20}
             color={colors.text}
@@ -280,7 +293,11 @@ export default function ContentsScreen() {
               <Ionicons name="create-outline" size={24} color={colors.text} />
               <Text style={styles.menuItemText}>Enter Text</Text>
             </Pressable>
-            <Pressable testID="menu-choose-image" style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]} onPress={handleAddImage}>
+            <Pressable
+              testID="menu-choose-image"
+              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              onPress={handleAddImage}
+            >
               <Ionicons name="image-outline" size={24} color={colors.text} />
               <Text style={styles.menuItemText}>Choose Image</Text>
             </Pressable>
@@ -308,11 +325,7 @@ export default function ContentsScreen() {
             </Pressable>
             <Text style={styles.modalTitle}>Enter Text</Text>
             <Pressable testID="save-text-btn" onPress={handleAddText} disabled={!textInput.trim()}>
-              <Text
-                style={[styles.saveText, !textInput.trim() && { opacity: 0.5 }]}
-              >
-                Save
-              </Text>
+              <Text style={[styles.saveText, !textInput.trim() && { opacity: 0.5 }]}>Save</Text>
             </Pressable>
           </View>
           <TextInput
@@ -346,11 +359,7 @@ export default function ContentsScreen() {
             </Pressable>
             <Text style={styles.modalTitle}>Add Link</Text>
             <Pressable onPress={handleAddLink} disabled={!linkInput.trim()}>
-              <Text
-                style={[styles.saveText, !linkInput.trim() && { opacity: 0.5 }]}
-              >
-                Save
-              </Text>
+              <Text style={[styles.saveText, !linkInput.trim() && { opacity: 0.5 }]}>Save</Text>
             </Pressable>
           </View>
           <TextInput

@@ -1,0 +1,23 @@
+[
+  {
+    "original": "o rival",
+    "translation": "the rival",
+    "level": "",
+    "type": "noun",
+    "source_forms": ["rivais", "rival"]
+  },
+  {
+    "original": "ir",
+    "translation": "to go",
+    "level": "",
+    "type": "verb",
+    "source_forms": ["vou", "vai", "vamos", "foram", "ido"]
+  },
+  {
+    "original": "der Bruder, die Brüder",
+    "translation": "the brother",
+    "level": "",
+    "type": "noun",
+    "source_forms": ["Brüder", "Bruders", "Brüdern"]
+  }
+]

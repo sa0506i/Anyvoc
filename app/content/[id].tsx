@@ -32,7 +32,13 @@ import HighlightedText from '../../components/HighlightedText';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EditVocabModal from '../../components/EditVocabModal';
-import { SORT_OPTIONS, sortVocabulary, extractSearchTerms, escapeRegex, type SortOption } from '../../lib/vocabSort';
+import {
+  SORT_OPTIONS,
+  sortVocabulary,
+  extractSearchTerms,
+  escapeRegex,
+  type SortOption,
+} from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
@@ -51,15 +57,12 @@ export default function ContentDetailScreen() {
   const Header = ({ title }: { title: string }) => (
     <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
       <View style={styles.headerSide} />
-      <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+      <Text style={styles.headerTitle} numberOfLines={1}>
+        {title}
+      </Text>
       <View style={styles.headerSide}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
-          <Ionicons
-            name="close"
-            size={20}
-            color={colors.text}
-            style={styles.closeIcon}
-          />
+          <Ionicons name="close" size={20} color={colors.text} style={styles.closeIcon} />
         </Pressable>
       </View>
     </View>
@@ -67,10 +70,10 @@ export default function ContentDetailScreen() {
 
   // Load data synchronously on first render to avoid flash
   const [content, setContent] = useState<Content | null>(() =>
-    id ? getContentById(db, id) : null
+    id ? getContentById(db, id) : null,
   );
   const [vocabulary, setVocabulary] = useState<Vocabulary[]>(() =>
-    id ? getVocabularyByContentId(db, id) : []
+    id ? getVocabularyByContentId(db, id) : [],
   );
   const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('original');
@@ -114,7 +117,7 @@ export default function ContentDetailScreen() {
         let match;
         while ((match = regex.exec(text)) !== null) {
           const overlaps = ranges.some(
-            (r) => match!.index < r.end && match!.index + match![0].length > r.start
+            (r) => match!.index < r.end && match!.index + match![0].length > r.start,
           );
           if (!overlaps) {
             ranges.push({
@@ -136,14 +139,10 @@ export default function ContentDetailScreen() {
   };
 
   const handleAddWord = (word: string) => {
-    Alert.alert(
-      'Add Vocabulary',
-      `Add "${word}" to your vocabulary list?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Add', onPress: () => addWordToVocabulary(word) },
-      ]
-    );
+    Alert.alert('Add Vocabulary', `Add "${word}" to your vocabulary list?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Add', onPress: () => addWordToVocabulary(word) },
+    ]);
   };
 
   const addWordToVocabulary = async (word: string) => {
@@ -155,7 +154,7 @@ export default function ContentDetailScreen() {
         word,
         learningName,
         nativeName,
-        learningLanguage as SupportedLanguage
+        learningLanguage as SupportedLanguage,
       );
 
       if (!result.translation) {
@@ -205,7 +204,7 @@ export default function ContentDetailScreen() {
     if (!editingVocab) return;
     updateVocabularyFields(db, editingVocab.id, original, translation);
     setVocabulary((prev) =>
-      prev.map((v) => v.id === editingVocab.id ? { ...v, original, translation } : v)
+      prev.map((v) => (v.id === editingVocab.id ? { ...v, original, translation } : v)),
     );
     setEditingVocab(null);
   };
@@ -234,7 +233,11 @@ export default function ContentDetailScreen() {
             onPress={() => setActiveTab(tab)}
           >
             <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab === 'original' ? 'Original' : tab === 'translation' ? 'Translation' : `Vocabulary (${vocabulary.length})`}
+              {tab === 'original'
+                ? 'Original'
+                : tab === 'translation'
+                  ? 'Translation'
+                  : `Vocabulary (${vocabulary.length})`}
             </Text>
           </Pressable>
         ))}
@@ -281,10 +284,19 @@ export default function ContentDetailScreen() {
                 {SORT_OPTIONS.map((opt) => (
                   <Pressable
                     key={opt.value}
-                    style={({ pressed }) => [styles.sortChip, sortBy === opt.value && styles.sortChipActive, pressed && styles.pressed]}
+                    style={({ pressed }) => [
+                      styles.sortChip,
+                      sortBy === opt.value && styles.sortChipActive,
+                      pressed && styles.pressed,
+                    ]}
                     onPress={() => setSortBy(opt.value)}
                   >
-                    <Text style={[styles.sortChipText, sortBy === opt.value && styles.sortChipTextActive]}>
+                    <Text
+                      style={[
+                        styles.sortChipText,
+                        sortBy === opt.value && styles.sortChipTextActive,
+                      ]}
+                    >
                       {opt.label}
                     </Text>
                   </Pressable>
@@ -310,14 +322,10 @@ export default function ContentDetailScreen() {
               />
             </SwipeToDelete>
           )}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No vocabulary yet</Text>
-          }
+          ListEmptyComponent={<Text style={styles.emptyText}>No vocabulary yet</Text>}
           ListFooterComponent={
             vocabulary.length > 0 ? (
-              <Text style={styles.swipeHint}>
-                Swipe right to edit  ·  Swipe left to delete
-              </Text>
+              <Text style={styles.swipeHint}>Swipe right to edit · Swipe left to delete</Text>
             ) : null
           }
         />

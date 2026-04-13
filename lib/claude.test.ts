@@ -49,21 +49,13 @@ beforeEach(() => {
 describe('callClaude', () => {
   it('returns text from a successful response', async () => {
     global.fetch = mockFetchOk('hello world');
-    const result = await callClaude(
-      [{ role: 'user', content: 'hi' }],
-      'system',
-    );
+    const result = await callClaude([{ role: 'user', content: 'hi' }], 'system');
     expect(result).toBe('hello world');
   });
 
   it('sends correct request body', async () => {
     global.fetch = mockFetchOk('ok');
-    await callClaude(
-      [{ role: 'user', content: 'test' }],
-      'sys prompt',
-      1024,
-      { temperature: 0.5 },
-    );
+    await callClaude([{ role: 'user', content: 'test' }], 'sys prompt', 1024, { temperature: 0.5 });
 
     const call = (global.fetch as jest.Mock).mock.calls[0];
     const body = JSON.parse(call[1].body);
@@ -83,29 +75,29 @@ describe('callClaude', () => {
 
   it('throws ClaudeAPIError on 401', async () => {
     global.fetch = mockFetchError(401);
-    await expect(
-      callClaude([{ role: 'user', content: 'x' }], 'sys'),
-    ).rejects.toThrow(ClaudeAPIError);
-    await expect(
-      callClaude([{ role: 'user', content: 'x' }], 'sys'),
-    ).rejects.toMatchObject({ statusCode: 401 });
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toThrow(
+      ClaudeAPIError,
+    );
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toMatchObject({
+      statusCode: 401,
+    });
   });
 
   it('throws ClaudeAPIError on 429', async () => {
     global.fetch = mockFetchError(429);
-    await expect(
-      callClaude([{ role: 'user', content: 'x' }], 'sys'),
-    ).rejects.toThrow(ClaudeAPIError);
-    await expect(
-      callClaude([{ role: 'user', content: 'x' }], 'sys'),
-    ).rejects.toMatchObject({ statusCode: 429 });
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toThrow(
+      ClaudeAPIError,
+    );
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toMatchObject({
+      statusCode: 429,
+    });
   });
 
   it('throws ClaudeAPIError on 500 with body', async () => {
     global.fetch = mockFetchError(500, 'internal error');
-    await expect(
-      callClaude([{ role: 'user', content: 'x' }], 'sys'),
-    ).rejects.toThrow(/API error \(500\): internal error/);
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toThrow(
+      /API error \(500\): internal error/,
+    );
   });
 
   it('throws ClaudeAPIError when response has error field', async () => {
@@ -117,9 +109,7 @@ describe('callClaude', () => {
         error: { message: 'overloaded' },
       }),
     });
-    await expect(
-      callClaude([{ role: 'user', content: 'x' }], 'sys'),
-    ).rejects.toThrow('overloaded');
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toThrow('overloaded');
   });
 
   it('returns empty string when no text block found', async () => {
@@ -136,18 +126,16 @@ describe('callClaude', () => {
 
   it('wraps network errors in ClaudeAPIError', async () => {
     global.fetch = jest.fn().mockRejectedValue(new Error('DNS lookup failed'));
-    await expect(
-      callClaude([{ role: 'user', content: 'x' }], 'sys'),
-    ).rejects.toThrow(/Network error: DNS lookup failed/);
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toThrow(
+      /Network error: DNS lookup failed/,
+    );
   });
 
   it('wraps abort errors in ClaudeAPIError', async () => {
     const abortErr = new Error('aborted');
     abortErr.name = 'AbortError';
     global.fetch = jest.fn().mockRejectedValue(abortErr);
-    await expect(
-      callClaude([{ role: 'user', content: 'x' }], 'sys'),
-    ).rejects.toThrow(/timed out/);
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toThrow(/timed out/);
   });
 });
 
@@ -204,7 +192,9 @@ describe('chunkText', () => {
 
 describe('detectLanguage', () => {
   it('returns ISO 639-1 code for supported languages', () => {
-    const result = detectLanguage('Dies ist ein ausreichend langer deutscher Text für die Spracherkennung mit der franc Bibliothek.');
+    const result = detectLanguage(
+      'Dies ist ein ausreichend langer deutscher Text für die Spracherkennung mit der franc Bibliothek.',
+    );
     expect(result).toBe('de');
   });
 
@@ -237,9 +227,18 @@ describe('extractVocabulary', () => {
   });
 
   it('handles markdown-wrapped JSON', async () => {
-    const vocabJson = '```json\n' + JSON.stringify([
-      { original: 'le chat', translation: 'die Katze', level: '', type: 'noun', source_forms: [] },
-    ]) + '\n```';
+    const vocabJson =
+      '```json\n' +
+      JSON.stringify([
+        {
+          original: 'le chat',
+          translation: 'die Katze',
+          level: '',
+          type: 'noun',
+          source_forms: [],
+        },
+      ]) +
+      '\n```';
     global.fetch = mockFetchOk(vocabJson);
     const result = await extractVocabulary('Le chat dort.', 'German', 'French', 'fr');
     expect(result).toHaveLength(1);
@@ -248,7 +247,8 @@ describe('extractVocabulary', () => {
 
   it('repairs truncated JSON (missing closing bracket)', async () => {
     // Simulate a response cut off mid-way through a second object
-    const truncated = '[{"original":"word1","translation":"tr1","level":"","type":"noun","source_forms":[]},{"original":"word2","translation":"tr2","level":"","type":"noun","source_for';
+    const truncated =
+      '[{"original":"word1","translation":"tr1","level":"","type":"noun","source_forms":[]},{"original":"word2","translation":"tr2","level":"","type":"noun","source_for';
     global.fetch = mockFetchOk(truncated);
     const result = await extractVocabulary('text', 'English', 'German', 'de');
     // Should recover at least the first complete object

@@ -1,0 +1,10 @@
+Here is the translation of the word:
+
+{
+  "original": "sich erinnern",
+  "translation": "to remember",
+  "level": "",
+  "type": "verb"
+}
+
+Note: "sich erinnern" is a reflexive verb. The reflexive pronoun "sich" changes based on the subject.

@@ -15,9 +15,9 @@ type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 
 // Tab icon map
 const TAB_ICONS: Record<string, { active: IoniconsName; inactive: IoniconsName }> = {
-  content:    { active: 'document-text',    inactive: 'document-text-outline' },
-  index:      { active: 'school',           inactive: 'school-outline' },
-  vocabulary: { active: 'list',             inactive: 'list-outline' },
+  content: { active: 'document-text', inactive: 'document-text-outline' },
+  index: { active: 'school', inactive: 'school-outline' },
+  vocabulary: { active: 'list', inactive: 'list-outline' },
 };
 
 function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
@@ -45,10 +45,17 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           const { options } = descriptors[route.key];
           const isFocused = state.index === index;
           const label = options.title ?? route.name;
-          const icons = TAB_ICONS[route.name] ?? { active: 'ellipse' as IoniconsName, inactive: 'ellipse-outline' as IoniconsName };
+          const icons = TAB_ICONS[route.name] ?? {
+            active: 'ellipse' as IoniconsName,
+            inactive: 'ellipse-outline' as IoniconsName,
+          };
 
           const onPress = () => {
-            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
             if (event.defaultPrevented) return;
             if (route.name === 'vocabulary') {
               // Always clear filter params when vocabulary tab is tapped directly
@@ -59,19 +66,13 @@ function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           };
 
           return (
-            <Pressable
-              key={route.key}
-              onPress={onPress}
-              style={styles.tabItem}
-            >
+            <Pressable key={route.key} onPress={onPress} style={styles.tabItem}>
               <Ionicons
                 name={isFocused ? icons.active : icons.inactive}
                 size={22}
                 color={isFocused ? colors.text : colors.textSecondary}
               />
-              <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
-                {label}
-              </Text>
+              <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>{label}</Text>
             </Pressable>
           );
         })}
@@ -142,15 +143,17 @@ export default function TabLayout() {
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        headerLeft: () => (
-          <Text style={{ fontSize: 22, marginLeft: 16 }}>{flag}</Text>
-        ),
+        headerLeft: () => <Text style={{ fontSize: 22, marginLeft: 16 }}>{flag}</Text>,
         headerStyle: { backgroundColor: colors.backgroundMid },
         headerShadowVisible: false,
         headerTintColor: colors.text,
         headerTitleStyle: { color: colors.text },
         headerRight: () => (
-          <Pressable testID="settings-btn" onPress={() => router.push('/settings')} style={{ marginRight: 16 }}>
+          <Pressable
+            testID="settings-btn"
+            onPress={() => router.push('/settings')}
+            style={{ marginRight: 16 }}
+          >
             <Ionicons name="settings-outline" size={24} color={colors.text} />
           </Pressable>
         ),

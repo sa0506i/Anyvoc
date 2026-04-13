@@ -35,13 +35,13 @@ export default function SettingsScreen() {
       <View style={styles.headerSide} />
       <Text style={styles.headerTitle}>Settings</Text>
       <View style={styles.headerSide}>
-        <Pressable testID="settings-close-btn" onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
-          <Ionicons
-            name="close"
-            size={20}
-            color={colors.text}
-            style={styles.closeIcon}
-          />
+        <Pressable
+          testID="settings-close-btn"
+          onPress={() => router.back()}
+          hitSlop={8}
+          style={styles.closeButton}
+        >
+          <Ionicons name="close" size={20} color={colors.text} style={styles.closeIcon} />
         </Pressable>
       </View>
     </View>
@@ -69,7 +69,7 @@ export default function SettingsScreen() {
             router.back();
           },
         },
-      ]
+      ],
     );
   };
 
@@ -116,86 +116,113 @@ export default function SettingsScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
-    <Header />
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Languages */}
-      <Text style={styles.sectionTitle}>Languages</Text>
+      <Header />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* Languages */}
+        <Text style={styles.sectionTitle}>Languages</Text>
 
-      <Pressable testID="native-language-btn" style={styles.row} onPress={() => setShowLanguagePicker('native')}>
-        <Text style={styles.rowLabel}>Native Language</Text>
-        <Text style={styles.rowValue}>{getLanguageName(nativeLanguage)} →</Text>
-      </Pressable>
+        <Pressable
+          testID="native-language-btn"
+          style={styles.row}
+          onPress={() => setShowLanguagePicker('native')}
+        >
+          <Text style={styles.rowLabel}>Native Language</Text>
+          <Text style={styles.rowValue}>{getLanguageName(nativeLanguage)} →</Text>
+        </Pressable>
 
-      <Pressable testID="learning-language-btn" style={styles.row} onPress={() => setShowLanguagePicker('learning')}>
-        <Text style={styles.rowLabel}>Learning Language</Text>
-        <Text style={styles.rowValue}>{getLanguageName(learningLanguage)} →</Text>
-      </Pressable>
+        <Pressable
+          testID="learning-language-btn"
+          style={styles.row}
+          onPress={() => setShowLanguagePicker('learning')}
+        >
+          <Text style={styles.rowLabel}>Learning Language</Text>
+          <Text style={styles.rowValue}>{getLanguageName(learningLanguage)} →</Text>
+        </Pressable>
 
-      {/* Level */}
-      <Text style={styles.sectionTitle}>Language Level</Text>
-      <Text style={styles.sectionHint}>
-        Vocabulary below this level will be ignored
-      </Text>
-      <View style={styles.levelRow}>
-        {CEFR_LEVELS_UI.map((ui) => {
-          const active = displayLevel(level) === ui;
-          return (
+        {/* Level */}
+        <Text style={styles.sectionTitle}>Language Level</Text>
+        <Text style={styles.sectionHint}>Vocabulary below this level will be ignored</Text>
+        <View style={styles.levelRow}>
+          {CEFR_LEVELS_UI.map((ui) => {
+            const active = displayLevel(level) === ui;
+            return (
+              <Pressable
+                key={ui}
+                style={({ pressed }) => [
+                  styles.levelChip,
+                  styles.cefrChip,
+                  active && styles.levelChipActive,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => updateSetting('level', uiToInternalLevel(ui))}
+              >
+                <Text style={[styles.levelChipText, active && styles.levelChipTextActive]}>
+                  {ui}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Quiz Direction */}
+        <Text style={styles.sectionTitle}>Quiz Direction</Text>
+        <View style={styles.chipRow}>
+          {quizDirectionOptions.map((opt) => (
             <Pressable
-              key={ui}
-              style={({ pressed }) => [styles.levelChip, styles.cefrChip, active && styles.levelChipActive, pressed && styles.pressed]}
-              onPress={() => updateSetting('level', uiToInternalLevel(ui))}
+              key={opt.value}
+              style={({ pressed }) => [
+                styles.levelChip,
+                quizDirection === opt.value && styles.levelChipActive,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => updateSetting('quizDirection', opt.value)}
             >
-              <Text style={[styles.levelChipText, active && styles.levelChipTextActive]}>
-                {ui}
+              <Text
+                style={[
+                  styles.levelChipText,
+                  quizDirection === opt.value && styles.levelChipTextActive,
+                ]}
+              >
+                {opt.label}
               </Text>
             </Pressable>
-          );
-        })}
-      </View>
+          ))}
+        </View>
 
-      {/* Quiz Direction */}
-      <Text style={styles.sectionTitle}>Quiz Direction</Text>
-      <View style={styles.chipRow}>
-        {quizDirectionOptions.map((opt) => (
-          <Pressable
-            key={opt.value}
-            style={({ pressed }) => [styles.levelChip, quizDirection === opt.value && styles.levelChipActive, pressed && styles.pressed]}
-            onPress={() => updateSetting('quizDirection', opt.value)}
-          >
-            <Text style={[styles.levelChipText, quizDirection === opt.value && styles.levelChipTextActive]}>
-              {opt.label}
-            </Text>
+        {/* Cards Per Round */}
+        <Text style={styles.sectionTitle}>Cards Per Round</Text>
+        <Text style={styles.sectionHint}>Number of cards in each training session</Text>
+        <View style={styles.chipRow}>
+          {[5, 10, 15, 20, 25, 30].map((n) => (
+            <Pressable
+              key={n}
+              style={({ pressed }) => [
+                styles.levelChip,
+                cardsPerRound === String(n) && styles.levelChipActive,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => updateSetting('cardsPerRound', String(n))}
+            >
+              <Text
+                style={[
+                  styles.levelChipText,
+                  cardsPerRound === String(n) && styles.levelChipTextActive,
+                ]}
+              >
+                {n}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {/* Reset */}
+        <View style={styles.resetSection}>
+          <Pressable testID="reset-app-btn" style={styles.resetButton} onPress={handleReset}>
+            <Ionicons name="trash-outline" size={16} color={colors.error} />
+            <Text style={styles.resetText}>Reset App</Text>
           </Pressable>
-        ))}
-      </View>
-
-      {/* Cards Per Round */}
-      <Text style={styles.sectionTitle}>Cards Per Round</Text>
-      <Text style={styles.sectionHint}>
-        Number of cards in each training session
-      </Text>
-      <View style={styles.chipRow}>
-        {[5, 10, 15, 20, 25, 30].map((n) => (
-          <Pressable
-            key={n}
-            style={({ pressed }) => [styles.levelChip, cardsPerRound === String(n) && styles.levelChipActive, pressed && styles.pressed]}
-            onPress={() => updateSetting('cardsPerRound', String(n))}
-          >
-            <Text style={[styles.levelChipText, cardsPerRound === String(n) && styles.levelChipTextActive]}>
-              {n}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {/* Reset */}
-      <View style={styles.resetSection}>
-        <Pressable testID="reset-app-btn" style={styles.resetButton} onPress={handleReset}>
-          <Ionicons name="trash-outline" size={16} color={colors.error} />
-          <Text style={styles.resetText}>Reset App</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
