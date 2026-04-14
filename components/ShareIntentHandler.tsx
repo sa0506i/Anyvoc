@@ -30,6 +30,7 @@ export default function ShareIntentHandler() {
   const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
   const learningLanguage = useSettingsStore((s) => s.learningLanguage);
   const level = useSettingsStore((s) => s.level);
+  const proMode = useSettingsStore((s) => s.proMode);
   const { hasShareIntent, shareIntent, resetShareIntent } = useShareIntentContext();
   const shareStore = useShareProcessingStore();
   const bumpContentRefresh = useUIStore((s) => s.bumpContentRefresh);
@@ -94,19 +95,31 @@ export default function ShareIntentHandler() {
           title,
           sourceType,
           sourceUrl,
-          { nativeLanguage, learningLanguage, level },
+          { nativeLanguage, learningLanguage, level, proMode },
           shareStore.setMessage,
         );
 
-        bumpContentRefresh();
-
-        if (result.belowLevel) {
+        if (result.rejected === 'daily-limit') {
           alert(
-            'Done',
-            `${result.foundTotal} vocabulary items found, but all were below your level. Try lowering your level in settings.`,
+            'Daily limit reached',
+            'Basic Mode is limited to three content additions per day. The shared content was not saved.',
           );
         } else {
-          alert('Done', `${result.inserted} vocabulary items extracted.`);
+          bumpContentRefresh();
+
+          if (result.truncated) {
+            alert(
+              'Content truncated',
+              'Content was truncated to 1000 characters (Basic mode). Enable Pro mode in Settings to remove this limit.',
+            );
+          } else if (result.belowLevel) {
+            alert(
+              'Done',
+              `${result.foundTotal} vocabulary items found, but all were below your level. Try lowering your level in settings.`,
+            );
+          } else {
+            alert('Done', `${result.inserted} vocabulary items extracted.`);
+          }
         }
       } catch (error) {
         if (error instanceof ClaudeAPIError) {
