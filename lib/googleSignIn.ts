@@ -1,0 +1,111 @@
+/**
+ * Google Sign-In wrapper.
+ *
+ * Configures @react-native-google-signin/google-signin with the Web + iOS
+ * client IDs from app.json.extra, then exposes a single signInWithGoogle()
+ * helper that returns a Google ID token suitable for Supabase's
+ * signInWithIdToken({ provider: 'google', token }).
+ *
+ * The Web Client ID is the one Supabase validates against — the iOS
+ * Client ID only configures the native iOS SDK. On Android, the SDK
+ * pairs Package name + SHA-1 (configured in Google Cloud Console) with
+ * the same Web Client ID to obtain ID tokens.
+ */
+
+import Constants from 'expo-constants';
+import {
+  GoogleSignin,
+  statusCodes,
+  isErrorWithCode,
+} from '@react-native-google-signin/google-signin';
+
+const WEB_CLIENT_ID = Constants.expoConfig?.extra?.googleWebClientId as string | undefined;
+const IOS_CLIENT_ID = Constants.expoConfig?.extra?.googleIosClientId as string | undefined;
+
+let configured = false;
+
+/**
+ * Idempotent. Safe to call from module-load, screen mount, or right
+ * before sign-in. Throws if the Web Client ID is missing because
+ * without it, id-token retrieval will fail silently with misleading
+ * errors downstream.
+ */
+export function configureGoogleSignIn(): void {
+  if (configured) return;
+  if (!WEB_CLIENT_ID) {
+    throw new Error(
+      'googleWebClientId missing from app.json extra — cannot configure Google Sign-In.',
+    );
+  }
+  GoogleSignin.configure({
+    webClientId: WEB_CLIENT_ID,
+    iosClientId: IOS_CLIENT_ID,
+    // offlineAccess: false is the default — we don't need a refresh token
+    // from Google since Supabase issues its own session once we hand over
+    // the id_token. Keeping it off avoids the second consent dialog.
+    offlineAccess: false,
+    scopes: ['profile', 'email'],
+  });
+  configured = true;
+}
+
+export class GoogleSignInError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string,
+    public readonly cause?: unknown,
+  ) {
+    super(message);
+    this.name = 'GoogleSignInError';
+  }
+}
+
+/** Special sentinel code for "user cancelled" — caller should swallow silently. */
+export const GOOGLE_SIGN_IN_CANCELLED = 'SIGN_IN_CANCELLED';
+
+/**
+ * Launches the Google sign-in sheet and returns the Google ID token.
+ * The caller passes that to supabase.auth.signInWithIdToken.
+ *
+ * On cancellation, throws GoogleSignInError with code
+ * GOOGLE_SIGN_IN_CANCELLED — callers should swallow that silently and
+ * show nothing, per project UX convention.
+ */
+export async function signInWithGoogle(): Promise<string> {
+  configureGoogleSignIn();
+
+  try {
+    await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    const result = await GoogleSignin.signIn();
+    // Library v13+ returns { type: 'success', data: {...} } or { type: 'cancelled' }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r: any = result;
+    if (r?.type === 'cancelled') {
+      throw new GoogleSignInError('Sign-in cancelled', GOOGLE_SIGN_IN_CANCELLED);
+    }
+    const idToken: string | undefined = r?.data?.idToken ?? r?.idToken;
+    if (!idToken) {
+      throw new GoogleSignInError('Google did not return an id_token');
+    }
+    return idToken;
+  } catch (err) {
+    if (err instanceof GoogleSignInError) throw err;
+    if (isErrorWithCode(err)) {
+      if (err.code === statusCodes.SIGN_IN_CANCELLED) {
+        throw new GoogleSignInError('Sign-in cancelled', GOOGLE_SIGN_IN_CANCELLED, err);
+      }
+      if (err.code === statusCodes.IN_PROGRESS) {
+        throw new GoogleSignInError('Sign-in already in progress', err.code, err);
+      }
+      if (err.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        throw new GoogleSignInError(
+          'Google Play Services is not available on this device.',
+          err.code,
+          err,
+        );
+      }
+      throw new GoogleSignInError(err.message || 'Google sign-in failed', err.code, err);
+    }
+    throw new GoogleSignInError('Google sign-in failed', undefined, err);
+  }
+}

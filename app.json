@@ -48,14 +48,23 @@
         }
       ],
       "expo-localization",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.354874545998-ubl85hv4t0qo5dq6g4jmfsl0ef9ceaiv"
+        }
+      ],
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {
         "projectId": "b7c84c6d-4ba8-4481-b92f-bdc250760248"
       },
       "supabaseUrl": "https://jnxfmzicstzoevijdcrf.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpueGZtemljc3R6b2V2aWpkY3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNjM5NDMsImV4cCI6MjA5MTczOTk0M30.ZVJDa9QcYJF-2xwXNaoFHjTqclo0bctvkApbbUY3yOc"
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpueGZtemljc3R6b2V2aWpkY3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNjM5NDMsImV4cCI6MjA5MTczOTk0M30.ZVJDa9QcYJF-2xwXNaoFHjTqclo0bctvkApbbUY3yOc",
+      "googleWebClientId": "354874545998-qcr7mjc8l93tudeit8smabr10gtbnen6.apps.googleusercontent.com",
+      "googleIosClientId": "354874545998-ubl85hv4t0qo5dq6g4jmfsl0ef9ceaiv.apps.googleusercontent.com"
     }
   }
 }

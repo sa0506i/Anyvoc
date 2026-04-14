@@ -19,7 +19,21 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { signInWithEmailOtp, AuthError } from '../../lib/auth';
+import {
+  signInWithEmailOtp,
+  signInWithGoogleIdToken,
+  signInWithAppleIdToken,
+  AuthError,
+} from '../../lib/auth';
+import { useAuthStore } from '../../lib/authStore';
+import {
+  signInWithGoogle,
+  GoogleSignInError,
+  GOOGLE_SIGN_IN_CANCELLED,
+} from '../../lib/googleSignIn';
+import { signInWithApple, AppleSignInError, APPLE_SIGN_IN_CANCELLED } from '../../lib/appleSignIn';
+import { useSQLiteContext } from 'expo-sqlite';
+import { setSetting } from '../../lib/database';
 import { useTheme } from '../../hooks/useTheme';
 import { useAlert } from '../../components/ConfirmDialog';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
@@ -28,6 +42,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginScreen() {
   const router = useRouter();
+  const db = useSQLiteContext();
+  const setSession = useAuthStore((s) => s.setSession);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -35,6 +51,7 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [providerSubmitting, setProviderSubmitting] = useState<null | 'google' | 'apple'>(null);
 
   const emailValid = EMAIL_RE.test(email.trim());
 
@@ -57,11 +74,60 @@ export default function LoginScreen() {
     }
   };
 
-  const handleProviderComingSoon = () => {
-    alert(
-      'Coming soon',
-      'This sign-in option will be enabled in an upcoming release. For now, please use email.',
-    );
+  const handleGoogleSignIn = async () => {
+    if (providerSubmitting) return;
+    setProviderSubmitting('google');
+    try {
+      const idToken = await signInWithGoogle();
+      const session = await signInWithGoogleIdToken(idToken);
+      setSession(session);
+      setSetting(db, 'onboarding_seen', 'true');
+      if (session.user?.id) {
+        setSetting(db, 'auth_user_id', session.user.id);
+      }
+      router.replace('/(tabs)');
+    } catch (err) {
+      if (err instanceof GoogleSignInError && err.code === GOOGLE_SIGN_IN_CANCELLED) {
+        // User backed out — silent, no toast, per project UX convention.
+        return;
+      }
+      console.warn('Google sign-in failed', err);
+      const message =
+        err instanceof GoogleSignInError || err instanceof AuthError
+          ? err.message
+          : 'Could not sign in with Google. Please try again.';
+      alert('Sign-in failed', message);
+    } finally {
+      setProviderSubmitting(null);
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    if (providerSubmitting) return;
+    setProviderSubmitting('apple');
+    try {
+      const idToken = await signInWithApple();
+      const session = await signInWithAppleIdToken(idToken);
+      setSession(session);
+      setSetting(db, 'onboarding_seen', 'true');
+      if (session.user?.id) {
+        setSetting(db, 'auth_user_id', session.user.id);
+      }
+      router.replace('/(tabs)');
+    } catch (err) {
+      if (err instanceof AppleSignInError && err.code === APPLE_SIGN_IN_CANCELLED) {
+        // User backed out — silent.
+        return;
+      }
+      console.warn('Apple sign-in failed', err);
+      const message =
+        err instanceof AppleSignInError || err instanceof AuthError
+          ? err.message
+          : 'Could not sign in with Apple. Please try again.';
+      alert('Sign-in failed', message);
+    } finally {
+      setProviderSubmitting(null);
+    }
   };
 
   return (
@@ -130,21 +196,43 @@ export default function LoginScreen() {
         {Platform.OS === 'ios' && (
           <Pressable
             testID="login-method-apple"
-            style={({ pressed }) => [styles.providerBtn, pressed && styles.pressed]}
-            onPress={handleProviderComingSoon}
+            style={({ pressed }) => [
+              styles.providerBtn,
+              providerSubmitting !== null && styles.primaryBtnDisabled,
+              pressed && providerSubmitting === null && styles.pressed,
+            ]}
+            disabled={providerSubmitting !== null}
+            onPress={handleAppleSignIn}
           >
-            <Ionicons name="logo-apple" size={18} color={colors.text} />
-            <Text style={styles.providerBtnText}>Continue with Apple</Text>
+            {providerSubmitting === 'apple' ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <>
+                <Ionicons name="logo-apple" size={18} color={colors.text} />
+                <Text style={styles.providerBtnText}>Continue with Apple</Text>
+              </>
+            )}
           </Pressable>
         )}
 
         <Pressable
           testID="login-method-google"
-          style={({ pressed }) => [styles.providerBtn, pressed && styles.pressed]}
-          onPress={handleProviderComingSoon}
+          style={({ pressed }) => [
+            styles.providerBtn,
+            providerSubmitting !== null && styles.primaryBtnDisabled,
+            pressed && providerSubmitting === null && styles.pressed,
+          ]}
+          disabled={providerSubmitting !== null}
+          onPress={handleGoogleSignIn}
         >
-          <Ionicons name="logo-google" size={18} color={colors.text} />
-          <Text style={styles.providerBtnText}>Continue with Google</Text>
+          {providerSubmitting === 'google' ? (
+            <ActivityIndicator color={colors.text} />
+          ) : (
+            <>
+              <Ionicons name="logo-google" size={18} color={colors.text} />
+              <Text style={styles.providerBtnText}>Continue with Google</Text>
+            </>
+          )}
         </Pressable>
       </View>
 
