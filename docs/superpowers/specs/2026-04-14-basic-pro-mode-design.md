@@ -7,11 +7,16 @@
 
 Introduce two app modes: **Basic** (default) and **Pro**, toggleable from Settings.
 
-- **Basic:** New content is capped at **1000 characters** across all four add paths
-  (text input, image OCR, URL/link, share intent). Content that exceeds the limit is
-  truncated at the last complete sentence boundary, and the user is informed via a
-  dialog.
-- **Pro:** No limit — current behavior unchanged.
+**Basic mode restrictions (all enforced *before* any API call):**
+
+1. **Content length ≤ 1000 characters** — truncated at the last complete sentence
+   boundary, falling back to a word boundary if no sentence end exists within the
+   limit. Applied to all four add paths: text, image OCR, URL/link, share intent.
+2. **Max 3 content additions per calendar day** (local time).
+3. **No full-text translation** — vocabulary extraction still runs; the translation
+   API call is skipped.
+
+**Pro mode:** All of the above limits are removed — current behavior unchanged.
 
 The mode affects only the *input side* (adding content). Existing vocabulary,
 training, and all other features are identical in both modes.
@@ -20,16 +25,21 @@ training, and all other features are identical in both modes.
 
 - No payment, license, or account system. Pro is a pure UI toggle — anyone can flip
   it. This is a scaffolding step; monetization is out of scope.
-- No per-item exception: the limit applies uniformly to all four add paths.
-- No retroactive effect on existing content already in the DB.
+- No retroactive effect on existing content already in the DB. Previously translated
+  content keeps its translation even if the user switches to Basic.
+- The 3-per-day counter is not persisted across device wipes; it is derived from
+  `contents.created_at` and therefore resets if the app is reset.
 
 ## Data Model
 
 New entry in the `settings` table (no schema change — it's a key/value store):
 
-| Key       | Value                | Default  |
-|-----------|----------------------|----------|
+| Key       | Value                | Default   |
+|-----------|----------------------|-----------|
 | `proMode` | `"true"` / `"false"` | `"false"` |
+
+No new tables. The daily-addition count is derived from existing `contents.created_at`
+(stored as Unix ms, `INTEGER`).
 
 ## Components
 
@@ -39,149 +49,220 @@ New entry in the `settings` table (no schema change — it's a key/value store):
 export const BASIC_MODE_CHAR_LIMIT = 1000;
 
 /**
- * Truncates text at the last sentence-ending punctuation at or before maxChars.
- * If no sentence boundary exists, falls back to a hard cut at maxChars.
- * Returns the unchanged text and truncated=false if already within the limit.
+ * Truncates text to roughly maxChars, preferring a sentence boundary.
+ * Fallback order:
+ *   1) Last sentence-ending punctuation (. ! ? …) at or before maxChars
+ *      (optionally followed by closing quote / bracket).
+ *   2) If none: the end of the word that straddles maxChars (i.e. the next
+ *      whitespace AFTER maxChars). The full word is kept — the result may
+ *      be slightly longer than maxChars by at most one word length.
+ *   3) If no whitespace exists after maxChars either (pathological, single
+ *      long token): the original text is returned unchanged
+ *      (single-word input cannot be meaningfully sentence-truncated).
+ * Always trims trailing whitespace from the result.
  */
 export function truncateAtSentence(
   text: string,
   maxChars: number = BASIC_MODE_CHAR_LIMIT,
 ): { text: string; truncated: boolean };
+
+/**
+ * Convenience wrapper: bypass truncation in Pro mode.
+ */
+export function applyBasicLimit(
+  text: string,
+  proMode: boolean,
+): { text: string; truncated: boolean };
 ```
 
-**Algorithm:**
+**Algorithm for `truncateAtSentence`:**
 
 1. If `text.length <= maxChars` → return `{ text, truncated: false }`.
-2. Slice `text.slice(0, maxChars)`.
-3. Search backwards for the last sentence-ending punctuation: `.`, `!`, `?`, `…`,
-   optionally followed by a closing quote (`"`, `'`, `»`, `)`, `]`) and/or
-   whitespace.
-4. If found at position `p` (inclusive), return
-   `{ text: text.slice(0, p + 1).trimEnd(), truncated: true }`.
-5. Otherwise (no sentence boundary in the first `maxChars`): hard cut at `maxChars`,
-   trim trailing whitespace, return `{ text: <cut>, truncated: true }`.
+2. Look for the **last** sentence-ending punctuation in `text.slice(0, maxChars)`,
+   allowing an optional trailing closing quote/bracket (`"`, `'`, `»`, `)`, `]`).
+   If found at index `p`, return `text.slice(0, p + 1).trimEnd()`.
+3. Else: find the first whitespace at index `w >= maxChars` in the full `text`.
+   If found, return `text.slice(0, w).trimEnd()`.
+4. Else (single long token ≥ maxChars with no following whitespace): return the
+   original `text` unchanged but still flag `truncated: true` if `text.length >
+   maxChars` — *note:* callers should treat this edge case as “effectively not
+   truncated” (nothing sensible to cut). Acceptable because realistic inputs are
+   prose, not single 1000+ char tokens.
 
 **Tests (`lib/truncate.test.ts`):**
 
-- Empty string → returns `""`, `truncated: false`
-- Text shorter than limit → unchanged, `truncated: false`
-- Text exactly at limit → unchanged, `truncated: false`
-- Text > limit with sentence end before limit → cut at sentence end
-- Text > limit with no sentence end in first 1000 chars → hard cut at 1000
-- Sentence end with closing quote `He said "Hi." ...` → cut after quote
-- German punctuation (`!`, `?`) works
+- Empty string → `""`, `truncated: false`.
+- Text shorter than limit → unchanged.
+- Text exactly at limit → unchanged.
+- Text > limit with sentence end in first 1000 chars → cut at sentence end.
+- Text > limit with no sentence end but word boundary past 1000 → cut at word end
+  (length may be 1001–1050 typical).
+- Sentence end followed by closing quote (`He said "Hi." And then...`) → cut after `"`.
+- German / European punctuation (`!`, `?`, `…`) respected.
+- Pathological single-token input (1200-char single word) → returned unchanged.
+- `applyBasicLimit` in Pro mode bypasses truncation (`truncated: false` even when
+  length > 1000).
 
-### 2. `hooks/useSettings.ts` (extended)
+### 2. `lib/database.ts` (new helper)
+
+```ts
+/** Counts contents added on the local calendar day of `now`. */
+export function countContentsAddedToday(
+  db: SQLiteDatabase,
+  now: Date = new Date(),
+): number;
+```
+
+Implementation: compute `todayStart = new Date(now.getFullYear(),
+now.getMonth(), now.getDate()).getTime()` and run
+`SELECT COUNT(*) as count FROM contents WHERE created_at >= ?`.
+
+Also exposed as a constant:
+
+```ts
+export const BASIC_MODE_DAILY_CONTENT_LIMIT = 3;
+```
+
+### 3. `hooks/useSettings.ts` (extended)
 
 - Add `proMode: boolean` to `SettingsState` (default `false`).
 - In `loadSettings`: `proMode: settings['proMode'] === 'true'`.
 - In `resetApp`: reset `proMode: false` and persist `'false'`.
-- `updateSetting(db, 'proMode', 'true' | 'false')` uses the existing update path;
-  the store converts the string to boolean before `set({ proMode: ... })`.
+- `updateSetting` for `proMode`: the store converts the string value to boolean
+  before `set({ proMode: ... })` (other keys keep their existing string pass-through).
 
-**Note:** Because `updateSetting` is generic (key/value string), the boolean
-conversion happens inside the store: a dedicated `set` branch for `proMode`
-converts `'true'` → `true`, anything else → `false`.
+### 4. `components/ConfirmDialog.tsx` (extended)
 
-### 3. `components/ConfirmDialog.tsx` (extended)
+- Make `cancelLabel` optional. When omitted, render only the confirm button
+  (full width). `onCancel` still fires on dismissal (back gesture / outside tap).
+- Existing call sites (all passing `cancelLabel`) continue to work unchanged.
 
-- Make `cancelLabel` optional (`?: string`). When omitted:
-  - Render only the confirm button (full width).
-  - `onCancel` is still called when dismissed via back gesture / outside tap.
-- No other behavioral change. Existing call sites (all passing `cancelLabel`)
-  continue to work unchanged.
+### 5. `app/settings.tsx` (new section)
 
-### 4. `app/settings.tsx` (new section)
-
-New section inserted **at the top**, before "Languages":
+New section **at the top**, before "Languages":
 
 ```
 Mode
-Basic limits content to 1000 characters per item. Pro has no limit.
+Basic limits content to 1000 characters, 3 additions per day,
+and no full-text translation. Pro removes all limits.
 
 [ Pro Mode                                    (● Switch) ]
 ```
 
-- Native RN `Switch` component, `onValueChange` calls
+- Native RN `Switch`, `onValueChange` calls
   `updateSetting('proMode', on ? 'true' : 'false')`.
 - `trackColor.true = colors.primary`, themed via `useTheme`.
 - `testID="pro-mode-switch"`.
 
-### 5. Enforcement at 4 entry points
+### 6. Enforcement at the 4 add paths
 
-A shared helper is used at each seam:
+Each path performs the same three-step gate **before** calling any Claude API:
+
+```
+1. If !proMode:
+     if countContentsAddedToday(db) >= 3  → abort, show "daily limit" dialog.
+2. const { text, truncated } = applyBasicLimit(raw, proMode);
+3. Call processText(text, { proMode });
+   - processText passes proMode down to processSharedText.
+4. On success: if truncated, show "content truncated" dialog.
+```
+
+Order matters: the daily-count check comes first (no API call if over quota), then
+truncation (so the API receives ≤1000 chars), then processing. The truncation
+dialog is only shown after successful save to avoid confusing the user if processing
+itself fails.
+
+| Path          | File                                         | Notes                                          |
+|---------------|----------------------------------------------|------------------------------------------------|
+| Text          | `app/(tabs)/content.tsx` `handleAddText`     | Gate runs on button press.                     |
+| Image OCR     | `app/(tabs)/content.tsx` `handleAddImage`    | OCR runs offline, but daily-count gate fires first. |
+| URL/Link      | `app/(tabs)/content.tsx` `handleAddLink`     | URL fetch happens after the daily-count gate.  |
+| Share intent  | `lib/shareProcessing.ts` `processSharedText` | Gate at function entry; return type gains `truncated?: boolean` and `rejected?: 'daily-limit'`. Content-tab caller renders dialog accordingly. |
+
+### 7. Skip full-text translation in Basic
+
+`lib/shareProcessing.ts` `processSharedText` gains an options parameter
+`{ proMode: boolean }` (with a safe default of `true` to avoid silent regressions in
+call sites that might not yet pass it — but all real callers will pass the current
+setting):
 
 ```ts
-// in lib/truncate.ts
-export function applyBasicLimit(
+export function processSharedText(
+  db: SQLiteDatabase,
   text: string,
-  proMode: boolean,
-): { text: string; truncated: boolean } {
-  if (proMode) return { text, truncated: false };
-  return truncateAtSentence(text);
-}
+  sourceType: SourceType,
+  sourceUrl: string | null,
+  opts: { proMode: boolean } = { proMode: true },
+): ProcessResult;
 ```
 
-| Path          | File                                       | Integration                                                                                                |
-|---------------|--------------------------------------------|------------------------------------------------------------------------------------------------------------|
-| Text          | `app/(tabs)/content.tsx` `handleAddText`   | Before `processText(textInput)`. If `truncated` → show dialog after save completes.                        |
-| Image OCR     | `app/(tabs)/content.tsx` `handleAddImage`  | After `extractTextFromImageLocal`, before `processText`. Dialog same flow.                                 |
-| URL/Link      | `app/(tabs)/content.tsx` `handleAddLink`   | After `extractFromUrl` returns, before `processText`. Dialog same flow.                                    |
-| Share intent  | `lib/shareProcessing.ts` `processSharedText` | Truncate at top. Return value gains a `truncated: boolean` field; the content-tab caller renders dialog. |
+Inside the function, the `translateText()` call (current line ~63) is wrapped:
 
-For the three in-app paths, the sequence is:
-
-1. Obtain raw text.
-2. `const { text, truncated } = applyBasicLimit(raw, proMode);`
-3. Run existing `processText(text)` pipeline.
-4. On success: if `truncated`, set dialog state to visible.
-
-For the share intent path, the return type of `processSharedText` is extended
-with `truncated?: boolean`. The content tab's share-result effect checks the
-flag and shows the same dialog.
-
-### 6. Info dialog text
-
-```
-Title:   Content truncated
-Message: Content was truncated at 1000 characters (Basic mode).
-         Enable Pro mode in Settings to remove this limit.
-Confirm: OK
+```ts
+const translatedText = opts.proMode ? await translateText(chunks, ...) : null;
 ```
 
-Rendered via `ConfirmDialog` with no `cancelLabel`. Single state variable
-`showTruncatedDialog` on the content tab.
+When `translatedText` is `null`, the row is inserted with `translated_text = null`,
+which is already schema-legal.
+
+### 8. Content detail page — translation tab
+
+`app/content/[id].tsx` already has a translation tab. Update its empty-state:
+
+- If `translated_text` is `null` or empty string:
+  - Show a themed placeholder card with text:
+    *"Full-text translation is a Pro feature. Enable Pro mode in Settings."*
+  - No button/link — user navigates to Settings themselves.
+- If `translated_text` is non-empty (e.g. from a previous Pro session): render it
+  normally, regardless of current mode.
+
+### 9. Info / warning dialogs
+
+All via the (now extended) `ConfirmDialog` with single confirm button. Shared title
+convention so they're recognisable:
+
+| Trigger                       | Title              | Message                                                                                  |
+|-------------------------------|--------------------|------------------------------------------------------------------------------------------|
+| Content was truncated         | Content truncated  | Content was truncated to 1000 characters (Basic mode). Enable Pro mode to remove this limit. |
+| Daily add-limit hit           | Daily limit reached | Basic mode allows 3 content additions per day. Enable Pro mode for unlimited additions. |
+
+Two independent state booleans on the content tab: `showTruncatedDialog`,
+`showDailyLimitDialog`. Only one visible at a time (truncation only happens on
+successful save; limit rejection aborts before save).
 
 ## Architecture / Harness
 
 - **Architecture test**: extend the settings-keys whitelist in
-  `lib/__tests__/architecture.test.ts` to include `'proMode'` so future refactors
-  don't drop it.
-- **No new lint rule needed**: truncation is explicit at four known seams, not a
-  cross-cutting concern.
+  `lib/__tests__/architecture.test.ts` to include `'proMode'`.
+- **Architecture test**: new rule — `translateText` must not be called
+  unconditionally from `processSharedText`; the call must be gated by `opts.proMode`.
+  Implemented as a file-scan test checking that the line calling `translateText`
+  is inside a branch referencing `proMode` (simple regex over
+  `lib/shareProcessing.ts`).
 
 ## Testing Plan
 
 **Unit (`npm test`):**
 
-- `lib/truncate.test.ts` — 7 cases for `truncateAtSentence` + 2 for `applyBasicLimit`
-  (proMode=true bypass, proMode=false delegates).
-- Architecture test updated and passing.
-
-**E2E (optional — deferred, not blocking):**
-
-- `09-pro-mode.yaml`: Settings → toggle Pro → add 1500-char text → expect no dialog.
-  Toggle back to Basic → add 1500-char text → expect truncation dialog with `OK`.
+- `lib/truncate.test.ts` — 9 cases (listed above).
+- `lib/database.test.ts` — new test for `countContentsAddedToday` (empty table → 0,
+  three rows today → 3, three rows today + two yesterday → 3).
+- `lib/shareProcessing.test.ts` or extension of existing claude/shareProcessing
+  mocks — verify:
+  - Basic mode does not call `translateText` (spy assertion, mocked `callClaude`).
+  - Pro mode calls both `extractVocabulary` and `translateText`.
+- Architecture tests updated and passing.
 
 **Manual verification:**
 
-- Basic + text 1500 chars → dialog shown, only ~≤1000 chars saved, sentence boundary
-  intact.
-- Basic + OCR of long image → same.
-- Basic + URL that yields 5000 chars → same.
-- Basic + share of long article → dialog shown after processing lands in content tab.
-- Pro + same inputs → no dialog, full length saved.
-- Reset app → `proMode` falls back to `false`.
+- Basic + text 1500 chars → save succeeds with ≤ ~1050 chars; truncation dialog shown.
+- Basic + 4 adds in one day → 4th is rejected with limit dialog before OCR / URL fetch
+  / API call.
+- Basic: open content detail → translation tab shows Pro-feature placeholder.
+- Pro + same inputs → all limits gone; translation tab populated.
+- Toggle Basic → Pro → existing truncated content is unchanged; new content uses full
+  length and receives translation.
+- Reset app → `proMode` falls back to `false`, daily count resets (no contents).
 
 ## Open Questions
 
