@@ -251,4 +251,41 @@ describe('deleteAccount', () => {
     await expect(deleteAccount()).rejects.toBeInstanceOf(AuthError);
     expect(mockAuth.signOut).not.toHaveBeenCalled();
   });
+
+  it('surfaces the server response body when SDK exposes error.context', async () => {
+    // Supabase-JS wraps non-2xx responses with a generic message and
+    // attaches the raw Response on error.context. Our wrapper reads
+    // context.text() so operators see the real server message.
+    const ctx = {
+      status: 500,
+      text: jest.fn().mockResolvedValue('{"error":"Edge Function env not configured"}'),
+    };
+    const sdkError = Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: ctx,
+    });
+    mockFunctions.invoke.mockResolvedValue({ data: null, error: sdkError });
+
+    await expect(deleteAccount()).rejects.toMatchObject({
+      name: 'AuthError',
+      message: expect.stringContaining('Edge Function env not configured'),
+    });
+    expect(ctx.text).toHaveBeenCalled();
+    expect(mockAuth.signOut).not.toHaveBeenCalled();
+  });
+
+  it('falls back to SDK message when context.text() itself throws', async () => {
+    const ctx = {
+      status: 500,
+      text: jest.fn().mockRejectedValue(new Error('stream consumed')),
+    };
+    const sdkError = Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: ctx,
+    });
+    mockFunctions.invoke.mockResolvedValue({ data: null, error: sdkError });
+
+    await expect(deleteAccount()).rejects.toMatchObject({
+      name: 'AuthError',
+      message: 'Edge Function returned a non-2xx status code',
+    });
+  });
 });

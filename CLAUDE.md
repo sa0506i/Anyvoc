@@ -237,6 +237,8 @@ Anyvoc uses Supabase Auth (EU/Frankfurt region) for optional sign-in. The app fo
 4. **All UI strings in English** across `app/auth/*.tsx` and all future features — project-wide convention. Architecture test **Rule 13** catches German umlauts/keywords in string literals.
 5. **Reset App signs the user out** (in `app/settings.tsx` `confirmReset`). `resetApp()` itself stays auth-agnostic; the settings handler composes `signOut` + `clearAuth` + `resetApp` so a reset user lands back on the welcome screen after reload.
 6. **Supabase project config requires**: Email template contains `{{ .Token }}`; Email OTP length = 6; `Confirm email` OFF; Custom SMTP (Resend or similar) configured — the built-in SMTP caps at 4 emails/h which breaks dev loops quickly.
+7. **No imports from `supabase/functions/` in client code** — Edge Function code is Deno, not React Native, and bundling it would crash at load. Architecture test **Rule 14** enforces this.
+8. **Native provider SDKs only in their wrapper files** — `@react-native-google-signin/google-signin` lives only in `lib/googleSignIn.ts`, `expo-apple-authentication` only in `lib/appleSignIn.ts`. Screens/components consume the wrappers' exported helpers. Keeps provider swaps single-file and test mocks centralised. Architecture test **Rule 15** enforces this.
 
 ### When adding a new auth provider or auth operation
 

@@ -508,6 +508,91 @@ describe('Architecture: lib/auth.ts uses SecureStore, not AsyncStorage', () => {
   });
 });
 
+// ─── Rule 14: Client code must not import from supabase/functions/ ──
+// CLAUDE.md "Authentication": Edge Function code runs in Supabase's
+// Deno runtime and relies on Deno-globals that do not exist in the
+// React Native bundle. Importing it into the client would crash at
+// load time. Keep the two worlds strictly separated.
+describe('Architecture: client code must not import from supabase/functions/', () => {
+  const clientDirs = ['lib', 'app', 'components', 'hooks', 'constants'];
+  const allFiles = clientDirs.flatMap((dir) => collectSourceFiles(path.join(ROOT, dir)));
+
+  // Matches relative or namespaced imports that reach into the functions
+  // folder. Examples caught:
+  //   import x from '../supabase/functions/delete-account';
+  //   import x from '../../supabase/functions/shared';
+  //   require('supabase/functions/...');
+  const FORBIDDEN = /['"](?:[./\\]*\/)?supabase[/\\]functions\b/;
+
+  for (const file of allFiles) {
+    const relPath = path.relative(ROOT, file);
+    it(`${relPath} does not import from supabase/functions/`, () => {
+      const content = fs.readFileSync(file, 'utf8');
+      const match = content.match(FORBIDDEN);
+      expect(match).toBeNull();
+      if (match) {
+        throw new Error(
+          `IMPORT FROM supabase/functions/ in ${relPath}: "${match[0]}"\n` +
+            `Edge Functions run in a Deno server runtime and use globals\n` +
+            `(Deno.env, Deno.serve) that do not exist in React Native.\n` +
+            `Bundling that code into the app would crash at load time.\n` +
+            `Invoke Edge Functions via supabase.functions.invoke('name')\n` +
+            `from lib/auth.ts instead. See CLAUDE.md "Authentication".`,
+        );
+      }
+    });
+  }
+});
+
+// ─── Rule 15: Native provider SDKs only in their wrapper files ─────
+// CLAUDE.md "Authentication": Google/Apple native SDKs are encapsulated
+// in lib/googleSignIn.ts and lib/appleSignIn.ts. Callers use those
+// wrappers — not the SDKs directly. This keeps (a) the SDK swappable
+// with a single-file change and (b) test mocks centralised.
+describe('Architecture: native provider SDKs only in their wrapper files', () => {
+  const clientDirs = ['lib', 'app', 'components', 'hooks', 'constants'];
+  const allFiles = clientDirs.flatMap((dir) => collectSourceFiles(path.join(ROOT, dir)));
+
+  const PROVIDER_SDKS: Array<{
+    pattern: RegExp;
+    allowedFiles: string[];
+    name: string;
+  }> = [
+    {
+      pattern: /['"]@react-native-google-signin\/google-signin['"]/,
+      allowedFiles: [path.join('lib', 'googleSignIn.ts')],
+      name: '@react-native-google-signin/google-signin',
+    },
+    {
+      pattern: /['"]expo-apple-authentication['"]/,
+      allowedFiles: [path.join('lib', 'appleSignIn.ts')],
+      name: 'expo-apple-authentication',
+    },
+  ];
+
+  for (const file of allFiles) {
+    const relPath = path.relative(ROOT, file);
+    it(`${relPath} does not import native provider SDKs directly`, () => {
+      const content = fs.readFileSync(file, 'utf8');
+      for (const sdk of PROVIDER_SDKS) {
+        if (sdk.allowedFiles.includes(relPath)) continue;
+        const match = content.match(sdk.pattern);
+        expect(match).toBeNull();
+        if (match) {
+          throw new Error(
+            `DIRECT SDK IMPORT of ${sdk.name} in ${relPath}.\n` +
+              `The native provider SDKs are encapsulated in their wrapper\n` +
+              `(lib/googleSignIn.ts / lib/appleSignIn.ts). Use the wrapper's\n` +
+              `exported helpers — signInWithGoogle() / signInWithApple() —\n` +
+              `so provider swaps stay one-file changes and test mocks stay\n` +
+              `centralised. See CLAUDE.md "Authentication" section.`,
+          );
+        }
+      }
+    });
+  }
+});
+
 // ─── Rule 13: app/auth/ UI strings must be English ──────────────────
 // CLAUDE.md "Authentication": the project-wide convention is English UI
 // strings for all new features. The auth screens establish that pattern
