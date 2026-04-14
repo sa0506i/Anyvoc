@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Switch,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -31,6 +32,7 @@ export default function SettingsScreen() {
   const quizDirection = useSettingsStore((s) => s.quizDirection);
   const quizMode = useSettingsStore((s) => s.quizMode);
   const cardsPerRound = useSettingsStore((s) => s.cardsPerRound);
+  const proMode = useSettingsStore((s) => s.proMode);
   const { updateSetting, resetApp } = useSettingsActions();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -131,6 +133,23 @@ export default function SettingsScreen() {
     >
       <Header />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* Mode */}
+        <Text style={styles.sectionTitle}>Mode</Text>
+        <Text style={styles.sectionHint}>
+          Basic limits content to 1000 characters, 3 additions per day, and no full-text
+          translation. Pro removes all limits.
+        </Text>
+        <View style={styles.row}>
+          <Text style={styles.rowLabel}>Pro Mode</Text>
+          <Switch
+            testID="pro-mode-switch"
+            value={proMode}
+            onValueChange={(on) => updateSetting('proMode', on ? 'true' : 'false')}
+            trackColor={{ false: colors.subtleOverlay, true: colors.primary }}
+            thumbColor={'#FFFFFF'}
+          />
+        </View>
+
         {/* Languages */}
         <Text style={styles.sectionTitle}>Languages</Text>
 
