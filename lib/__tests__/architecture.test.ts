@@ -593,6 +593,93 @@ describe('Architecture: native provider SDKs only in their wrapper files', () =>
   }
 });
 
+// ─── Rule 16: react-native.config.js excludes google-signin from iOS ──
+// CLAUDE.md "Authentication": the google-signin native iOS SDK pulls
+// Google utilities that conflict with MLKit's. We disable iOS
+// autolinking for the package so its pod is never added to the iOS
+// Podfile. Losing this config would reintroduce the pod conflict on
+// the next EAS iOS build — a multi-minute round-trip failure. Catch
+// it here in milliseconds instead.
+describe('Architecture: react-native.config.js disables google-signin on iOS', () => {
+  it('config file exists at the project root', () => {
+    const cfgPath = path.join(ROOT, 'react-native.config.js');
+    expect(fs.existsSync(cfgPath)).toBe(true);
+  });
+
+  it('configures ios: null for @react-native-google-signin/google-signin', () => {
+    const cfgPath = path.join(ROOT, 'react-native.config.js');
+    if (!fs.existsSync(cfgPath)) {
+      throw new Error(
+        'react-native.config.js is missing.\n' +
+          'This file disables iOS autolinking for\n' +
+          '@react-native-google-signin/google-signin, without which the\n' +
+          'EAS iOS build fails at pod resolution.\n' +
+          'See CLAUDE.md "Authentication" section.',
+      );
+    }
+    const content = fs.readFileSync(cfgPath, 'utf8');
+
+    // Rough but sufficient: require the package key AND the ios: null key
+    // to both appear. More brittle string matching (exact JSON) would
+    // reject harmless refactors like renaming the variable or adding
+    // comments mid-block.
+    const hasPackage = /@react-native-google-signin\/google-signin/.test(content);
+    const hasIosNull = /ios\s*:\s*null/.test(content);
+
+    if (!hasPackage || !hasIosNull) {
+      throw new Error(
+        `react-native.config.js must exclude @react-native-google-signin/\n` +
+          `google-signin from iOS autolinking. Expected the file to contain:\n` +
+          `  - the string "@react-native-google-signin/google-signin"\n` +
+          `  - the key "ios: null" inside its platforms block\n` +
+          `Found package ref: ${hasPackage} | ios:null: ${hasIosNull}\n` +
+          `Without this, the iOS Podfile pulls google-signin's native SDK\n` +
+          `which conflicts with MLKit's transitive Google utilities.\n` +
+          `See CLAUDE.md "Authentication" section for the full exit paths.`,
+      );
+    }
+    expect(hasPackage).toBe(true);
+    expect(hasIosNull).toBe(true);
+  });
+});
+
+// ─── Rule 17: .easignore must contain /ios for CNG builds ────────────
+// CLAUDE.md "Authentication": the project has android/ committed but
+// not ios/. expo-doctor flags this as a mixed CNG state — EAS skips
+// syncing app.json plugins on the platform whose folder exists. Adding
+// /ios to .easignore tells EAS to always prebuild iOS from scratch,
+// picking up current app.json plugins every build.
+describe('Architecture: .easignore forces CNG prebuild for iOS', () => {
+  it('.easignore exists and lists /ios', () => {
+    const easignorePath = path.join(ROOT, '.easignore');
+    expect(fs.existsSync(easignorePath)).toBe(true);
+
+    if (!fs.existsSync(easignorePath)) {
+      throw new Error(
+        '.easignore is missing. EAS needs it to know which files should\n' +
+          'be excluded from the upload and (for /ios) which folders to\n' +
+          'regenerate via prebuild.',
+      );
+    }
+
+    const content = fs.readFileSync(easignorePath, 'utf8');
+    // Match /ios on its own line (not part of a longer path like /ios-legacy/).
+    const hasIos = /^\s*\/?ios\/?\s*$/m.test(content);
+
+    if (!hasIos) {
+      throw new Error(
+        `.easignore must list "/ios" to force EAS to prebuild the iOS\n` +
+          `folder on every build instead of trying to reuse stale state.\n` +
+          `Without this, app.json plugin changes do not reliably reach\n` +
+          `the iOS build — expo-doctor flags the mixed CNG state.\n` +
+          `Add "/ios" as its own line in .easignore.\n` +
+          `See CLAUDE.md "Authentication" section.`,
+      );
+    }
+    expect(hasIos).toBe(true);
+  });
+});
+
 // ─── Rule 13: app/auth/ UI strings must be English ──────────────────
 // CLAUDE.md "Authentication": the project-wide convention is English UI
 // strings for all new features. The auth screens establish that pattern
