@@ -319,7 +319,34 @@ describe('Architecture: no console.error in app/ screens', () => {
   }
 });
 
-// ─── Rule 11: app/ screens must import useTheme, not hardcode colors ─
+// ─── Rule 11: proMode gates translateText in shareProcessing.ts ─────
+// CLAUDE.md: translateText is a Pro feature. Basic mode skips it.
+// The call must be preceded by a check of settings.proMode or a local
+// const derived from it (e.g. isPro). This prevents the gate from being
+// removed accidentally.
+describe('Architecture: proMode gates translateText in shareProcessing', () => {
+  it('processSharedText only calls translateText when proMode is true', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'shareProcessing.ts'), 'utf8');
+    // The call must exist.
+    const callIdx = src.indexOf('translateText(');
+    expect(callIdx).toBeGreaterThan(-1);
+    // Everything before the first translateText( call must reference
+    // settings.proMode or a local isPro variable.
+    const before = src.slice(0, callIdx);
+    const gated = /settings\.proMode/.test(before) || /\bisPro\b/.test(before);
+    expect(gated).toBe(true);
+    if (!gated) {
+      throw new Error(
+        `translateText() called without proMode gate in lib/shareProcessing.ts\n` +
+          `Full-text translation is a Pro feature. The call must be inside a block\n` +
+          `guarded by settings.proMode or a local const isPro derived from it.\n` +
+          `See CLAUDE.md "Settings Keys" section.`,
+      );
+    }
+  });
+});
+
+// ─── Rule 13: app/ screens must import useTheme, not hardcode colors ─
 // Known baseline: 7 existing #FFFFFF usages in button text/icons (pre-existing debt).
 // This test catches NEW hardcoded colors beyond the baseline.
 describe('Architecture: screens use theme system', () => {
