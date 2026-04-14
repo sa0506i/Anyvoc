@@ -217,7 +217,7 @@ Anyvoc uses Supabase Auth (EU/Frankfurt region) for optional sign-in. The app fo
 ### Providers
 
 - **Email OTP** (6-digit) — default, no passwords. Supabase template `Confirm signup` and `Magic Link` must include `{{ .Token }}` so the code appears in the email; the dashboard ships only links by default.
-- **Google** via `@react-native-google-signin/google-signin` — **Android-only**. The v16 native iOS SDK (GoogleSignIn ~> 9.0) pulls `GTMSessionFetcher ~> 3.x` / `GoogleUtilities ~> 8.0`, which conflict with `@infinitered/react-native-mlkit-text-recognition` (still on `GTMSessionFetcher ~> 1.1` / `GoogleUtilities ~> 7.0` via MLKitCommon 10.x). `react-native.config.js` disables iOS autolinking and `package.json` excludes the package from Expo module autolinking. **On iOS Metro substitutes `lib/googleSignIn.ios.ts` — a google-signin-free stub — so the JS package is never bundled.** That stub is mandatory: the library calls `TurboModuleRegistry.getEnforcing('RNGoogleSignin')` at module load, and on iOS (with the pod absent) that throws an NSException which crashes the JS thread during error conversion. A runtime `Platform.OS` guard inside the wrapper is not enough — the crash happens at import time. The Google button is hidden on iOS in `login.tsx` as a belt-and-suspenders measure. To re-enable Google on iOS, either replace the MLKit OCR package with one using modern Google utilities, or switch to `expo-auth-session` for iOS Google flow (browser OAuth).
+- **Google** via `@react-native-google-signin/google-signin` — **Android-only. Permanent architectural decision, not a "not yet".** See ADR below.
 - **Apple** via `expo-apple-authentication` — iOS-only (button is hidden on Android per App-Store-Review requirement). Flow: identityToken → `signInWithIdToken({ provider: 'apple' })`.
 
 ### Key files
@@ -242,7 +242,31 @@ Anyvoc uses Supabase Auth (EU/Frankfurt region) for optional sign-in. The app fo
 9. **`react-native.config.js` disables iOS autolinking for `@react-native-google-signin/google-signin`** — the native iOS SDK conflicts with MLKit's transitive Google utilities (GTMSessionFetcher / GoogleUtilities version mismatch). Losing this config would reintroduce the pod conflict on the next EAS iOS build. Architecture test **Rule 16** enforces both the file's presence and the `ios: null` key. **Note:** this rule alone is necessary but NOT sufficient — Expo module autolinking (Rule 18) runs in parallel and must also agree.
 10. **`.easignore` lists `/ios`** — forces EAS to prebuild the iOS folder from scratch every build, guaranteeing `app.json` plugin changes reach the iOS Podfile. Without this, expo-doctor flags the project as mixed-CNG and plugin sync becomes unreliable. Architecture test **Rule 17** enforces this.
 11. **`package.json` has `expo.autolinking.ios.exclude` containing `@react-native-google-signin/google-signin`** — the package ships an Expo module adapter (`ExpoAdapterGoogleSignIn.podspec`) that Expo autolinking bundles independently of RN autolinking. This is the second half of the iOS exclusion (first half: react-native.config.js, Rule 16). Without both, pod resolution fails on iOS. Architecture test **Rule 18** enforces this.
-12. **`lib/googleSignIn.ios.ts` is a google-signin-free stub** that Metro substitutes for `lib/googleSignIn.ts` on iOS. It mirrors the Android implementation's public surface but has zero imports from `@react-native-google-signin/google-signin`. Necessary because the library calls `TurboModuleRegistry.getEnforcing('RNGoogleSignin')` at module load — runtime Platform guards inside the wrapper are too late. Architecture test **Rule 19** enforces the file's existence and the absence of the forbidden import.
+12. **`lib/googleSignIn.ios.ts` is a google-signin-free stub** that Metro substitutes for `lib/googleSignIn.android.ts` on iOS via platform-suffix module resolution. It mirrors the Android implementation's public surface but has zero imports from `@react-native-google-signin/google-signin`. Necessary because the library calls `TurboModuleRegistry.getEnforcing('RNGoogleSignin')` at module load — runtime Platform guards inside the wrapper are too late. Architecture test **Rule 19** enforces the file's existence and the absence of the forbidden import. **This is not a temporary state — see the "Google Sign-In is Android-only" ADR below.**
+
+### ADR: Google Sign-In is Android-only — permanent
+
+**Status:** accepted · **Date:** 2026-04 · **Supersedes:** the "exit paths" language in prior revisions of this section.
+
+**Context.** `@react-native-google-signin/google-signin` v16 pulls GoogleSignIn iOS SDK 9.x, which transitively requires `GTMSessionFetcher ~> 3.x` and `GoogleUtilities ~> 8.0`. Our on-device OCR (`@infinitered/react-native-mlkit-text-recognition`, via MLKitCommon 10.x) anchors on `GTMSessionFetcher ~> 1.1` and `GoogleUtilities ~> 7.0`. No shared version range exists across any google-signin release that still ships an Expo config plugin. The two pods cannot coexist on iOS.
+
+Two workarounds were evaluated and **both rejected**:
+
+1. **Swap the MLKit OCR package.** Would restore Google Sign-In on iOS but risks OCR quality regressions, re-tests the share-intent flow, and couples two unrelated subsystems to the whims of the Google-pods lifecycle. The OCR pipeline is a silent background feature; Google-on-iOS is a speed-of-onboarding feature whose value we already largely get from Apple Sign-In on that platform.
+2. **`expo-auth-session` for iOS Google flow.** Browser-redirect OAuth. Works in principle, but yields a markedly worse UX than the native Apple sheet iOS users are used to. It also introduces a third auth code path and a second token-flow shape, doubling the surface area of auth-related tests and docs.
+
+**Decision.** Google Sign-In stays Android-only, **forever unless explicitly re-scoped by a new ADR**. iOS users get Email OTP and Apple Sign-In, both of which are first-class native experiences. Apple covers the "I don't want to type an email" job-to-be-done on iOS that Google covers on Android.
+
+**Consequences.**
+
+- `lib/googleSignIn.ios.ts` stays a stub. Never import `@react-native-google-signin/google-signin` into it. Rule 19 enforces this.
+- `react-native.config.js` keeps iOS autolinking disabled for the package (Rule 16).
+- `package.json` keeps the package in `expo.autolinking.ios.exclude` (Rule 18).
+- The Google button in `login.tsx` stays gated to `Platform.OS === 'android'`.
+- When the OCR package or Google SDK lifecycle changes meaningfully (e.g. MLKitCommon ships a release on modern `GoogleUtilities`), re-evaluate; until then, no code moves. Track the "would-help" changes through the Steering-Loop: if you find yourself wanting to touch any of the above four artifacts, write a new ADR first.
+- Do **not** add "TODO: re-enable Google on iOS" comments to the codebase. This decision is not pending; it is made.
+
+**Why this matters architecturally.** Runtime crashes from missing native modules (TurboModuleRegistry.getEnforcing throwing at import time) are the single highest-severity class of bug the hybrid-native stack produces. The cleanest way to make them impossible is to keep the offending code entirely out of the platform's bundle — which is what the `.ios.ts` stub does. Reversing that decision silently is how this class of bug returns; the ADR makes reversal explicit.
 
 ### When adding a new auth provider or auth operation
 
