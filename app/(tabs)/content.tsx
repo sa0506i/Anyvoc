@@ -23,6 +23,7 @@ import {
   BASIC_MODE_DAILY_CONTENT_LIMIT,
   type Content,
 } from '../../lib/database';
+import { BASIC_MODE_CHAR_LIMIT } from '../../lib/truncate';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import { ClaudeAPIError } from '../../lib/claude';
@@ -117,7 +118,7 @@ export default function ContentsScreen() {
       if (result.truncated) {
         alert(
           'Content truncated',
-          'Content was truncated to 1000 characters (Basic mode). Enable Pro mode in Settings to remove this limit.',
+          'Content was truncated to 2000 characters (Basic mode). Enable Pro mode in Settings to remove this limit.',
         );
       } else if (result.belowLevel) {
         alert(
@@ -376,14 +377,24 @@ export default function ContentsScreen() {
           <TextInput
             testID="text-input"
             style={styles.textInputField}
-            placeholder="Enter text here..."
+            placeholder={
+              proMode
+                ? 'Enter text here...'
+                : `Enter text here... (Basic Mode: max ${BASIC_MODE_CHAR_LIMIT} characters)`
+            }
             placeholderTextColor={colors.textSecondary}
             value={textInput}
             onChangeText={setTextInput}
+            maxLength={proMode ? undefined : BASIC_MODE_CHAR_LIMIT}
             multiline
             textAlignVertical="top"
             autoFocus
           />
+          {!proMode && (
+            <Text testID="char-counter" style={styles.charCounter}>
+              {textInput.length} / {BASIC_MODE_CHAR_LIMIT}
+            </Text>
+          )}
         </View>
       </Modal>
 
@@ -580,6 +591,14 @@ const createStyles = (c: ThemeColors) =>
       borderRadius: borderRadius.md,
       fontSize: fontSize.md,
       color: c.text,
+    },
+    charCounter: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+      fontWeight: '300',
+      textAlign: 'right',
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
     },
     loadingOverlay: {
       ...StyleSheet.absoluteFillObject,

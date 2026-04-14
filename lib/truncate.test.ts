@@ -54,11 +54,11 @@ describe('truncateAtSentence', () => {
     expect(result.truncated).toBe(true);
   });
 
-  it('default limit is BASIC_MODE_CHAR_LIMIT (1000)', () => {
-    expect(BASIC_MODE_CHAR_LIMIT).toBe(1000);
-    const text = 'A sentence. '.repeat(200);
+  it('default limit is BASIC_MODE_CHAR_LIMIT (2000)', () => {
+    expect(BASIC_MODE_CHAR_LIMIT).toBe(2000);
+    const text = 'A sentence. '.repeat(300); // 3600 chars, exceeds 2000
     const result = truncateAtSentence(text);
-    expect(result.text.length).toBeLessThanOrEqual(1000);
+    expect(result.text.length).toBeLessThanOrEqual(2000);
     expect(result.truncated).toBe(true);
   });
 });
@@ -70,9 +70,9 @@ describe('applyBasicLimit', () => {
   });
 
   it('applies truncation when proMode is false', () => {
-    const text = 'A sentence. '.repeat(200);
+    const text = 'A sentence. '.repeat(300); // 3600 chars
     const result = applyBasicLimit(text, false);
     expect(result.truncated).toBe(true);
-    expect(result.text.length).toBeLessThanOrEqual(1000);
+    expect(result.text.length).toBeLessThanOrEqual(2000);
   });
 });

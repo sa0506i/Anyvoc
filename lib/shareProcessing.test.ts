@@ -200,7 +200,7 @@ describe('processSharedText — proMode', () => {
 
   it('truncates long text in Basic mode and sets truncated=true', async () => {
     const db = createMockDb();
-    const longText = 'Ein Satz. '.repeat(200); // ~2000 chars
+    const longText = 'Ein Satz. '.repeat(300); // ~3000 chars
 
     const result = await processSharedText(
       db,
@@ -213,9 +213,8 @@ describe('processSharedText — proMode', () => {
     );
 
     expect(result.truncated).toBe(true);
-    // The mock should have been called with the truncated text (<=1010 chars)
     const extractArg = (claude.extractVocabulary as jest.Mock).mock.calls[0][0] as string;
-    expect(extractArg.length).toBeLessThanOrEqual(1010);
+    expect(extractArg.length).toBeLessThanOrEqual(2010);
   });
 
   it('does not truncate in Pro mode', async () => {

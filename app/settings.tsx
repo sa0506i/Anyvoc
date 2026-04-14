@@ -136,7 +136,7 @@ export default function SettingsScreen() {
         {/* Mode */}
         <Text style={styles.sectionTitle}>Mode</Text>
         <Text style={styles.sectionHint}>
-          Basic limits content to 1000 characters, 3 additions per day, and no full-text
+          Basic limits content to 2000 characters, 3 additions per day, and no full-text
           translation. Pro removes all limits.
         </Text>
         <View style={styles.row}>

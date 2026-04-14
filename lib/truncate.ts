@@ -3,7 +3,7 @@
  * no external dependencies. See docs/superpowers/specs/2026-04-14-basic-pro-mode-design.md.
  */
 
-export const BASIC_MODE_CHAR_LIMIT = 1000;
+export const BASIC_MODE_CHAR_LIMIT = 2000;
 
 /** Characters that end a sentence. */
 const SENTENCE_ENDINGS = new Set(['.', '!', '?', '…']);

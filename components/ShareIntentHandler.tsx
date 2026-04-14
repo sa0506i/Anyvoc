@@ -110,7 +110,7 @@ export default function ShareIntentHandler() {
           if (result.truncated) {
             alert(
               'Content truncated',
-              'Content was truncated to 1000 characters (Basic mode). Enable Pro mode in Settings to remove this limit.',
+              'Content was truncated to 2000 characters (Basic mode). Enable Pro mode in Settings to remove this limit.',
             );
           } else if (result.belowLevel) {
             alert(
