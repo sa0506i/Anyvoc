@@ -53,3 +53,6 @@ coverage/
 # (KELLY, CEFRLex) are NOT redistributed because their licenses
 # (CC BY-NC-SA / various) don't permit it.
 tmp/
+
+# EAS build logs (local artifact of eas build --platform … | tee)
+eas-*.log
