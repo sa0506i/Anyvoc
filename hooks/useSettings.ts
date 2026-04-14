@@ -27,6 +27,7 @@ interface SettingsState {
   quizDirection: QuizDirection;
   quizMode: QuizMode;
   cardsPerRound: string;
+  proMode: boolean;
   loaded: boolean;
 
   loadSettings: (db: SQLiteDatabase) => void;
@@ -41,6 +42,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   quizDirection: 'random',
   quizMode: 'flashcard',
   cardsPerRound: '20',
+  proMode: false,
   loaded: false,
 
   loadSettings: (db) => {
@@ -71,13 +73,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       quizDirection: (settings['quizDirection'] as QuizDirection) ?? 'random',
       quizMode: (settings['quizMode'] as QuizMode) ?? 'flashcard',
       cardsPerRound: settings['cardsPerRound'] ?? '20',
+      proMode: settings['proMode'] === 'true',
       loaded: true,
     });
   },
 
   updateSetting: (db, key, value) => {
     dbSetSetting(db, key, value);
-    set({ [key]: value });
+    if (key === 'proMode') {
+      set({ proMode: value === 'true' });
+    } else {
+      set({ [key]: value } as Partial<SettingsState>);
+    }
   },
 
   resetApp: (db) => {
@@ -91,6 +98,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       quizDirection: 'random',
       quizMode: 'flashcard',
       cardsPerRound: '20',
+      proMode: false,
     });
   },
 }));
