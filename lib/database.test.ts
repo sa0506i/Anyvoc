@@ -31,6 +31,8 @@ import {
   recordReviewDay,
   getAllReviewDays,
   clearAllData,
+  countContentsAddedToday,
+  BASIC_MODE_DAILY_CONTENT_LIMIT,
   type Content,
   type Vocabulary,
 } from './database';
@@ -349,5 +351,51 @@ describe('clearAllData', () => {
     expect(getAllVocabulary(db)).toHaveLength(0);
     expect(getSetting(db, 'lang')).toBeNull();
     expect(getAllReviewDays(db)).toHaveLength(0);
+  });
+});
+
+describe('countContentsAddedToday', () => {
+  it('returns 0 for an empty contents table', () => {
+    expect(countContentsAddedToday(db)).toBe(0);
+  });
+
+  it('counts only rows whose created_at is on the local calendar day', () => {
+    const now = new Date(2026, 3, 14, 15, 0, 0); // April 14 2026, 15:00 local
+    const todayStart = new Date(2026, 3, 14, 0, 0, 0).getTime();
+    const yesterday = new Date(2026, 3, 13, 23, 30, 0).getTime();
+
+    insertContent(db, {
+      id: 'a',
+      title: 'T',
+      original_text: 'x',
+      translated_text: null,
+      source_type: 'text',
+      source_url: null,
+      created_at: todayStart + 1000,
+    });
+    insertContent(db, {
+      id: 'b',
+      title: 'T',
+      original_text: 'x',
+      translated_text: null,
+      source_type: 'text',
+      source_url: null,
+      created_at: todayStart + 5000,
+    });
+    insertContent(db, {
+      id: 'c',
+      title: 'T',
+      original_text: 'x',
+      translated_text: null,
+      source_type: 'text',
+      source_url: null,
+      created_at: yesterday,
+    });
+
+    expect(countContentsAddedToday(db, now)).toBe(2);
+  });
+
+  it('exports BASIC_MODE_DAILY_CONTENT_LIMIT = 3', () => {
+    expect(BASIC_MODE_DAILY_CONTENT_LIMIT).toBe(3);
   });
 });

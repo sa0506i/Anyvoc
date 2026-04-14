@@ -167,6 +167,19 @@ export function deleteContent(db: SQLiteDatabase, id: string): void {
   });
 }
 
+/** Maximum contents a user in Basic mode may add per local calendar day. */
+export const BASIC_MODE_DAILY_CONTENT_LIMIT = 3;
+
+/** Counts contents added on the local calendar day of `now` (default: now). */
+export function countContentsAddedToday(db: SQLiteDatabase, now: Date = new Date()): number {
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const row = db.getFirstSync<{ count: number }>(
+    'SELECT COUNT(*) as count FROM contents WHERE created_at >= ?',
+    [todayStart],
+  );
+  return row?.count ?? 0;
+}
+
 // --- Vocabulary ---
 
 export function getAllVocabulary(db: SQLiteDatabase): Vocabulary[] {
