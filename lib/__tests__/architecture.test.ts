@@ -450,3 +450,101 @@ describe('Architecture: screens use theme system', () => {
     });
   }
 });
+
+// ─── Rule 11: No Supabase service-role key anywhere in client code ──
+// CLAUDE.md "Authentication": "Service-role key lives ONLY in the
+// delete-account Edge Function as a Supabase secret — never in this
+// file, never in lib/, never in app/."
+describe('Architecture: no Supabase service-role key in client code', () => {
+  const clientDirs = ['lib', 'app', 'components', 'hooks', 'constants'];
+  const allFiles = clientDirs.flatMap((dir) => collectSourceFiles(path.join(ROOT, dir)));
+
+  const SERVICE_ROLE_PATTERNS = [
+    /SUPABASE_SERVICE_ROLE_KEY/,
+    /['"]service_role['"]/,
+    /serviceRoleKey/i,
+  ];
+
+  for (const file of allFiles) {
+    const relPath = path.relative(ROOT, file);
+    it(`${relPath} has no service-role-key references`, () => {
+      const content = fs.readFileSync(file, 'utf8');
+      for (const pattern of SERVICE_ROLE_PATTERNS) {
+        const match = content.match(pattern);
+        expect(match).toBeNull();
+        if (match) {
+          throw new Error(
+            `SERVICE-ROLE KEY REFERENCE in ${relPath}: "${match[0]}"\n` +
+              `The Supabase service-role key MUST NOT appear in client code.\n` +
+              `It lives exclusively in the delete-account Edge Function as a\n` +
+              `Supabase secret. Exposing it in the client would give anyone\n` +
+              `who downloads the APK full admin access to the database.\n` +
+              `See CLAUDE.md "Authentication" section.`,
+          );
+        }
+      }
+    });
+  }
+});
+
+// ─── Rule 12: lib/auth.ts must not import AsyncStorage ──────────────
+// CLAUDE.md "Authentication": session tokens go into expo-secure-store
+// (Keychain/EncryptedSharedPreferences). AsyncStorage is unencrypted on
+// Android and readable on rooted devices — unacceptable for refresh tokens.
+describe('Architecture: lib/auth.ts uses SecureStore, not AsyncStorage', () => {
+  it('lib/auth.ts does not import @react-native-async-storage/async-storage', () => {
+    const authPath = path.join(ROOT, 'lib', 'auth.ts');
+    const content = fs.readFileSync(authPath, 'utf8');
+    const match = content.match(/@react-native-async-storage\/async-storage/);
+    expect(match).toBeNull();
+    if (match) {
+      throw new Error(
+        `AsyncStorage import in lib/auth.ts.\n` +
+          `Session tokens must be persisted via expo-secure-store, not\n` +
+          `AsyncStorage, because AsyncStorage is unencrypted on Android.\n` +
+          `See CLAUDE.md "Authentication" section.`,
+      );
+    }
+  });
+});
+
+// ─── Rule 13: app/auth/ UI strings must be English ──────────────────
+// CLAUDE.md "Authentication": the project-wide convention is English UI
+// strings for all new features. The auth screens establish that pattern
+// and should not mix German phrases into user-visible text.
+describe('Architecture: app/auth/ UI strings are English', () => {
+  // Minimal, high-confidence heuristic: umlauts and a handful of common
+  // German words that would not plausibly appear in English copy.
+  const GERMAN_INDICATORS = [
+    /[äöüÄÖÜß]/,
+    /\b(und|oder|nicht|bitte|anmelden|abmelden|erstellen|löschen|Konto|Einstellungen|Willkommen)\b/i,
+  ];
+  const authDir = path.join(ROOT, 'app', 'auth');
+  const files = collectSourceFiles(authDir);
+
+  for (const file of files) {
+    const relPath = path.relative(ROOT, file);
+    it(`${relPath} contains only English UI strings`, () => {
+      const content = fs.readFileSync(file, 'utf8');
+      // Only look at string literals — comments can be any language.
+      const stringLiterals = content.match(/(['"`])(?:(?!\1)[^\\]|\\.)*\1/g) ?? [];
+      const violations: string[] = [];
+      for (const lit of stringLiterals) {
+        for (const p of GERMAN_INDICATORS) {
+          if (p.test(lit)) {
+            violations.push(`  "${lit}"`);
+            break;
+          }
+        }
+      }
+      expect(violations).toEqual([]);
+      if (violations.length > 0) {
+        throw new Error(
+          `NON-ENGLISH UI STRINGS in ${relPath}:\n${violations.join('\n')}\n\n` +
+            `All user-visible strings in app/auth/ must be English per the\n` +
+            `project-wide convention. See CLAUDE.md "Authentication" section.`,
+        );
+      }
+    });
+  }
+});

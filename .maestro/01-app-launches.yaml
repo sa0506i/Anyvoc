@@ -3,6 +3,17 @@ name: "App launches and shows tabs"
 ---
 - launchApp
 - waitForAnimationToEnd
+# On a fresh install the auth gate routes to the welcome screen; dismiss
+# it with "Continue as guest" so this flow works both on pristine test
+# devices and on pre-onboarded ones.
+- runFlow:
+    when:
+      visible:
+        id: "welcome-continue-guest-btn"
+    commands:
+      - tapOn:
+          id: "welcome-continue-guest-btn"
+      - waitForAnimationToEnd
 - assertVisible: "Trainer"
 - assertVisible: "Content"
 - assertVisible: "Vocabulary"

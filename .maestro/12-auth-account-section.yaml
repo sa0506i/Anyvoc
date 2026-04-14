@@ -1,0 +1,53 @@
+appId: com.anonymous.Anyvoc
+name: 'Settings Account section shows correct state for guests'
+---
+- launchApp
+- waitForAnimationToEnd
+
+# Pass through welcome if present.
+- runFlow:
+    when:
+      visible:
+        id: 'welcome-continue-guest-btn'
+    commands:
+      - tapOn:
+          id: 'welcome-continue-guest-btn'
+      - waitForAnimationToEnd
+
+# Open settings.
+- tapOn:
+    id: 'settings-btn'
+- waitForAnimationToEnd
+
+# Account section header is visible for everyone.
+- assertVisible: 'Account'
+
+# For guests: the "Sign in" entry is the only account affordance.
+# For signed-in users: "Signed in as" + Sign out + Delete account.
+# This flow targets the guest state (happy path for a fresh E2E run).
+- runFlow:
+    when:
+      visible:
+        id: 'settings-sign-in-btn'
+    commands:
+      - assertVisible: 'Email · Apple · Google →'
+
+# When signed in, verify the three authed affordances instead.
+- runFlow:
+    when:
+      visible:
+        id: 'settings-sign-out-btn'
+    commands:
+      - assertVisible:
+          id: 'settings-account-email'
+      - assertVisible:
+          id: 'settings-sign-out-btn'
+      - assertVisible:
+          id: 'settings-delete-account-btn'
+
+# Close settings.
+- tapOn:
+    id: 'settings-close-btn'
+- waitForAnimationToEnd
+- assertVisible:
+    id: 'trainer-screen'

@@ -1,0 +1,25 @@
+appId: com.anonymous.Anyvoc
+name: 'Welcome screen: continue as guest routes to tabs'
+---
+- launchApp
+- waitForAnimationToEnd
+
+# If the app is already onboarded, skip — nothing to verify here.
+- runFlow:
+    when:
+      visible:
+        id: 'welcome-continue-guest-btn'
+    commands:
+      # Welcome screen is showing — verify the two primary actions are
+      # both on screen before we dismiss it.
+      - assertVisible:
+          id: 'welcome-sign-in-btn'
+      - assertVisible: 'Continue as guest'
+      - tapOn:
+          id: 'welcome-continue-guest-btn'
+      - waitForAnimationToEnd
+
+# After guest, user must land in the tabs.
+- assertVisible: 'Trainer'
+- assertVisible: 'Content'
+- assertVisible: 'Vocabulary'

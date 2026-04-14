@@ -206,7 +206,44 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 - `quizDirection` → `"native-to-learning"` | `"learning-to-native"` | `"random"`
 - `quizMode` → `"flashcard"` | `"typing"` (default: `"flashcard"`)
 - `cardsPerRound` → number of cards per trainer session (default `"20"`)
+- `onboarding_seen` → `"true"` once the user has passed the welcome screen (either via Sign in or Continue as guest). Absent on fresh installs; silently set to `"true"` by the grandfathering migration for installs with pre-existing contents/vocabulary.
+- `auth_user_id` → Supabase user UUID written after successful sign-in. Offline reference for later Pro-entitlement checks.
 - No API key is stored anywhere on device — the backend proxy holds it.
+
+## Authentication (Supabase)
+
+Anyvoc uses Supabase Auth (EU/Frankfurt region) for optional sign-in. The app follows a **hybrid gate**: fresh installs see a welcome screen with _Sign in_ + _Continue as guest_; existing installs are silently grandfathered past it (see `lib/database.ts` `hasExistingData`). Pro features will trigger the login flow later — the auth layer here is identity-only, no cloud sync of vocabulary.
+
+### Providers
+
+- **Email OTP** (6-digit) — default, no passwords. Supabase template `Confirm signup` and `Magic Link` must include `{{ .Token }}` so the code appears in the email; the dashboard ships only links by default.
+- **Google** via `@react-native-google-signin/google-signin` — native id-token → `supabase.auth.signInWithIdToken({ provider: 'google' })`. Web Client ID is the Supabase-verified one; Android uses package + SHA-1 from Google Cloud Console; iOS uses its own Client ID via `iosUrlScheme` on the plugin config.
+- **Apple** via `expo-apple-authentication` — iOS-only (button is hidden on Android per App-Store-Review requirement). Flow: identityToken → `signInWithIdToken({ provider: 'apple' })`.
+
+### Key files
+
+- `lib/auth.ts` — Supabase client with SecureStore adapter; wrappers for every auth op.
+- `lib/authStore.ts` — Zustand store; `restoreSession()` on boot + `onAuthStateChange` subscription.
+- `lib/googleSignIn.ts` / `lib/appleSignIn.ts` — thin provider wrappers.
+- `app/auth/{welcome,login,verify}.tsx` — UI screens.
+- `app/_layout.tsx` — gate logic (redirect to `/auth/welcome` when `!onboarding_seen && !isAuthed`).
+- `supabase/functions/delete-account/index.ts` — Deno Edge Function, `auth.admin.deleteUser(user.id)`. Deploy via Supabase Dashboard UI; **must run with "Verify JWT" OFF** at the gateway (we validate inside the function).
+
+### Hard rules
+
+1. **`SUPABASE_ANON_KEY`** is public and lives in `app.json.extra`. It is not a secret — access control is enforced by Supabase RLS, not by hiding the key. Rule 3 of `lib/__tests__/architecture.test.ts` allowlists `lib/auth.ts` for `expo-secure-store`.
+2. **`SUPABASE_SERVICE_ROLE_KEY` never appears in client code**, in any form. It lives only as a Supabase secret inside the `delete-account` Edge Function. Architecture test **Rule 11** enforces this in `lib/`, `app/`, `components/`, `hooks/`, `constants/`.
+3. **Session tokens** (access + refresh) are persisted via `expo-secure-store`, never `@react-native-async-storage/async-storage` (which is unencrypted on Android). Architecture test **Rule 12** enforces this in `lib/auth.ts`.
+4. **All UI strings in English** across `app/auth/*.tsx` and all future features — project-wide convention. Architecture test **Rule 13** catches German umlauts/keywords in string literals.
+5. **Reset App signs the user out** (in `app/settings.tsx` `confirmReset`). `resetApp()` itself stays auth-agnostic; the settings handler composes `signOut` + `clearAuth` + `resetApp` so a reset user lands back on the welcome screen after reload.
+6. **Supabase project config requires**: Email template contains `{{ .Token }}`; Email OTP length = 6; `Confirm email` OFF; Custom SMTP (Resend or similar) configured — the built-in SMTP caps at 4 emails/h which breaks dev loops quickly.
+
+### When adding a new auth provider or auth operation
+
+Follow the steering-loop (see "Harness" below):
+1. Document the new provider/flow in this section.
+2. Add a computational sensor if the change introduces a new token or credential path (e.g. extend Rule 11/12/13 or add a Rule 14).
+3. Run `npm test` locally to confirm the sensor would catch a violation.
 
 ## Development Workflow (Claude Code)
 
