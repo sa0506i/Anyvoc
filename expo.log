@@ -1,60 +1,62 @@
 › Building app...
-Starting a Gradle Daemon, 1 incompatible and 1 stopped Daemons could not be reused, use --status for details
 Configuration on demand is an incubating feature.
 > Task :gradle-plugin:settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :gradle-plugin:shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :gradle-plugin:settings-plugin:pluginDescriptors UP-TO-DATE
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:pluginDescriptors UP-TO-DATE
-> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:processResources UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:processResources UP-TO-DATE
 > Task :gradle-plugin:shared:compileKotlin UP-TO-DATE
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileKotlin UP-TO-DATE
 > Task :gradle-plugin:shared:compileJava NO-SOURCE
-> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileJava NO-SOURCE
 > Task :gradle-plugin:shared:processResources NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:compileJava NO-SOURCE
+> Task :gradle-plugin:shared:classes UP-TO-DATE
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:processResources NO-SOURCE
 > Task :expo-gradle-plugin:expo-autolinking-plugin-shared:classes UP-TO-DATE
-> Task :gradle-plugin:shared:classes UP-TO-DATE
-> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:jar UP-TO-DATE
 > Task :gradle-plugin:shared:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin-shared:jar UP-TO-DATE
 > Task :gradle-plugin:settings-plugin:compileKotlin UP-TO-DATE
 > Task :gradle-plugin:settings-plugin:compileJava NO-SOURCE
 > Task :gradle-plugin:settings-plugin:classes UP-TO-DATE
+> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileKotlin UP-TO-DATE
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:compileJava NO-SOURCE
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:classes UP-TO-DATE
-> Task :gradle-plugin:settings-plugin:jar UP-TO-DATE
 > Task :expo-gradle-plugin:expo-autolinking-settings-plugin:jar UP-TO-DATE
-> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-dev-launcher-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :expo-gradle-plugin:expo-autolinking-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :gradle-plugin:react-native-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-module-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-launcher-gradle-plugin:checkKotlinGradlePluginConfigurationErrors SKIPPED
 > Task :expo-module-gradle-plugin:pluginDescriptors UP-TO-DATE
-> Task :expo-gradle-plugin:expo-autolinking-plugin:compileKotlin UP-TO-DATE
-> Task :expo-module-gradle-plugin:processResources UP-TO-DATE
 > Task :expo-dev-launcher-gradle-plugin:pluginDescriptors UP-TO-DATE
-> Task :expo-gradle-plugin:expo-autolinking-plugin:compileJava NO-SOURCE
-> Task :expo-gradle-plugin:expo-autolinking-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-module-gradle-plugin:processResources UP-TO-DATE
 > Task :expo-dev-launcher-gradle-plugin:processResources UP-TO-DATE
-> Task :expo-gradle-plugin:expo-autolinking-plugin:processResources UP-TO-DATE
-> Task :expo-gradle-plugin:expo-autolinking-plugin:classes UP-TO-DATE
-> Task :expo-gradle-plugin:expo-autolinking-plugin:jar UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:compileJava NO-SOURCE
 > Task :gradle-plugin:react-native-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:pluginDescriptors UP-TO-DATE
 > Task :gradle-plugin:react-native-gradle-plugin:compileJava NO-SOURCE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:processResources UP-TO-DATE
 > Task :gradle-plugin:react-native-gradle-plugin:pluginDescriptors UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:classes UP-TO-DATE
 > Task :gradle-plugin:react-native-gradle-plugin:processResources UP-TO-DATE
 > Task :gradle-plugin:react-native-gradle-plugin:classes UP-TO-DATE
+> Task :expo-gradle-plugin:expo-autolinking-plugin:jar UP-TO-DATE
 > Task :gradle-plugin:react-native-gradle-plugin:jar UP-TO-DATE
 > Task :expo-dev-launcher-gradle-plugin:compileKotlin UP-TO-DATE
-> Task :expo-module-gradle-plugin:compileKotlin UP-TO-DATE
 > Task :expo-dev-launcher-gradle-plugin:compileJava NO-SOURCE
 > Task :expo-dev-launcher-gradle-plugin:classes UP-TO-DATE
+> Task :expo-module-gradle-plugin:compileKotlin UP-TO-DATE
+> Task :expo-dev-launcher-gradle-plugin:jar UP-TO-DATE
 > Task :expo-module-gradle-plugin:compileJava NO-SOURCE
 > Task :expo-module-gradle-plugin:classes UP-TO-DATE
-> Task :expo-dev-launcher-gradle-plugin:jar UP-TO-DATE
 > Task :expo-module-gradle-plugin:jar UP-TO-DATE
+
+> Configure project :app
+ ℹ️  [33mApplying gradle plugin[0m '[32mexpo-dev-launcher-gradle-plugin[0m'
 
 > Configure project :
 [32m[ExpoRootProject][0m Using the following versions:
@@ -65,9 +67,6 @@ Configuration on demand is an incubating feature.
   - ndk:         [32m27.1.12297006[0m
   - kotlin:      [32m2.1.20[0m
   - ksp:         [32m2.1.20-2.0.1[0m
-
-> Configure project :app
- ℹ️  [33mApplying gradle plugin[0m '[32mexpo-dev-launcher-gradle-plugin[0m'
 
 > Configure project :expo
 
@@ -97,511 +96,597 @@ Using expo modules
   - [33m[📦][0m [32mexpo-linear-gradient[0m (15.0.8)
   - [33m[📦][0m [32mexpo-linking[0m (8.0.11)
   - [33m[📦][0m [32mexpo-localization[0m (17.0.8)
+  - [33m[📦][0m [32mexpo-secure-store[0m (15.0.8)
   - [33m[📦][0m [32mexpo-splash-screen[0m (31.0.13)
   - [33m[📦][0m [32mexpo-sqlite[0m (16.0.10)
 
 
-> Task :expo-dev-menu-interface:preBuild UP-TO-DATE
-> Task :expo-dev-client:preBuild UP-TO-DATE
-> Task :expo-manifests:preBuild UP-TO-DATE
-> Task :expo-share-intent:preBuild UP-TO-DATE
-> Task :expo-modules-core:preBuild UP-TO-DATE
 > Task :expo-updates-interface:preBuild UP-TO-DATE
-> Task :expo-dev-launcher:preBuild UP-TO-DATE
-> Task :expo-json-utils:preBuild UP-TO-DATE
+> Task :expo-dev-client:preBuild UP-TO-DATE
+> Task :expo-dev-menu-interface:preBuild UP-TO-DATE
+> Task :expo-modules-core:preBuild UP-TO-DATE
+> Task :expo-share-intent:preBuild UP-TO-DATE
 > Task :expo-dev-menu:preBuild UP-TO-DATE
-> Task :expo-dev-client:preDebugBuild UP-TO-DATE
+> Task :expo-manifests:preBuild UP-TO-DATE
+> Task :expo-json-utils:preBuild UP-TO-DATE
+> Task :expo-dev-launcher:preBuild UP-TO-DATE
 > Task :expo-modules-core:preDebugBuild UP-TO-DATE
-> Task :expo-json-utils:preDebugBuild UP-TO-DATE
-> Task :expo-dev-launcher:preDebugBuild UP-TO-DATE
-> Task :expo-dev-menu-interface:preDebugBuild UP-TO-DATE
 > Task :expo-updates-interface:preDebugBuild UP-TO-DATE
-> Task :expo-manifests:preDebugBuild UP-TO-DATE
 > Task :expo-share-intent:preDebugBuild UP-TO-DATE
 > Task :expo-dev-menu:preDebugBuild UP-TO-DATE
-> Task :expo-updates-interface:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-dev-launcher:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-dev-client:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-dev-menu-interface:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-dev-menu:writeDebugAarMetadata UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:preBuild UP-TO-DATE
+> Task :expo-manifests:preDebugBuild UP-TO-DATE
+> Task :expo-dev-launcher:preDebugBuild UP-TO-DATE
+> Task :expo-dev-client:preDebugBuild UP-TO-DATE
+> Task :expo-json-utils:preDebugBuild UP-TO-DATE
+> Task :expo-dev-menu-interface:preDebugBuild UP-TO-DATE
+> Task :expo-manifests:writeDebugAarMetadata
 > Task :infinitered-react-native-mlkit-core:preBuild UP-TO-DATE
 > Task :infinitered-react-native-mlkit-core:preDebugBuild UP-TO-DATE
+> Task :expo-share-intent:writeDebugAarMetadata
+> Task :infinitered-react-native-mlkit-text-recognition:preBuild UP-TO-DATE
 > Task :infinitered-react-native-mlkit-text-recognition:preDebugBuild UP-TO-DATE
-> Task :expo-json-utils:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-modules-core:writeDebugAarMetadata UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-share-intent:writeDebugAarMetadata UP-TO-DATE
-> Task :expo:generatePackagesList UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-manifests:writeDebugAarMetadata UP-TO-DATE
-> Task :react-native-safe-area-context:generateCodegenSchemaFromJavaScript UP-TO-DATE
-> Task :react-native-gesture-handler:generateCodegenSchemaFromJavaScript UP-TO-DATE
-> Task :expo:preBuild UP-TO-DATE
-> Task :expo-dev-client:generateDebugResValues UP-TO-DATE
-> Task :expo-dev-launcher:generateDebugResValues UP-TO-DATE
-> Task :expo-json-utils:generateDebugResValues UP-TO-DATE
-> Task :expo-manifests:generateDebugResValues UP-TO-DATE
-> Task :expo-dev-menu-interface:generateDebugResValues UP-TO-DATE
-> Task :expo-dev-menu:generateDebugResValues UP-TO-DATE
-> Task :expo:preDebugBuild UP-TO-DATE
-> Task :expo:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-dev-client:generateDebugResources UP-TO-DATE
-> Task :expo-json-utils:generateDebugResources UP-TO-DATE
-> Task :expo-dev-menu-interface:generateDebugResources UP-TO-DATE
-> Task :expo-manifests:generateDebugResources UP-TO-DATE
-> Task :expo-dev-launcher:generateDebugResources UP-TO-DATE
-> Task :react-native-safe-area-context:generateCodegenArtifactsFromSchema UP-TO-DATE
-> Task :react-native-screens:generateCodegenSchemaFromJavaScript UP-TO-DATE
-> Task :expo-dev-menu:generateDebugResources UP-TO-DATE
-> Task :expo:generateDebugResValues UP-TO-DATE
-> Task :react-native-gesture-handler:generateCodegenArtifactsFromSchema UP-TO-DATE
-> Task :react-native-safe-area-context:preBuild UP-TO-DATE
-> Task :expo:generateDebugResources UP-TO-DATE
-> Task :react-native-gesture-handler:preBuild UP-TO-DATE
-> Task :react-native-gesture-handler:preDebugBuild UP-TO-DATE
-> Task :react-native-safe-area-context:preDebugBuild UP-TO-DATE
-> Task :expo-dev-menu-interface:packageDebugResources UP-TO-DATE
-> Task :expo-manifests:packageDebugResources UP-TO-DATE
-> Task :expo-json-utils:packageDebugResources UP-TO-DATE
-> Task :expo-dev-client:packageDebugResources UP-TO-DATE
-> Task :react-native-gesture-handler:writeDebugAarMetadata UP-TO-DATE
-> Task :react-native-safe-area-context:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-dev-menu:packageDebugResources UP-TO-DATE
-> Task :expo-dev-launcher:packageDebugResources UP-TO-DATE
-> Task :react-native-screens:generateCodegenArtifactsFromSchema UP-TO-DATE
-> Task :react-native-screens:preBuild UP-TO-DATE
-> Task :react-native-screens:preDebugBuild UP-TO-DATE
-> Task :expo-modules-core:generateDebugResValues UP-TO-DATE
-> Task :expo-updates-interface:generateDebugResValues UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:generateDebugResValues UP-TO-DATE
-> Task :expo-share-intent:generateDebugResValues UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:generateDebugResValues UP-TO-DATE
-> Task :react-native-safe-area-context:generateDebugResValues UP-TO-DATE
-> Task :react-native-screens:writeDebugAarMetadata UP-TO-DATE
-> Task :react-native-gesture-handler:generateDebugResValues UP-TO-DATE
-> Task :expo-dev-client:extractDeepLinksDebug UP-TO-DATE
-> Task :expo:packageDebugResources UP-TO-DATE
-> Task :expo-updates-interface:generateDebugResources UP-TO-DATE
-> Task :react-native-safe-area-context:generateDebugResources UP-TO-DATE
-> Task :expo-modules-core:generateDebugResources UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:generateDebugResources UP-TO-DATE
-> Task :expo-share-intent:generateDebugResources UP-TO-DATE
-> Task :react-native-screens:generateDebugResValues UP-TO-DATE
-> Task :react-native-gesture-handler:generateDebugResources UP-TO-DATE
-> Task :expo:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-updates-interface:packageDebugResources UP-TO-DATE
-> Task :expo-share-intent:packageDebugResources UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:packageDebugResources UP-TO-DATE
-> Task :react-native-screens:generateDebugResources UP-TO-DATE
-> Task :expo-dev-launcher:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-modules-core:packageDebugResources UP-TO-DATE
-> Task :react-native-safe-area-context:packageDebugResources UP-TO-DATE
-> Task :expo-dev-client:processDebugManifest UP-TO-DATE
-> Task :expo-dev-menu:extractDeepLinksDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:generateDebugResources UP-TO-DATE
-> Task :react-native-gesture-handler:packageDebugResources UP-TO-DATE
-> Task :expo-manifests:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-modules-core:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-dev-menu-interface:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-json-utils:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-share-intent:extractDeepLinksDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:packageDebugResources UP-TO-DATE
-> Task :expo-updates-interface:extractDeepLinksDebug UP-TO-DATE
-> Task :expo:processDebugManifest UP-TO-DATE
-> Task :expo-dev-menu-interface:processDebugManifest UP-TO-DATE
-> Task :react-native-screens:packageDebugResources UP-TO-DATE
-> Task :expo-modules-core:processDebugManifest UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:extractDeepLinksDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:extractDeepLinksDebug UP-TO-DATE
-> Task :react-native-gesture-handler:extractDeepLinksDebug UP-TO-DATE
-> Task :react-native-safe-area-context:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-share-intent:processDebugManifest UP-TO-DATE
-> Task :react-native-safe-area-context:processDebugManifest UP-TO-DATE
-> Task :expo-dev-menu:processDebugManifest UP-TO-DATE
-> Task :expo-dev-launcher:processDebugManifest UP-TO-DATE
-> Task :expo-json-utils:processDebugManifest UP-TO-DATE
-> Task :expo-updates-interface:processDebugManifest UP-TO-DATE
-> Task :react-native-gesture-handler:processDebugManifest UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:processDebugManifest UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:processDebugManifest UP-TO-DATE
-> Task :expo-manifests:processDebugManifest UP-TO-DATE
-> Task :expo-dev-client:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-share-intent:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-modules-core:compileDebugLibraryResources UP-TO-DATE
-> Task :expo:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-dev-menu-interface:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-json-utils:compileDebugLibraryResources UP-TO-DATE
-> Task :react-native-screens:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-dev-launcher:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-dev-menu:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-dev-menu:parseDebugLocalResources UP-TO-DATE
-> Task :expo-share-intent:parseDebugLocalResources UP-TO-DATE
-> Task :expo-modules-core:parseDebugLocalResources UP-TO-DATE
-> Task :expo-share-intent:generateDebugRFile UP-TO-DATE
-> Task :react-native-screens:processDebugManifest UP-TO-DATE
-> Task :expo-updates-interface:compileDebugLibraryResources UP-TO-DATE
-> Task :expo:parseDebugLocalResources UP-TO-DATE
-> Task :expo-manifests:parseDebugLocalResources UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-dev-client:parseDebugLocalResources UP-TO-DATE
-> Task :expo-dev-launcher:parseDebugLocalResources UP-TO-DATE
-> Task :expo-dev-menu-interface:parseDebugLocalResources UP-TO-DATE
-> Task :expo-manifests:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-dev-menu:generateDebugRFile UP-TO-DATE
-> Task :expo-updates-interface:parseDebugLocalResources UP-TO-DATE
-> Task :expo-dev-launcher:generateDebugRFile UP-TO-DATE
-> Task :expo-json-utils:parseDebugLocalResources UP-TO-DATE
-> Task :expo-dev-menu-interface:generateDebugRFile UP-TO-DATE
-> Task :expo-modules-core:generateDebugRFile UP-TO-DATE
-> Task :expo-manifests:generateDebugRFile UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:compileDebugLibraryResources UP-TO-DATE
-> Task :react-native-safe-area-context:compileDebugLibraryResources UP-TO-DATE
-> Task :react-native-gesture-handler:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-updates-interface:generateDebugRFile UP-TO-DATE
-> Task :expo:generateDebugRFile UP-TO-DATE
-> Task :expo-modules-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :infinitered-react-native-mlkit-text-recognition:parseDebugLocalResources UP-TO-DATE
-> Task :expo-json-utils:generateDebugRFile UP-TO-DATE
-> Task :expo:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-dev-launcher:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :react-native-screens:compileDebugLibraryResources UP-TO-DATE
-> Task :expo:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-dev-menu:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :react-native-screens:parseDebugLocalResources UP-TO-DATE
-> Task :expo-modules-core:generateDebugBuildConfig UP-TO-DATE
-> Task :react-native-safe-area-context:parseDebugLocalResources UP-TO-DATE
-> Task :expo-dev-client:generateDebugRFile UP-TO-DATE
-> Task :expo-dev-client:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :infinitered-react-native-mlkit-core:parseDebugLocalResources UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:generateDebugRFile UP-TO-DATE
-> Task :react-native-gesture-handler:parseDebugLocalResources UP-TO-DATE
-> Task :expo-dev-menu-interface:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :react-native-safe-area-context:generateDebugRFile UP-TO-DATE
-> Task :expo-json-utils:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-dev-menu-interface:generateDebugBuildConfig UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:generateDebugRFile UP-TO-DATE
-> Task :expo-manifests:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-json-utils:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-manifests:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-dev-menu-interface:javaPreCompileDebug UP-TO-DATE
-> Task :expo-updates-interface:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :react-native-screens:generateDebugRFile UP-TO-DATE
-> Task :react-native-gesture-handler:generateDebugRFile UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-json-utils:javaPreCompileDebug UP-TO-DATE
-> Task :expo-manifests:javaPreCompileDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :infinitered-react-native-mlkit-core:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-updates-interface:generateDebugBuildConfig UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:javaPreCompileDebug UP-TO-DATE
-> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-share-intent:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :infinitered-react-native-mlkit-text-recognition:generateDebugBuildConfig UP-TO-DATE
-> Task :react-native-gesture-handler:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-share-intent:generateDebugBuildConfig UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:javaPreCompileDebug UP-TO-DATE
-> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-share-intent:javaPreCompileDebug UP-TO-DATE
-> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :react-native-screens:generateDebugBuildConfig UP-TO-DATE
-> Task :react-native-safe-area-context:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-updates-interface:javaPreCompileDebug UP-TO-DATE
-> Task :expo-dev-menu-interface:mergeDebugShaders UP-TO-DATE
-> Task :expo-dev-menu-interface:compileDebugShaders NO-SOURCE
-> Task :expo-dev-menu-interface:generateDebugAssets UP-TO-DATE
-> Task :expo:javaPreCompileDebug UP-TO-DATE
-> Task :expo:mergeDebugShaders UP-TO-DATE
-> Task :expo:compileDebugShaders NO-SOURCE
-> Task :expo:generateDebugAssets UP-TO-DATE
-> Task :expo:mergeDebugAssets UP-TO-DATE
-> Task :expo-json-utils:mergeDebugShaders UP-TO-DATE
-> Task :expo-json-utils:compileDebugShaders NO-SOURCE
-> Task :expo-json-utils:generateDebugAssets UP-TO-DATE
-> Task :expo-json-utils:mergeDebugAssets UP-TO-DATE
-> Task :expo-manifests:mergeDebugShaders UP-TO-DATE
-> Task :expo-manifests:compileDebugShaders NO-SOURCE
-> Task :expo-manifests:generateDebugAssets UP-TO-DATE
-> Task :expo-manifests:mergeDebugAssets UP-TO-DATE
-> Task :expo-share-intent:mergeDebugShaders UP-TO-DATE
-> Task :expo-share-intent:compileDebugShaders NO-SOURCE
-> Task :expo-share-intent:generateDebugAssets UP-TO-DATE
+> Task :expo-dev-client:writeDebugAarMetadata
+> Task :expo-dev-launcher:writeDebugAarMetadata
+> Task :expo-updates-interface:writeDebugAarMetadata
+> Task :expo-dev-menu:writeDebugAarMetadata
+> Task :infinitered-react-native-mlkit-core:writeDebugAarMetadata
+> Task :expo-modules-core:writeDebugAarMetadata
+> Task :expo-dev-client:generateDebugResValues FROM-CACHE
+> Task :expo-dev-client:generateDebugResources FROM-CACHE
+> Task :expo-dev-launcher:generateDebugResValues FROM-CACHE
+> Task :expo-dev-client:packageDebugResources FROM-CACHE
+> Task :expo-dev-launcher:generateDebugResources FROM-CACHE
+> Task :expo-dev-menu:generateDebugResValues FROM-CACHE
+> Task :expo-dev-menu:generateDebugResources FROM-CACHE
+> Task :expo-dev-menu:packageDebugResources FROM-CACHE
+> Task :expo-dev-launcher:packageDebugResources FROM-CACHE
+> Task :expo-dev-menu-interface:generateDebugResValues FROM-CACHE
+> Task :expo-json-utils:generateDebugResValues FROM-CACHE
+> Task :expo-dev-menu-interface:generateDebugResources FROM-CACHE
+> Task :expo-json-utils:generateDebugResources FROM-CACHE
+> Task :expo-dev-menu-interface:packageDebugResources FROM-CACHE
+> Task :expo-manifests:generateDebugResValues FROM-CACHE
+> Task :expo-manifests:generateDebugResources FROM-CACHE
+> Task :expo-json-utils:packageDebugResources FROM-CACHE
+> Task :expo-modules-core:generateDebugResValues FROM-CACHE
+> Task :expo-manifests:packageDebugResources FROM-CACHE
+> Task :expo-modules-core:generateDebugResources FROM-CACHE
+> Task :expo-share-intent:generateDebugResValues FROM-CACHE
+> Task :expo-share-intent:generateDebugResources FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:writeDebugAarMetadata
+> Task :expo-modules-core:packageDebugResources FROM-CACHE
+> Task :expo-share-intent:packageDebugResources FROM-CACHE
+> Task :expo-updates-interface:generateDebugResValues FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:generateDebugResValues FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:generateDebugResValues FROM-CACHE
+> Task :expo-updates-interface:generateDebugResources FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:generateDebugResources FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:generateDebugResources FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:packageDebugResources FROM-CACHE
+> Task :expo-updates-interface:packageDebugResources FROM-CACHE
+> Task :expo-dev-client:extractDeepLinksDebug FROM-CACHE
+> Task :expo-dev-launcher:extractDeepLinksDebug FROM-CACHE
+> Task :expo-dev-client:processDebugManifest FROM-CACHE
+> Task :expo-dev-menu:extractDeepLinksDebug FROM-CACHE
+> Task :expo-json-utils:writeDebugAarMetadata
+> Task :expo-dev-menu:processDebugManifest FROM-CACHE
+> Task :expo-dev-menu-interface:extractDeepLinksDebug FROM-CACHE
+> Task :expo-dev-launcher:processDebugManifest FROM-CACHE
+> Task :expo-json-utils:extractDeepLinksDebug FROM-CACHE
+> Task :expo-manifests:extractDeepLinksDebug FROM-CACHE
+> Task :expo-dev-menu-interface:processDebugManifest FROM-CACHE
+> Task :expo-json-utils:processDebugManifest FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:packageDebugResources FROM-CACHE
+> Task :expo-manifests:processDebugManifest FROM-CACHE
+> Task :expo-share-intent:extractDeepLinksDebug FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:extractDeepLinksDebug FROM-CACHE
+> Task :expo-updates-interface:extractDeepLinksDebug FROM-CACHE
+> Task :expo-modules-core:extractDeepLinksDebug FROM-CACHE
+> Task :expo-share-intent:processDebugManifest FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:processDebugManifest FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:extractDeepLinksDebug FROM-CACHE
+> Task :expo-dev-client:compileDebugLibraryResources FROM-CACHE
+> Task :expo-modules-core:processDebugManifest FROM-CACHE
+> Task :expo-updates-interface:processDebugManifest FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:processDebugManifest FROM-CACHE
+> Task :expo-dev-menu-interface:compileDebugLibraryResources FROM-CACHE
+> Task :expo-dev-launcher:compileDebugLibraryResources FROM-CACHE
 > Task :expo-constants:createExpoConfig
 > Task :expo-constants:preBuild
 > Task :expo-constants:preDebugBuild
-> Task :expo-constants:writeDebugAarMetadata UP-TO-DATE
-> Task :expo-constants:generateDebugResValues UP-TO-DATE
-> Task :expo-constants:generateDebugResources UP-TO-DATE
-> Task :expo-constants:packageDebugResources UP-TO-DATE
-> Task :expo-constants:extractDeepLinksDebug UP-TO-DATE
-> Task :expo-constants:processDebugManifest UP-TO-DATE
-> Task :expo-constants:compileDebugLibraryResources UP-TO-DATE
-> Task :expo-dev-menu-interface:mergeDebugAssets UP-TO-DATE
-> Task :expo-constants:parseDebugLocalResources UP-TO-DATE
-> Task :expo-updates-interface:mergeDebugShaders UP-TO-DATE
-> Task :expo-updates-interface:compileDebugShaders NO-SOURCE
-> Task :expo-updates-interface:generateDebugAssets UP-TO-DATE
-> Task :expo-constants:generateDebugRFile UP-TO-DATE
+> Task :expo-constants:writeDebugAarMetadata
+> Task :expo-constants:generateDebugResValues FROM-CACHE
+> Task :expo-constants:generateDebugResources FROM-CACHE
+> Task :expo-constants:packageDebugResources FROM-CACHE
+> Task :expo-constants:extractDeepLinksDebug FROM-CACHE
+> Task :expo-dev-menu:compileDebugLibraryResources FROM-CACHE
+> Task :expo-dev-menu-interface:parseDebugLocalResources FROM-CACHE
+> Task :expo-dev-launcher:parseDebugLocalResources FROM-CACHE
+> Task :expo-dev-client:parseDebugLocalResources FROM-CACHE
+> Task :expo-dev-menu:parseDebugLocalResources FROM-CACHE
+> Task :expo-constants:processDebugManifest FROM-CACHE
+> Task :expo-dev-menu-interface:generateDebugRFile FROM-CACHE
+> Task :expo-dev-launcher:generateDebugRFile FROM-CACHE
+> Task :expo-dev-client:generateDebugRFile FROM-CACHE
+> Task :expo-dev-menu:generateDebugRFile FROM-CACHE
+> Task :expo-constants:compileDebugLibraryResources FROM-CACHE
+> Task :expo-json-utils:compileDebugLibraryResources FROM-CACHE
+> Task :expo-manifests:compileDebugLibraryResources FROM-CACHE
+> Task :expo-share-intent:compileDebugLibraryResources FROM-CACHE
+> Task :expo-modules-core:compileDebugLibraryResources FROM-CACHE
+> Task :expo-json-utils:parseDebugLocalResources FROM-CACHE
+> Task :expo-constants:parseDebugLocalResources FROM-CACHE
+> Task :react-native-gesture-handler:generateCodegenSchemaFromJavaScript
+> Task :expo-manifests:parseDebugLocalResources FROM-CACHE
+> Task :expo-share-intent:parseDebugLocalResources FROM-CACHE
+> Task :expo-modules-core:parseDebugLocalResources FROM-CACHE
+> Task :react-native-google-signin_google-signin:generateCodegenSchemaFromJavaScript
+> Task :expo-json-utils:generateDebugRFile FROM-CACHE
+> Task :expo-constants:generateDebugRFile FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:compileDebugLibraryResources FROM-CACHE
+> Task :expo-share-intent:generateDebugRFile FROM-CACHE
+> Task :expo-manifests:generateDebugRFile FROM-CACHE
+> Task :expo-updates-interface:compileDebugLibraryResources FROM-CACHE
 > Task :expo-constants:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-updates-interface:mergeDebugAssets UP-TO-DATE
-> Task :expo-constants:generateDebugBuildConfig UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:mergeDebugShaders UP-TO-DATE
-> Task :expo-constants:javaPreCompileDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:compileDebugShaders NO-SOURCE
-> Task :infinitered-react-native-mlkit-core:generateDebugAssets UP-TO-DATE
-> Task :expo-constants:mergeDebugShaders UP-TO-DATE
-> Task :expo-constants:compileDebugShaders NO-SOURCE
-> Task :expo-constants:generateDebugAssets UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:mergeDebugAssets UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:mergeDebugShaders UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:compileDebugShaders NO-SOURCE
-> Task :infinitered-react-native-mlkit-text-recognition:generateDebugAssets UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:mergeDebugAssets UP-TO-DATE
-> Task :expo:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo:mergeDebugNativeLibs NO-SOURCE
-> Task :expo:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-dev-menu-interface:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo-dev-menu-interface:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-dev-menu-interface:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-json-utils:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo-json-utils:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-json-utils:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-manifests:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo-manifests:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-manifests:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-updates-interface:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo-updates-interface:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-updates-interface:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-constants:mergeDebugAssets UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:mergeDebugJniLibFolders UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-constants:mergeDebugJniLibFolders UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-constants:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-constants:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:mergeDebugJniLibFolders UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:mergeDebugNativeLibs NO-SOURCE
-> Task :infinitered-react-native-mlkit-text-recognition:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-dev-menu:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-share-intent:mergeDebugAssets UP-TO-DATE
-> Task :expo-dev-menu:javaPreCompileDebug UP-TO-DATE
-> Task :expo-share-intent:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo-share-intent:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-share-intent:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-dev-menu:mergeDebugShaders UP-TO-DATE
+> Task :expo-modules-core:generateDebugRFile FROM-CACHE
+> Task :expo-modules-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :infinitered-react-native-mlkit-core:parseDebugLocalResources FROM-CACHE
+> Task :expo-updates-interface:parseDebugLocalResources FROM-CACHE
+> Task :expo-constants:generateDebugBuildConfig FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:compileDebugLibraryResources FROM-CACHE
+> Task :expo-modules-core:generateDebugBuildConfig FROM-CACHE
+> Task :expo-constants:javaPreCompileDebug FROM-CACHE
+> Task :expo-dev-client:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :infinitered-react-native-mlkit-text-recognition:parseDebugLocalResources FROM-CACHE
+> Task :expo-updates-interface:generateDebugRFile FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:generateDebugRFile FROM-CACHE
+> Task :expo-dev-launcher:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-menu:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-menu-interface:writeDebugAarMetadata
+> Task :expo-dev-menu-interface:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-menu:generateDebugBuildConfig FROM-CACHE
+> Task :expo-json-utils:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-menu-interface:generateDebugBuildConfig FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:generateDebugRFile FROM-CACHE
+> Task :expo-manifests:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-json-utils:generateDebugBuildConfig FROM-CACHE
+> Task :expo-dev-menu-interface:javaPreCompileDebug FROM-CACHE
+> Task :expo-json-utils:javaPreCompileDebug FROM-CACHE
+> Task :expo-updates-interface:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-menu:javaPreCompileDebug FROM-CACHE
+> Task :expo-share-intent:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-manifests:generateDebugBuildConfig FROM-CACHE
+> Task :expo-manifests:javaPreCompileDebug FROM-CACHE
+> Task :expo-updates-interface:generateDebugBuildConfig FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-share-intent:generateDebugBuildConfig FROM-CACHE
+> Task :expo-share-intent:javaPreCompileDebug FROM-CACHE
+> Task :expo-updates-interface:javaPreCompileDebug FROM-CACHE
+> Task :expo-dev-client:dataBindingMergeDependencyArtifactsDebug
+> Task :infinitered-react-native-mlkit-text-recognition:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo-dev-launcher:dataBindingMergeDependencyArtifactsDebug
+> Task :infinitered-react-native-mlkit-text-recognition:generateDebugBuildConfig FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:generateDebugBuildConfig FROM-CACHE
+> Task :react-native-safe-area-context:generateCodegenSchemaFromJavaScript
+> Task :expo-dev-client:dataBindingGenBaseClassesDebug FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:javaPreCompileDebug FROM-CACHE
+> Task :expo-dev-launcher:dataBindingGenBaseClassesDebug FROM-CACHE
+> Task :expo-dev-client:generateDebugBuildConfig FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:javaPreCompileDebug FROM-CACHE
+> Task :expo-dev-client:javaPreCompileDebug FROM-CACHE
+> Task :expo-constants:mergeDebugShaders
+> Task :expo-dev-menu:mergeDebugShaders
+> Task :expo-dev-launcher:generateDebugBuildConfig FROM-CACHE
 > Task :expo-dev-menu:compileDebugShaders NO-SOURCE
+> Task :expo-constants:compileDebugShaders NO-SOURCE
+> Task :expo-dev-client:mergeDebugShaders
+> Task :expo-constants:generateDebugAssets UP-TO-DATE
 > Task :expo-dev-menu:generateDebugAssets UP-TO-DATE
-> Task :expo-dev-menu:mergeDebugAssets UP-TO-DATE
-> Task :expo-dev-menu:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo-dev-menu:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-dev-menu:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :expo-dev-client:dataBindingMergeDependencyArtifactsDebug UP-TO-DATE
-> Task :expo-dev-client:dataBindingGenBaseClassesDebug UP-TO-DATE
-> Task :expo-dev-client:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-dev-client:javaPreCompileDebug UP-TO-DATE
-> Task :expo-dev-client:mergeDebugShaders UP-TO-DATE
 > Task :expo-dev-client:compileDebugShaders NO-SOURCE
 > Task :expo-dev-client:generateDebugAssets UP-TO-DATE
-> Task :expo-dev-client:mergeDebugAssets UP-TO-DATE
-> Task :expo-dev-client:mergeDebugJniLibFolders UP-TO-DATE
-> Task :react-native-gesture-handler:compileDebugKotlin UP-TO-DATE
+> Task :expo-dev-launcher:checkApolloVersions
+> Task :expo-dev-menu:mergeDebugAssets
+> Task :expo-dev-launcher:generateServiceApolloOptions FROM-CACHE
+> Task :expo-dev-menu-interface:mergeDebugShaders
+> Task :expo-dev-menu-interface:compileDebugShaders NO-SOURCE
+> Task :expo-constants:mergeDebugAssets
+> Task :expo-dev-menu-interface:generateDebugAssets UP-TO-DATE
+> Task :expo-dev-client:mergeDebugAssets
+> Task :expo-json-utils:mergeDebugShaders
+> Task :expo-json-utils:compileDebugShaders NO-SOURCE
+> Task :expo-json-utils:generateDebugAssets UP-TO-DATE
+> Task :expo-dev-menu-interface:mergeDebugAssets
+> Task :expo-manifests:mergeDebugShaders
+> Task :expo-manifests:compileDebugShaders NO-SOURCE
+> Task :expo-manifests:generateDebugAssets UP-TO-DATE
+> Task :expo-json-utils:mergeDebugAssets
+> Task :expo-share-intent:mergeDebugShaders
+> Task :expo-share-intent:compileDebugShaders NO-SOURCE
+> Task :expo-share-intent:generateDebugAssets UP-TO-DATE
+> Task :expo-manifests:mergeDebugAssets
+> Task :expo-updates-interface:mergeDebugShaders
+> Task :expo-updates-interface:compileDebugShaders NO-SOURCE
+> Task :expo-updates-interface:generateDebugAssets UP-TO-DATE
+> Task :expo-share-intent:mergeDebugAssets
+> Task :infinitered-react-native-mlkit-core:mergeDebugShaders
+> Task :infinitered-react-native-mlkit-core:compileDebugShaders NO-SOURCE
+> Task :infinitered-react-native-mlkit-core:generateDebugAssets UP-TO-DATE
+> Task :expo-updates-interface:mergeDebugAssets
+> Task :infinitered-react-native-mlkit-text-recognition:mergeDebugShaders
+> Task :react-native-screens:generateCodegenSchemaFromJavaScript
+> Task :infinitered-react-native-mlkit-text-recognition:compileDebugShaders NO-SOURCE
+> Task :infinitered-react-native-mlkit-text-recognition:generateDebugAssets UP-TO-DATE
+> Task :infinitered-react-native-mlkit-core:mergeDebugAssets
+> Task :expo-constants:mergeDebugJniLibFolders
+> Task :expo-constants:mergeDebugNativeLibs NO-SOURCE
+> Task :infinitered-react-native-mlkit-text-recognition:mergeDebugAssets
+> Task :expo-constants:copyDebugJniLibsProjectOnly
+> Task :expo-dev-client:mergeDebugJniLibFolders
 > Task :expo-dev-client:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-dev-client:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :react-native-gesture-handler:javaPreCompileDebug UP-TO-DATE
-> Task :react-native-safe-area-context:compileDebugKotlin UP-TO-DATE
-> Task :react-native-screens:compileDebugKotlin UP-TO-DATE
-> Task :expo-dev-launcher:dataBindingMergeDependencyArtifactsDebug UP-TO-DATE
-> Task :react-native-safe-area-context:javaPreCompileDebug UP-TO-DATE
-> Task :react-native-screens:javaPreCompileDebug UP-TO-DATE
-> Task :expo-modules-core:compileDebugKotlin UP-TO-DATE
-> Task :react-native-safe-area-context:compileDebugJavaWithJavac UP-TO-DATE
-> Task :react-native-gesture-handler:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo-modules-core:javaPreCompileDebug UP-TO-DATE
-> Task :react-native-gesture-handler:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :react-native-screens:compileDebugJavaWithJavac UP-TO-DATE
-> Task :react-native-safe-area-context:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :react-native-screens:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :react-native-gesture-handler:mergeDebugShaders UP-TO-DATE
-> Task :react-native-safe-area-context:mergeDebugShaders UP-TO-DATE
-> Task :react-native-gesture-handler:compileDebugShaders NO-SOURCE
-> Task :react-native-gesture-handler:generateDebugAssets UP-TO-DATE
+> Task :expo-dev-menu:mergeDebugJniLibFolders
+> Task :expo-dev-menu:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-dev-client:copyDebugJniLibsProjectOnly
+> Task :expo-dev-menu-interface:mergeDebugJniLibFolders
+> Task :expo-dev-menu:copyDebugJniLibsProjectOnly
+> Task :expo-dev-menu-interface:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-dev-menu-interface:copyDebugJniLibsProjectOnly
+> Task :expo-manifests:mergeDebugJniLibFolders
+> Task :expo-share-intent:mergeDebugJniLibFolders
+> Task :expo-manifests:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-share-intent:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-manifests:copyDebugJniLibsProjectOnly
+> Task :expo-share-intent:copyDebugJniLibsProjectOnly
+> Task :expo-json-utils:mergeDebugJniLibFolders
+> Task :expo-updates-interface:mergeDebugJniLibFolders
+> Task :expo-updates-interface:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-json-utils:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-updates-interface:copyDebugJniLibsProjectOnly
+> Task :infinitered-react-native-mlkit-core:mergeDebugJniLibFolders
+> Task :expo-json-utils:copyDebugJniLibsProjectOnly
+> Task :infinitered-react-native-mlkit-core:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-dev-launcher:generateServiceApolloSources FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:copyDebugJniLibsProjectOnly
+> Task :expo-dev-launcher:javaPreCompileDebug FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:mergeDebugJniLibFolders
+> Task :infinitered-react-native-mlkit-text-recognition:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-dev-launcher:mergeDebugShaders
+> Task :expo-dev-launcher:compileDebugShaders NO-SOURCE
+> Task :expo-dev-launcher:generateDebugAssets UP-TO-DATE
+> Task :infinitered-react-native-mlkit-text-recognition:copyDebugJniLibsProjectOnly
+> Task :expo-dev-launcher:mergeDebugAssets
+> Task :expo-dev-launcher:mergeDebugJniLibFolders
+> Task :expo-dev-launcher:mergeDebugNativeLibs NO-SOURCE
+> Task :expo-dev-launcher:copyDebugJniLibsProjectOnly
+> Task :react-native-gesture-handler:generateCodegenArtifactsFromSchema
+> Task :react-native-gesture-handler:preBuild
+> Task :react-native-gesture-handler:preDebugBuild
+> Task :react-native-gesture-handler:writeDebugAarMetadata
+> Task :react-native-gesture-handler:generateDebugResValues FROM-CACHE
+> Task :react-native-gesture-handler:generateDebugResources FROM-CACHE
+> Task :react-native-gesture-handler:packageDebugResources FROM-CACHE
+> Task :react-native-gesture-handler:extractDeepLinksDebug FROM-CACHE
+> Task :react-native-gesture-handler:processDebugManifest FROM-CACHE
+> Task :react-native-gesture-handler:compileDebugLibraryResources FROM-CACHE
+> Task :react-native-safe-area-context:generateCodegenArtifactsFromSchema
+> Task :react-native-safe-area-context:preBuild
+> Task :react-native-safe-area-context:preDebugBuild
+> Task :react-native-gesture-handler:parseDebugLocalResources FROM-CACHE
+> Task :react-native-safe-area-context:writeDebugAarMetadata
+> Task :react-native-safe-area-context:generateDebugResValues FROM-CACHE
+> Task :react-native-safe-area-context:generateDebugResources FROM-CACHE
+> Task :react-native-gesture-handler:generateDebugRFile FROM-CACHE
+> Task :react-native-gesture-handler:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-gesture-handler:generateDebugBuildConfig FROM-CACHE
+> Task :react-native-safe-area-context:packageDebugResources FROM-CACHE
+> Task :react-native-safe-area-context:extractDeepLinksDebug FROM-CACHE
+> Task :react-native-safe-area-context:processDebugManifest FROM-CACHE
+> Task :react-native-safe-area-context:compileDebugLibraryResources FROM-CACHE
+> Task :react-native-google-signin_google-signin:generateCodegenArtifactsFromSchema
+> Task :react-native-google-signin_google-signin:preBuild
+> Task :react-native-google-signin_google-signin:preDebugBuild
+> Task :react-native-safe-area-context:parseDebugLocalResources FROM-CACHE
+> Task :react-native-google-signin_google-signin:writeDebugAarMetadata
+> Task :react-native-safe-area-context:generateDebugRFile FROM-CACHE
+> Task :react-native-safe-area-context:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-google-signin_google-signin:generateDebugResValues FROM-CACHE
+> Task :react-native-safe-area-context:generateDebugBuildConfig FROM-CACHE
+> Task :react-native-google-signin_google-signin:generateDebugResources FROM-CACHE
+> Task :expo:generatePackagesList
+> Task :expo:preBuild
+> Task :expo:preDebugBuild
+> Task :react-native-screens:generateCodegenArtifactsFromSchema
+> Task :react-native-screens:preBuild
+> Task :expo:writeDebugAarMetadata
+> Task :react-native-screens:preDebugBuild
+> Task :expo:generateDebugResValues FROM-CACHE
+> Task :expo:generateDebugResources FROM-CACHE
+> Task :react-native-screens:writeDebugAarMetadata
+> Task :react-native-screens:generateDebugResValues FROM-CACHE
+> Task :expo:packageDebugResources FROM-CACHE
+> Task :react-native-google-signin_google-signin:packageDebugResources
+> Task :expo:extractDeepLinksDebug FROM-CACHE
+> Task :react-native-screens:generateDebugResources FROM-CACHE
+> Task :react-native-google-signin_google-signin:extractDeepLinksDebug FROM-CACHE
+> Task :expo:processDebugManifest FROM-CACHE
+> Task :expo:compileDebugLibraryResources FROM-CACHE
+> Task :expo:parseDebugLocalResources FROM-CACHE
+> Task :expo:generateDebugRFile FROM-CACHE
+> Task :expo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-google-signin_google-signin:compileDebugLibraryResources FROM-CACHE
+> Task :expo:generateDebugBuildConfig FROM-CACHE
+> Task :app:generateAutolinkingNewArchitectureFiles
+> Task :expo:javaPreCompileDebug FROM-CACHE
+> Task :react-native-google-signin_google-signin:parseDebugLocalResources FROM-CACHE
+> Task :expo:mergeDebugShaders
+> Task :app:generateAutolinkingPackageList
+> Task :expo:compileDebugShaders NO-SOURCE
+> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
+> Task :expo:generateDebugAssets UP-TO-DATE
+> Task :app:generateCodegenArtifactsFromSchema SKIPPED
+> Task :app:generateReactNativeEntryPoint
+> Task :app:preBuild
+> Task :app:preDebugBuild
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :expo:mergeDebugAssets
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :expo:mergeDebugJniLibFolders
+> Task :expo:mergeDebugNativeLibs NO-SOURCE
+> Task :expo:copyDebugJniLibsProjectOnly
+> Task :react-native-screens:packageDebugResources FROM-CACHE
+> Task :react-native-safe-area-context:compileDebugKotlin FROM-CACHE
+
+> Task :react-native-google-signin_google-signin:processDebugManifest
+package="com.reactnativegooglesignin" found in source AndroidManifest.xml: D:\dev\Claude-React\Anyvoc\node_modules\@react-native-google-signin\google-signin\android\src\main\AndroidManifest.xml.
+Setting the namespace via the package attribute in the source AndroidManifest.xml is no longer supported, and the value is ignored.
+Recommendation: remove package="com.reactnativegooglesignin" from the source AndroidManifest.xml: D:\dev\Claude-React\Anyvoc\node_modules\@react-native-google-signin\google-signin\android\src\main\AndroidManifest.xml.
+
+> Task :react-native-gesture-handler:compileDebugKotlin FROM-CACHE
+> Task :react-native-screens:extractDeepLinksDebug FROM-CACHE
+> Task :react-native-safe-area-context:javaPreCompileDebug FROM-CACHE
+> Task :react-native-gesture-handler:javaPreCompileDebug FROM-CACHE
+> Task :app:generateDebugBuildConfig FROM-CACHE
+> Task :react-native-screens:processDebugManifest FROM-CACHE
+> Task :react-native-screens:compileDebugLibraryResources FROM-CACHE
+> Task :react-native-safe-area-context:compileDebugJavaWithJavac FROM-CACHE
+> Task :react-native-google-signin_google-signin:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-screens:parseDebugLocalResources FROM-CACHE
+> Task :react-native-safe-area-context:mergeDebugShaders
 > Task :react-native-safe-area-context:compileDebugShaders NO-SOURCE
 > Task :react-native-safe-area-context:generateDebugAssets UP-TO-DATE
-> Task :react-native-gesture-handler:mergeDebugAssets UP-TO-DATE
-> Task :react-native-safe-area-context:mergeDebugAssets UP-TO-DATE
-> Task :react-native-screens:mergeDebugShaders UP-TO-DATE
-> Task :expo-modules-core:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo-modules-core:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:dataBindingGenBaseClassesDebug UP-TO-DATE
-> Task :expo-dev-client:compileDebugKotlin NO-SOURCE
-> Task :expo-dev-launcher:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-dev-launcher:checkApolloVersions UP-TO-DATE
-> Task :expo-dev-client:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo-constants:compileDebugKotlin UP-TO-DATE
-> Task :expo-dev-client:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:generateServiceApolloOptions UP-TO-DATE
-> Task :expo-constants:compileDebugJavaWithJavac UP-TO-DATE
+> Task :react-native-safe-area-context:mergeDebugAssets
+> Task :react-native-safe-area-context:processDebugJavaRes
+> Task :react-native-safe-area-context:mergeDebugJniLibFolders
+> Task :react-native-safe-area-context:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-safe-area-context:copyDebugJniLibsProjectOnly
+> Task :app:checkDebugAarMetadata
+> Task :react-native-safe-area-context:bundleLibCompileToJarDebug
+> Task :react-native-safe-area-context:bundleLibRuntimeToJarDebug
+> Task :expo-modules-core:compileDebugKotlin FROM-CACHE
+> Task :react-native-google-signin_google-signin:generateDebugBuildConfig
+> Task :react-native-screens:generateDebugRFile FROM-CACHE
+> Task :react-native-screens:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :react-native-gesture-handler:compileDebugJavaWithJavac FROM-CACHE
+> Task :react-native-google-signin_google-signin:generateDebugRFile
+> Task :expo-modules-core:javaPreCompileDebug FROM-CACHE
+> Task :react-native-screens:generateDebugBuildConfig FROM-CACHE
+> Task :app:generateDebugResValues FROM-CACHE
+> Task :react-native-google-signin_google-signin:javaPreCompileDebug FROM-CACHE
+> Task :react-native-gesture-handler:mergeDebugShaders
+> Task :react-native-gesture-handler:compileDebugShaders NO-SOURCE
+> Task :react-native-gesture-handler:generateDebugAssets UP-TO-DATE
+> Task :react-native-gesture-handler:mergeDebugAssets
+> Task :react-native-gesture-handler:bundleLibCompileToJarDebug
+> Task :react-native-gesture-handler:bundleLibRuntimeToJarDebug
+> Task :react-native-gesture-handler:processDebugJavaRes
+> Task :app:mapDebugSourceSetPaths
+> Task :app:generateDebugResources FROM-CACHE
+> Task :react-native-gesture-handler:configureCMakeDebug[arm64-v8a]
+
+> Task :react-native-gesture-handler:buildCMakeDebug[arm64-v8a]
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\react-native-gesture-handler\android\build\intermediates\cxx\Debug\3bc6p1d6\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\react-native-gesture-handler\android\build\intermediates\cxx\Debug\3bc6p1d6\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-gesture-handler:configureCMakeDebug[x86_64]
+
+> Task :react-native-gesture-handler:buildCMakeDebug[x86_64]
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\react-native-gesture-handler\android\build\intermediates\cxx\Debug\3bc6p1d6\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\react-native-gesture-handler\android\build\intermediates\cxx\Debug\3bc6p1d6\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-gesture-handler:mergeDebugJniLibFolders
+> Task :react-native-gesture-handler:mergeDebugNativeLibs
+> Task :react-native-gesture-handler:copyDebugJniLibsProjectOnly
+> Task :react-native-screens:compileDebugKotlin FROM-CACHE
+> Task :react-native-screens:javaPreCompileDebug FROM-CACHE
+> Task :react-native-google-signin_google-signin:mergeDebugShaders
+> Task :react-native-google-signin_google-signin:compileDebugShaders NO-SOURCE
+> Task :react-native-google-signin_google-signin:generateDebugAssets UP-TO-DATE
+> Task :react-native-google-signin_google-signin:mergeDebugAssets
+> Task :react-native-google-signin_google-signin:mergeDebugJniLibFolders
+> Task :react-native-google-signin_google-signin:mergeDebugNativeLibs NO-SOURCE
+> Task :react-native-screens:compileDebugJavaWithJavac FROM-CACHE
+> Task :react-native-screens:mergeDebugShaders
 > Task :react-native-screens:compileDebugShaders NO-SOURCE
 > Task :react-native-screens:generateDebugAssets UP-TO-DATE
-> Task :expo-modules-core:mergeDebugShaders UP-TO-DATE
-> Task :expo-constants:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :react-native-screens:mergeDebugAssets
+> Task :react-native-screens:bundleLibRuntimeToJarDebug
+> Task :react-native-screens:processDebugJavaRes
+> Task :react-native-screens:bundleLibCompileToJarDebug
+> Task :react-native-google-signin_google-signin:copyDebugJniLibsProjectOnly
+> Task :react-native-screens:configureCMakeDebug[arm64-v8a]
+> Task :app:packageDebugResources FROM-CACHE
+> Task :expo-modules-core:compileDebugJavaWithJavac FROM-CACHE
+> Task :app:parseDebugLocalResources FROM-CACHE
+> Task :app:createDebugCompatibleScreenManifests
+> Task :expo-modules-core:mergeDebugShaders
 > Task :expo-modules-core:compileDebugShaders NO-SOURCE
 > Task :expo-modules-core:generateDebugAssets UP-TO-DATE
-> Task :expo-constants:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-modules-core:mergeDebugAssets UP-TO-DATE
-> Task :react-native-safe-area-context:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:generateServiceApolloSources UP-TO-DATE
-> Task :expo-json-utils:compileDebugKotlin UP-TO-DATE
-> Task :expo-updates-interface:compileDebugKotlin UP-TO-DATE
-> Task :expo-dev-menu-interface:compileDebugKotlin UP-TO-DATE
-> Task :expo-dev-client:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :react-native-screens:mergeDebugAssets UP-TO-DATE
-> Task :react-native-gesture-handler:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :react-native-screens:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:javaPreCompileDebug UP-TO-DATE
-> Task :expo-updates-interface:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo-json-utils:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo-modules-core:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-dev-menu-interface:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo-dev-launcher:mergeDebugShaders UP-TO-DATE
-> Task :expo-json-utils:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo-updates-interface:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo-dev-menu-interface:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:compileDebugShaders NO-SOURCE
-> Task :expo-json-utils:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-updates-interface:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:generateDebugAssets UP-TO-DATE
-> Task :expo-share-intent:compileDebugKotlin UP-TO-DATE
-> Task :expo-dev-menu-interface:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:mergeDebugAssets UP-TO-DATE
-> Task :app:generateAutolinkingNewArchitectureFiles UP-TO-DATE
-> Task :expo-constants:processDebugJavaRes UP-TO-DATE
-> Task :expo-manifests:compileDebugKotlin UP-TO-DATE
-> Task :expo-json-utils:processDebugJavaRes UP-TO-DATE
-> Task :expo-updates-interface:processDebugJavaRes UP-TO-DATE
-> Task :expo-dev-menu-interface:processDebugJavaRes UP-TO-DATE
-> Task :react-native-gesture-handler:processDebugJavaRes UP-TO-DATE
-> Task :expo-modules-core:processDebugJavaRes UP-TO-DATE
-> Task :react-native-safe-area-context:processDebugJavaRes UP-TO-DATE
-> Task :react-native-screens:processDebugJavaRes UP-TO-DATE
-> Task :expo-dev-launcher:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo-manifests:compileDebugJavaWithJavac UP-TO-DATE
-> Task :app:generateAutolinkingPackageList UP-TO-DATE
-> Task :app:generateCodegenSchemaFromJavaScript SKIPPED
-> Task :expo-dev-client:processDebugJavaRes NO-SOURCE
-> Task :app:generateCodegenArtifactsFromSchema SKIPPED
-> Task :expo-share-intent:compileDebugJavaWithJavac UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:compileDebugKotlin UP-TO-DATE
-> Task :expo-dev-launcher:mergeDebugNativeLibs NO-SOURCE
-> Task :app:generateReactNativeEntryPoint UP-TO-DATE
-> Task :app:preBuild UP-TO-DATE
-> Task :react-native-safe-area-context:mergeDebugJniLibFolders UP-TO-DATE
-> Task :app:preDebugBuild UP-TO-DATE
-> Task :expo-share-intent:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo-manifests:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
-> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
-> Task :expo-manifests:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :react-native-safe-area-context:mergeDebugNativeLibs NO-SOURCE
-> Task :expo-share-intent:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :react-native-safe-area-context:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:compileDebugJavaWithJavac UP-TO-DATE
-> Task :app:generateDebugBuildConfig UP-TO-DATE
-> Task :expo-manifests:processDebugJavaRes UP-TO-DATE
-> Task :expo-share-intent:processDebugJavaRes UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-core:processDebugJavaRes UP-TO-DATE
-> Task :app:checkDebugAarMetadata UP-TO-DATE
-> Task :app:generateDebugResValues UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:compileDebugKotlin UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:compileDebugJavaWithJavac UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :infinitered-react-native-mlkit-text-recognition:processDebugJavaRes UP-TO-DATE
-> Task :app:mapDebugSourceSetPaths UP-TO-DATE
-> Task :app:generateDebugResources UP-TO-DATE
-> Task :expo-dev-menu:compileDebugKotlin UP-TO-DATE
-> Task :expo-dev-menu:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo-dev-menu:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :app:mergeDebugResources UP-TO-DATE
-> Task :expo-dev-menu:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-dev-menu:processDebugJavaRes UP-TO-DATE
-> Task :app:packageDebugResources UP-TO-DATE
-> Task :app:parseDebugLocalResources UP-TO-DATE
-> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
-> Task :app:extractDeepLinksDebug UP-TO-DATE
-> Task :react-native-screens:configureCMakeDebug[arm64-v8a]
+> Task :app:extractDeepLinksDebug FROM-CACHE
+> Task :expo-modules-core:mergeDebugAssets
 
+> Task :react-native-screens:buildCMakeDebug[arm64-v8a]
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\2m5zl73k\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\2m5zl73k\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :expo-modules-core:processDebugJavaRes
+> Task :react-native-screens:configureCMakeDebug[x86_64]
 > Task :expo-modules-core:configureCMakeDebug[arm64-v8a]
-[CXX5304] This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
-[CXX5304] This version only understands SDK XML versions up to 3 but an SDK XML file of version 4 was encountered. This can happen if you use versions of Android Studio and the command-line tools that were released at different times.
+> Task :expo-modules-core:bundleLibCompileToJarDebug
 
-> Task :react-native-gesture-handler:configureCMakeDebug[arm64-v8a]
-> Task :app:processDebugMainManifest UP-TO-DATE
-> Task :app:processDebugManifest UP-TO-DATE
-> Task :app:processDebugManifestForPackage UP-TO-DATE
-> Task :expo-dev-launcher:compileDebugKotlin UP-TO-DATE
-> Task :expo-dev-launcher:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo-dev-launcher:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo-dev-launcher:processDebugJavaRes UP-TO-DATE
-> Task :app:processDebugResources UP-TO-DATE
-> Task :app:javaPreCompileDebug UP-TO-DATE
-> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:processDebugMainManifest
+D:\dev\Claude-React\Anyvoc\android\app\src\debug\AndroidManifest.xml:6:5-162 Warning:
+	application@android:usesCleartextTraffic was tagged at AndroidManifest.xml:6 to replace other declarations but no other declaration present
+D:\dev\Claude-React\Anyvoc\android\app\src\debug\AndroidManifest.xml Warning:
+	activity#expo.modules.imagepicker.ExpoCropImageActivity@android:exported was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
+D:\dev\Claude-React\Anyvoc\android\app\src\debug\AndroidManifest.xml Warning:
+	provider#expo.modules.filesystem.FileSystemFileProvider@android:authorities was tagged at AndroidManifest.xml:0 to replace other declarations but no other declaration present
+
+> Task :expo-modules-core:bundleLibRuntimeToJarDebug
+> Task :app:processDebugManifest
+> Task :app:javaPreCompileDebug FROM-CACHE
+> Task :app:mergeDebugShaders
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
-> Task :app:mergeDebugAssets UP-TO-DATE
-> Task :app:compressDebugAssets UP-TO-DATE
-> Task :expo:compileDebugKotlin UP-TO-DATE
-> Task :app:desugarDebugFileDependencies UP-TO-DATE
-> Task :expo:compileDebugJavaWithJavac UP-TO-DATE
-> Task :expo:bundleLibCompileToJarDebug UP-TO-DATE
-> Task :expo:bundleLibRuntimeToJarDebug UP-TO-DATE
-> Task :expo:processDebugJavaRes UP-TO-DATE
-> Task :app:checkDebugDuplicateClasses UP-TO-DATE
-> Task :app:compileDebugKotlin UP-TO-DATE
-> Task :app:compileDebugJavaWithJavac UP-TO-DATE
-> Task :app:transformDebugClassesWithAsm UP-TO-DATE
-> Task :app:dexBuilderDebug UP-TO-DATE
-> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
-> Task :app:processDebugJavaRes UP-TO-DATE
-> Task :app:mergeDebugJavaResource UP-TO-DATE
-> Task :app:mergeExtDexDebug UP-TO-DATE
-> Task :app:mergeLibDexDebug UP-TO-DATE
-> Task :app:mergeProjectDexDebug UP-TO-DATE
-> Task :app:configureCMakeDebug[arm64-v8a]
-> Task :expo-modules-core:buildCMakeDebug[arm64-v8a]
-> Task :expo-modules-core:configureCMakeDebug[x86_64]
-> Task :app:buildCMakeDebug[arm64-v8a]
-> Task :app:configureCMakeDebug[x86_64]
-> Task :react-native-screens:buildCMakeDebug[arm64-v8a]
-> Task :react-native-gesture-handler:buildCMakeDebug[arm64-v8a]
-> Task :react-native-screens:configureCMakeDebug[x86_64]
-> Task :react-native-gesture-handler:configureCMakeDebug[x86_64]
-> Task :expo-modules-core:buildCMakeDebug[x86_64]
-> Task :expo-modules-core:mergeDebugJniLibFolders UP-TO-DATE
-> Task :expo-modules-core:mergeDebugNativeLibs UP-TO-DATE
-> Task :expo-modules-core:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :app:buildCMakeDebug[x86_64]
-> Task :app:mergeDebugJniLibFolders UP-TO-DATE
-> Task :app:validateSigningDebug UP-TO-DATE
-> Task :app:writeDebugAppMetadata UP-TO-DATE
-> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:mergeDebugAssets
+> Task :app:desugarDebugFileDependencies FROM-CACHE
+> Task :app:processDebugManifestForPackage
+> Task :app:mergeDebugResources
+> Task :app:checkDebugDuplicateClasses
+> Task :app:compressDebugAssets
+
 > Task :react-native-screens:buildCMakeDebug[x86_64]
-> Task :react-native-screens:mergeDebugJniLibFolders UP-TO-DATE
-> Task :react-native-screens:mergeDebugNativeLibs UP-TO-DATE
-> Task :react-native-screens:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :react-native-gesture-handler:buildCMakeDebug[x86_64]
-> Task :react-native-gesture-handler:mergeDebugJniLibFolders UP-TO-DATE
-> Task :react-native-gesture-handler:mergeDebugNativeLibs UP-TO-DATE
-> Task :react-native-gesture-handler:copyDebugJniLibsProjectOnly UP-TO-DATE
-> Task :app:mergeDebugNativeLibs UP-TO-DATE
-> Task :app:stripDebugDebugSymbols UP-TO-DATE
-> Task :app:packageDebug UP-TO-DATE
-> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
-> Task :app:assembleDebug UP-TO-DATE
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\2m5zl73k\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\react-native-screens\android\build\intermediates\cxx\Debug\2m5zl73k\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :react-native-screens:mergeDebugJniLibFolders
+> Task :react-native-screens:mergeDebugNativeLibs
+> Task :react-native-screens:copyDebugJniLibsProjectOnly
+
+> Task :expo-modules-core:buildCMakeDebug[arm64-v8a]
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\expo-modules-core\android\build\intermediates\cxx\Debug\1o2i1w4f\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\expo-modules-core\android\build\intermediates\cxx\Debug\1o2i1w4f\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :expo-dev-client:compileDebugKotlin NO-SOURCE
+> Task :expo-modules-core:configureCMakeDebug[x86_64]
+> Task :expo-dev-client:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo-dev-client:bundleLibCompileToJarDebug
+> Task :expo-dev-client:processDebugJavaRes NO-SOURCE
+> Task :expo-dev-client:bundleLibRuntimeToJarDebug
+> Task :expo-json-utils:compileDebugKotlin FROM-CACHE
+
+> Task :expo-modules-core:buildCMakeDebug[x86_64]
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\expo-modules-core\android\build\intermediates\cxx\Debug\1o2i1w4f\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\node_modules\expo-modules-core\android\build\intermediates\cxx\Debug\1o2i1w4f\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :expo-modules-core:mergeDebugJniLibFolders
+> Task :expo-updates-interface:compileDebugKotlin FROM-CACHE
+> Task :expo-constants:compileDebugKotlin FROM-CACHE
+> Task :expo-modules-core:mergeDebugNativeLibs
+> Task :infinitered-react-native-mlkit-core:compileDebugKotlin FROM-CACHE
+> Task :expo-modules-core:copyDebugJniLibsProjectOnly
+> Task :expo-share-intent:compileDebugKotlin FROM-CACHE
+> Task :expo-dev-menu-interface:compileDebugKotlin FROM-CACHE
+> Task :expo-json-utils:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo-updates-interface:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo-constants:compileDebugJavaWithJavac FROM-CACHE
+> Task :infinitered-react-native-mlkit-core:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo-json-utils:processDebugJavaRes
+> Task :expo-share-intent:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo-dev-menu-interface:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo-json-utils:bundleLibRuntimeToJarDebug
+> Task :expo-json-utils:bundleLibCompileToJarDebug
+> Task :expo-updates-interface:bundleLibRuntimeToJarDebug
+> Task :infinitered-react-native-mlkit-core:bundleLibCompileToJarDebug
+> Task :expo-updates-interface:bundleLibCompileToJarDebug
+> Task :expo-constants:bundleLibRuntimeToJarDebug
+> Task :expo-share-intent:bundleLibCompileToJarDebug
+> Task :expo-dev-menu-interface:bundleLibRuntimeToJarDebug
+> Task :expo-dev-menu-interface:bundleLibCompileToJarDebug
+> Task :expo-constants:bundleLibCompileToJarDebug
+> Task :expo-dev-menu-interface:processDebugJavaRes
+> Task :expo-constants:processDebugJavaRes
+> Task :expo-updates-interface:processDebugJavaRes
+> Task :expo-share-intent:processDebugJavaRes
+> Task :infinitered-react-native-mlkit-core:processDebugJavaRes
+> Task :expo-share-intent:bundleLibRuntimeToJarDebug
+> Task :infinitered-react-native-mlkit-core:bundleLibRuntimeToJarDebug
+
+> Task :react-native-google-signin_google-signin:compileDebugKotlin
+w: file:///D:/dev/Claude-React/Anyvoc/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:3:8 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///D:/dev/Claude-React/Anyvoc/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:23:31 Condition is always 'true'.
+w: file:///D:/dev/Claude-React/Anyvoc/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:24:16 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///D:/dev/Claude-React/Anyvoc/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:29:33 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+w: file:///D:/dev/Claude-React/Anyvoc/node_modules/@react-native-google-signin/google-signin/android/src/main/java/com/reactnativegooglesignin/ErrorDto.kt:30:38 'class GoogleSignInStatusCodes : CommonStatusCodes' is deprecated. Deprecated in Java.
+
+> Task :infinitered-react-native-mlkit-text-recognition:compileDebugKotlin FROM-CACHE
+> Task :expo-manifests:compileDebugKotlin FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo-manifests:compileDebugJavaWithJavac FROM-CACHE
+> Task :infinitered-react-native-mlkit-text-recognition:processDebugJavaRes
+> Task :expo-manifests:processDebugJavaRes
+> Task :expo-manifests:bundleLibRuntimeToJarDebug
+> Task :expo-manifests:bundleLibCompileToJarDebug
+> Task :infinitered-react-native-mlkit-text-recognition:bundleLibRuntimeToJarDebug
+> Task :infinitered-react-native-mlkit-text-recognition:bundleLibCompileToJarDebug
+> Task :app:configureCMakeDebug[arm64-v8a]
+
+> Task :react-native-google-signin_google-signin:compileDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: D:\dev\Claude-React\Anyvoc\node_modules\@react-native-google-signin\google-signin\android\src\main\java\com\reactnativegooglesignin\RNGoogleSigninModule.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :expo-dev-menu:compileDebugKotlin FROM-CACHE
+> Task :expo-dev-menu:compileDebugJavaWithJavac FROM-CACHE
+> Task :react-native-google-signin_google-signin:bundleLibCompileToJarDebug
+> Task :expo-dev-menu:processDebugJavaRes
+> Task :react-native-google-signin_google-signin:processDebugJavaRes
+> Task :react-native-google-signin_google-signin:bundleLibRuntimeToJarDebug
+> Task :expo-dev-menu:bundleLibCompileToJarDebug
+> Task :app:processDebugResources
+> Task :expo-dev-menu:bundleLibRuntimeToJarDebug
+> Task :expo-dev-launcher:compileDebugKotlin FROM-CACHE
+> Task :expo-dev-launcher:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo-dev-launcher:bundleLibCompileToJarDebug
+> Task :expo-dev-launcher:processDebugJavaRes
+> Task :expo-dev-launcher:bundleLibRuntimeToJarDebug
+> Task :expo:compileDebugKotlin FROM-CACHE
+> Task :expo:compileDebugJavaWithJavac FROM-CACHE
+> Task :expo:bundleLibCompileToJarDebug
+> Task :expo:bundleLibRuntimeToJarDebug
+> Task :expo:processDebugJavaRes
+> Task :app:mergeExtDexDebug
+> Task :app:buildCMakeDebug[arm64-v8a]
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\android\app\build\intermediates\cxx\Debug\2s1n591n\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.arm64-v8a\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\android\app\build\intermediates\cxx\Debug\2s1n591n\obj\arm64-v8a\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :app:compileDebugKotlin
+w: file:///D:/dev/Claude-React/Anyvoc/android/app/src/main/java/com/anonymous/Anyvoc/MainApplication.kt:9:8 'class ReactNativeHost : Any' is deprecated. Deprecated in Java.
+w: file:///D:/dev/Claude-React/Anyvoc/android/app/src/main/java/com/anonymous/Anyvoc/MainApplication.kt:21:16 This declaration overrides a deprecated member but is not marked as deprecated itself. Add the '@Deprecated' annotation or suppress the diagnostic.
+w: file:///D:/dev/Claude-React/Anyvoc/android/app/src/main/java/com/anonymous/Anyvoc/MainApplication.kt:21:33 'class ReactNativeHost : Any' is deprecated. Deprecated in Java.
+
+> Task :app:configureCMakeDebug[x86_64]
+> Task :app:compileDebugJavaWithJavac
+> Task :app:processDebugJavaRes
+> Task :app:transformDebugClassesWithAsm
+> Task :app:mergeLibDexDebug
+> Task :app:mergeDebugJavaResource
+
+> Task :app:buildCMakeDebug[x86_64]
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\android\app\build\intermediates\cxx\Debug\2s1n591n\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+C/C++: Hard link from 'C:\Users\s\.gradle\caches\8.14.3\transforms\52fba397ee69a489802542663b2a7886\transformed\react-android-0.81.5-debug\prefab\modules\reactnative\libs\android.x86_64\libreactnative.so' to 'D:\dev\Claude-React\Anyvoc\android\app\build\intermediates\cxx\Debug\2s1n591n\obj\x86_64\libreactnative.so' failed. Doing a slower copy instead.
+
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics FROM-CACHE
+> Task :app:mergeDebugJniLibFolders
+> Task :app:validateSigningDebug
+> Task :app:writeDebugAppMetadata
+> Task :app:writeDebugSigningConfigVersions
+> Task :app:mergeProjectDexDebug
+> Task :app:mergeDebugNativeLibs
+> Task :app:stripDebugDebugSymbols
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
 
 [Incubating] Problems report is available at: file:///D:/dev/Claude-React/Anyvoc/android/build/reports/problems/problems-report.html
 
@@ -611,18 +696,15 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.14.3/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 1m 37s
-421 actionable tasks: 17 executed, 404 up-to-date
+BUILD SUCCESSFUL in 2m 8s
+443 actionable tasks: 205 executed, 210 from cache, 28 up-to-date
 Starting Metro Bundler
 Waiting on http://localhost:8081
 › Installing D:\dev\Claude-React\Anyvoc\android\app\build\outputs\apk\debug\app-debug.apk
 › Opening exp+anyvoc://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081 on Pixel_9
 
 › Logs for your project will appear below.
-Android node_modules\expo-router\entry.js ▓▓▓▓▓▓▓▓▓▓░░░░░░ 64.0% ( 845/1056)
-Android Bundled 2601ms node_modules\expo-router\entry.js (1547 modules)
- WARN  Content processing error: [Error: The content appears to be in German, but your learning language is set to Portuguese. Please add content in your learning language.]
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 294ms node_modules\expo-router\entry.js (1 module)
-Android node_modules\expo-router\entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
-Android Bundled 281ms node_modules\expo-router\entry.js (1 module)
+Android Bundled 1630ms node_modules\expo-router\entry.js (1621 modules)
+ WARN  Google sign-in failed [GoogleSignInError: INTERNAL_ERROR]
+ WARN  Value being stored in SecureStore is larger than 2048 bytes and it may not be stored successfully. In a future SDK version, this call may throw an error.
+ LOG  deleteAccount succeeded {"success": true, "userId": "a8c33d0e-592c-4d4d-930c-8468b29fb657"}
