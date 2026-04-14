@@ -115,20 +115,23 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
 }
 
 /**
- * Returns true if this SQLite database contains data from a prior session
- * (contents, vocabulary rows, or previously-persisted user settings like
- * nativeLanguage/learningLanguage). Used for auth grandfathering to
- * distinguish between "fresh install" and "existing user getting an update".
+ * Returns true if this SQLite database contains real learning data from a
+ * prior session — i.e. contents or vocabulary rows. Used for auth
+ * grandfathering to decide whether to skip the welcome screen.
+ *
+ * Language settings (nativeLanguage/learningLanguage) are NOT counted,
+ * because useSettings.loadSettings auto-persists nativeLanguage from the
+ * device locale on first launch and resetApp() immediately re-sets it
+ * after clearAllData(). Using those as a "user exists" signal would (a)
+ * misfire on fresh installs after the very first open and (b) hide the
+ * welcome screen after a Reset App + reload, which is the opposite of
+ * what the user expects.
  */
 export function hasExistingData(db: SQLiteDatabase): boolean {
   const c = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM contents');
   if ((c?.count ?? 0) > 0) return true;
   const v = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM vocabulary');
   if ((v?.count ?? 0) > 0) return true;
-  // Either of these keys being present means the user has opened the app
-  // before and persisted a preference — counts as existing.
-  if (getSetting(db, 'nativeLanguage') !== null) return true;
-  if (getSetting(db, 'learningLanguage') !== null) return true;
   return false;
 }
 

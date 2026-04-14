@@ -84,6 +84,17 @@ export default function SettingsScreen() {
 
   const confirmReset = async () => {
     setShowResetDialog(false);
+    // Reset means fresh-start — if the user is signed in, also sign them
+    // out so the welcome screen can show after the next reload. Failure
+    // to sign out server-side must NOT block the local reset.
+    if (isAuthed) {
+      try {
+        await supabaseSignOut();
+      } catch (err) {
+        console.warn('signOut during reset failed', err);
+      }
+      clearAuth();
+    }
     await resetApp();
     router.back();
   };

@@ -430,17 +430,13 @@ describe('hasExistingData', () => {
     expect(hasExistingData(db)).toBe(true);
   });
 
-  it('returns true when nativeLanguage setting is present', () => {
+  it('returns false for settings-only databases (language prefs do not count)', () => {
+    // loadSettings() auto-persists nativeLanguage from device locale on
+    // first launch, and resetApp() re-sets it immediately after
+    // clearAllData(). So settings presence cannot be treated as
+    // "existing user" — only real learning data (contents/vocabulary) counts.
     setSetting(db, 'nativeLanguage', 'de');
-    expect(hasExistingData(db)).toBe(true);
-  });
-
-  it('returns true when learningLanguage setting is present', () => {
     setSetting(db, 'learningLanguage', 'fr');
-    expect(hasExistingData(db)).toBe(true);
-  });
-
-  it('returns false for irrelevant settings only (e.g. onboarding_seen)', () => {
     setSetting(db, 'onboarding_seen', 'true');
     expect(hasExistingData(db)).toBe(false);
   });
