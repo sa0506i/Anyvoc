@@ -34,6 +34,7 @@ import {
   countContentsAddedToday,
   recordContentAdd,
   BASIC_MODE_DAILY_CONTENT_LIMIT,
+  hasExistingData,
   type Content,
   type Vocabulary,
 } from './database';
@@ -406,5 +407,80 @@ describe('countContentsAddedToday', () => {
     expect(countContentsAddedToday(db, now)).toBe(1);
     deleteContent(db, 'x');
     expect(countContentsAddedToday(db, now)).toBe(1);
+  });
+});
+
+// --- Auth grandfathering ---
+
+describe('hasExistingData', () => {
+  it('returns false on a fresh, empty database', () => {
+    expect(hasExistingData(db)).toBe(false);
+  });
+
+  it('returns true when contents exist', () => {
+    insertContent(db, makeContent());
+    expect(hasExistingData(db)).toBe(true);
+  });
+
+  it('returns true when vocabulary exists (even without contents)', () => {
+    // Need a parent content for FK — use one then delete after insert
+    // isn't possible here (CASCADE); so insert both.
+    insertContent(db, makeContent());
+    insertVocabulary(db, makeVocab());
+    expect(hasExistingData(db)).toBe(true);
+  });
+
+  it('returns true when nativeLanguage setting is present', () => {
+    setSetting(db, 'nativeLanguage', 'de');
+    expect(hasExistingData(db)).toBe(true);
+  });
+
+  it('returns true when learningLanguage setting is present', () => {
+    setSetting(db, 'learningLanguage', 'fr');
+    expect(hasExistingData(db)).toBe(true);
+  });
+
+  it('returns false for irrelevant settings only (e.g. onboarding_seen)', () => {
+    setSetting(db, 'onboarding_seen', 'true');
+    expect(hasExistingData(db)).toBe(false);
+  });
+});
+
+describe('grandfathering migration logic', () => {
+  // Simulates what initDatabase does for the grandfathering step, using
+  // the public helpers. The actual migration lives inside initDatabase;
+  // here we verify the decision tree is correct.
+  function runGrandfatheringStep(d: SQLiteDatabase) {
+    if (getSetting(d, 'onboarding_seen') === null && hasExistingData(d)) {
+      setSetting(d, 'onboarding_seen', 'true');
+    }
+  }
+
+  it('sets onboarding_seen=true for pre-auth installs with data', () => {
+    insertContent(db, makeContent());
+    runGrandfatheringStep(db);
+    expect(getSetting(db, 'onboarding_seen')).toBe('true');
+  });
+
+  it('does NOT set onboarding_seen for fresh installs (empty DB)', () => {
+    runGrandfatheringStep(db);
+    expect(getSetting(db, 'onboarding_seen')).toBeNull();
+  });
+
+  it('is idempotent — does not overwrite existing onboarding_seen=false', () => {
+    setSetting(db, 'onboarding_seen', 'false');
+    insertContent(db, makeContent());
+    runGrandfatheringStep(db);
+    // Grandfathering only fires when the key is absent. An explicit
+    // 'false' means the user saw the welcome screen and chose guest —
+    // we must not flip that to 'true'.
+    expect(getSetting(db, 'onboarding_seen')).toBe('false');
+  });
+
+  it('is idempotent — does not re-run if onboarding_seen=true already', () => {
+    setSetting(db, 'onboarding_seen', 'true');
+    // No data yet — but key is already true, so nothing changes.
+    runGrandfatheringStep(db);
+    expect(getSetting(db, 'onboarding_seen')).toBe('true');
   });
 });

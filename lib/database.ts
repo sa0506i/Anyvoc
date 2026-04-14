@@ -101,6 +101,35 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   } catch {
     // Index already exists — ignore
   }
+
+  // Migration: Auth grandfathering.
+  // If this install already has data (contents, vocabulary, or known user
+  // settings), it belongs to a pre-auth user — mark onboarding as seen so
+  // the new welcome/login screen does not interrupt them. New installs
+  // (empty DB) leave onboarding_seen absent, which routes them to welcome.
+  // Idempotent: only writes onboarding_seen if it isn't already set.
+  const onboardingSeen = getSetting(db, 'onboarding_seen');
+  if (onboardingSeen === null && hasExistingData(db)) {
+    setSetting(db, 'onboarding_seen', 'true');
+  }
+}
+
+/**
+ * Returns true if this SQLite database contains data from a prior session
+ * (contents, vocabulary rows, or previously-persisted user settings like
+ * nativeLanguage/learningLanguage). Used for auth grandfathering to
+ * distinguish between "fresh install" and "existing user getting an update".
+ */
+export function hasExistingData(db: SQLiteDatabase): boolean {
+  const c = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM contents');
+  if ((c?.count ?? 0) > 0) return true;
+  const v = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM vocabulary');
+  if ((v?.count ?? 0) > 0) return true;
+  // Either of these keys being present means the user has opened the app
+  // before and persisted a preference — counts as existing.
+  if (getSetting(db, 'nativeLanguage') !== null) return true;
+  if (getSetting(db, 'learningLanguage') !== null) return true;
+  return false;
 }
 
 // --- Settings ---

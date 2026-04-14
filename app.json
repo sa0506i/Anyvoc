@@ -47,12 +47,15 @@
           "iosExtensionName": "ShareExtension"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {
         "projectId": "b7c84c6d-4ba8-4481-b92f-bdc250760248"
-      }
+      },
+      "supabaseUrl": "https://jnxfmzicstzoevijdcrf.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpueGZtemljc3R6b2V2aWpkY3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNjM5NDMsImV4cCI6MjA5MTczOTk0M30.ZVJDa9QcYJF-2xwXNaoFHjTqclo0bctvkApbbUY3yOc"
     }
   }
 }

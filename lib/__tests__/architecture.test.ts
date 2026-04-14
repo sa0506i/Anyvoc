@@ -126,11 +126,18 @@ describe('Architecture: no API keys in client code', () => {
     /expo-secure-store/,
   ];
 
+  // Files allowed to import expo-secure-store. The auth layer legitimately
+  // stores Supabase refresh tokens there (not API keys) — the only sanctioned
+  // use. See lib/auth.ts docblock and CLAUDE.md "Authentication" section.
+  const SECURE_STORE_ALLOWLIST = new Set([path.join('lib', 'auth.ts')]);
+
   for (const file of allFiles) {
     const relPath = path.relative(ROOT, file);
+    const allowsSecureStore = SECURE_STORE_ALLOWLIST.has(relPath);
     it(`${relPath} has no API key patterns`, () => {
       const content = fs.readFileSync(file, 'utf8');
       for (const pattern of API_KEY_PATTERNS) {
+        if (allowsSecureStore && pattern.source === 'expo-secure-store') continue;
         const match = content.match(pattern);
         expect(match).toBeNull();
         if (match) {
