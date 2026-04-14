@@ -16,7 +16,13 @@ import { useSQLiteContext } from 'expo-sqlite';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Ionicons } from '@expo/vector-icons';
-import { getContents, deleteContent, type Content } from '../../lib/database';
+import {
+  getContents,
+  deleteContent,
+  countContentsAddedToday,
+  BASIC_MODE_DAILY_CONTENT_LIMIT,
+  type Content,
+} from '../../lib/database';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import { ClaudeAPIError } from '../../lib/claude';
@@ -43,6 +49,7 @@ export default function ContentsScreen() {
   const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
   const learningLanguage = useSettingsStore((s) => s.learningLanguage);
   const level = useSettingsStore((s) => s.level);
+  const proMode = useSettingsStore((s) => s.proMode);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { alert, confirm, AlertDialog } = useAlert();
@@ -53,6 +60,7 @@ export default function ContentsScreen() {
 
   const [contents, setContents] = useState<ContentWithCount[]>([]);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [overDailyLimit, setOverDailyLimit] = useState(false);
   const [showTextModal, setShowTextModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [textInput, setTextInput] = useState('');
@@ -82,6 +90,12 @@ export default function ContentsScreen() {
     if (contentRefreshNonce > 0) loadContents();
   }, [contentRefreshNonce, loadContents]);
 
+  useEffect(() => {
+    if (showAddMenu) {
+      setOverDailyLimit(!proMode && countContentsAddedToday(db) >= BASIC_MODE_DAILY_CONTENT_LIMIT);
+    }
+  }, [showAddMenu, proMode, db]);
+
   const processText = async (
     text: string,
     title: string,
@@ -96,11 +110,16 @@ export default function ContentsScreen() {
         title,
         sourceType,
         sourceUrl,
-        { nativeLanguage, learningLanguage, level },
+        { nativeLanguage, learningLanguage, level, proMode },
         setLoadingMessage,
       );
       loadContents();
-      if (result.belowLevel) {
+      if (result.truncated) {
+        alert(
+          'Content truncated',
+          'Content was truncated to 1000 characters (Basic mode). Enable Pro mode in Settings to remove this limit.',
+        );
+      } else if (result.belowLevel) {
         alert(
           'Done',
           `${result.foundTotal} vocabulary items found, but all were below your level (${displayLevel(level)}). Try lowering your level in settings.`,
@@ -280,9 +299,19 @@ export default function ContentsScreen() {
       <Modal visible={showAddMenu} transparent animationType="fade">
         <Pressable style={styles.overlay} onPress={() => setShowAddMenu(false)}>
           <View style={styles.menu}>
+            {overDailyLimit && (
+              <Text testID="daily-limit-hint" style={styles.dailyLimitHint}>
+                Basic Mode is limited to three content additions per day.
+              </Text>
+            )}
             <Pressable
               testID="menu-enter-text"
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              disabled={overDailyLimit}
+              style={({ pressed }) => [
+                styles.menuItem,
+                overDailyLimit && styles.menuItemDisabled,
+                pressed && !overDailyLimit && styles.pressed,
+              ]}
               onPress={() => {
                 setShowAddMenu(false);
                 setShowTextModal(true);
@@ -293,7 +322,12 @@ export default function ContentsScreen() {
             </Pressable>
             <Pressable
               testID="menu-choose-image"
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              disabled={overDailyLimit}
+              style={({ pressed }) => [
+                styles.menuItem,
+                overDailyLimit && styles.menuItemDisabled,
+                pressed && !overDailyLimit && styles.pressed,
+              ]}
               onPress={handleAddImage}
             >
               <Ionicons name="image-outline" size={24} color={colors.text} />
@@ -301,7 +335,12 @@ export default function ContentsScreen() {
             </Pressable>
             <Pressable
               testID="menu-add-link"
-              style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
+              disabled={overDailyLimit}
+              style={({ pressed }) => [
+                styles.menuItem,
+                overDailyLimit && styles.menuItemDisabled,
+                pressed && !overDailyLimit && styles.pressed,
+              ]}
               onPress={() => {
                 setShowAddMenu(false);
                 setShowLinkModal(true);
@@ -567,5 +606,16 @@ const createStyles = (c: ThemeColors) =>
     pressed: {
       transform: [{ scale: 0.97 }],
       opacity: 0.85,
+    },
+    dailyLimitHint: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      fontWeight: '300',
+      padding: spacing.md,
+      paddingBottom: spacing.sm,
+      textAlign: 'center',
+    },
+    menuItemDisabled: {
+      opacity: 0.4,
     },
   });
