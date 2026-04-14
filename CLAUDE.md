@@ -217,7 +217,7 @@ Anyvoc uses Supabase Auth (EU/Frankfurt region) for optional sign-in. The app fo
 ### Providers
 
 - **Email OTP** (6-digit) — default, no passwords. Supabase template `Confirm signup` and `Magic Link` must include `{{ .Token }}` so the code appears in the email; the dashboard ships only links by default.
-- **Google** via `@react-native-google-signin/google-signin` — native id-token → `supabase.auth.signInWithIdToken({ provider: 'google' })`. Web Client ID is the Supabase-verified one; Android uses package + SHA-1 from Google Cloud Console; iOS uses its own Client ID via `iosUrlScheme` on the plugin config.
+- **Google** via `@react-native-google-signin/google-signin` — **Android-only**. The v16 native iOS SDK (GoogleSignIn ~> 9.0) pulls `GTMSessionFetcher ~> 3.x` / `GoogleUtilities ~> 8.0`, which conflict with `@infinitered/react-native-mlkit-text-recognition` (still on `GTMSessionFetcher ~> 1.1` / `GoogleUtilities ~> 7.0` via MLKitCommon 10.x). The pod wouldn't resolve. `react-native.config.js` disables iOS autolinking for this package; the Google button is hidden on iOS in `login.tsx`; `signInWithGoogle()` throws `IOS_NOT_SUPPORTED` defensively. To re-enable Google on iOS, either replace the MLKit OCR package with one using modern Google utilities, or switch to `expo-auth-session` for iOS Google flow (browser OAuth).
 - **Apple** via `expo-apple-authentication` — iOS-only (button is hidden on Android per App-Store-Review requirement). Flow: identityToken → `signInWithIdToken({ provider: 'apple' })`.
 
 ### Key files

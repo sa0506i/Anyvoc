@@ -19,6 +19,15 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+// Mock react-native Platform. Default to android (where Google is live).
+// Individual tests mutate Platform.OS to verify the iOS guard.
+jest.mock('react-native', () => ({
+  Platform: { OS: 'android' },
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { Platform } = require('react-native');
+
 jest.mock('@react-native-google-signin/google-signin', () => {
   const GoogleSignin = {
     configure: jest.fn(),
@@ -55,6 +64,7 @@ const { GoogleSignin, statusCodes } = (
 
 beforeEach(() => {
   jest.clearAllMocks();
+  Platform.OS = 'android';
 });
 
 describe('configureGoogleSignIn', () => {
@@ -82,6 +92,18 @@ describe('configureGoogleSignIn', () => {
 });
 
 describe('signInWithGoogle', () => {
+  it('bails early on iOS with a clear IOS_NOT_SUPPORTED error', async () => {
+    Platform.OS = 'ios';
+    await expect(signInWithGoogle()).rejects.toMatchObject({
+      name: 'GoogleSignInError',
+      code: 'IOS_NOT_SUPPORTED',
+      message: expect.stringContaining('not available on iOS'),
+    });
+    // Native SDK was NOT called — we never reached the configure/signIn path.
+    expect(GoogleSignin.configure).not.toHaveBeenCalled();
+    expect(GoogleSignin.signIn).not.toHaveBeenCalled();
+  });
+
   it('returns the id_token from a successful sign-in (v13+ shape)', async () => {
     GoogleSignin.hasPlayServices.mockResolvedValue(true);
     GoogleSignin.signIn.mockResolvedValue({

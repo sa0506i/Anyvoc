@@ -215,25 +215,35 @@ export default function LoginScreen() {
           </Pressable>
         )}
 
-        <Pressable
-          testID="login-method-google"
-          style={({ pressed }) => [
-            styles.providerBtn,
-            providerSubmitting !== null && styles.primaryBtnDisabled,
-            pressed && providerSubmitting === null && styles.pressed,
-          ]}
-          disabled={providerSubmitting !== null}
-          onPress={handleGoogleSignIn}
-        >
-          {providerSubmitting === 'google' ? (
-            <ActivityIndicator color={colors.text} />
-          ) : (
-            <>
-              <Ionicons name="logo-google" size={18} color={colors.text} />
-              <Text style={styles.providerBtnText}>Continue with Google</Text>
-            </>
-          )}
-        </Pressable>
+        {/*
+          Google Sign-In is Android-only: the google-signin native iOS SDK
+          conflicts with MLKit's transitive Google utilities at pod
+          resolution. react-native.config.js excludes the module from iOS
+          autolinking; this button renders only on Android so we never
+          attempt to call a missing native module. iOS users sign in via
+          email (OTP) or Apple.
+        */}
+        {Platform.OS === 'android' && (
+          <Pressable
+            testID="login-method-google"
+            style={({ pressed }) => [
+              styles.providerBtn,
+              providerSubmitting !== null && styles.primaryBtnDisabled,
+              pressed && providerSubmitting === null && styles.pressed,
+            ]}
+            disabled={providerSubmitting !== null}
+            onPress={handleGoogleSignIn}
+          >
+            {providerSubmitting === 'google' ? (
+              <ActivityIndicator color={colors.text} />
+            ) : (
+              <>
+                <Ionicons name="logo-google" size={18} color={colors.text} />
+                <Text style={styles.providerBtnText}>Continue with Google</Text>
+              </>
+            )}
+          </Pressable>
+        )}
       </View>
 
       <AlertDialog />

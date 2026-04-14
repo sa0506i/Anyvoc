@@ -1,17 +1,21 @@
 /**
- * Google Sign-In wrapper.
+ * Google Sign-In wrapper — **Android-only at runtime.**
  *
- * Configures @react-native-google-signin/google-signin with the Web + iOS
- * client IDs from app.json.extra, then exposes a single signInWithGoogle()
- * helper that returns a Google ID token suitable for Supabase's
- * signInWithIdToken({ provider: 'google', token }).
+ * The native iOS SDK that @react-native-google-signin/google-signin v16
+ * pulls (GoogleSignIn ~> 9.0, GoogleUtilities ~> 8.0, GTMSessionFetcher
+ * ~> 3.x) conflicts with @infinitered/react-native-mlkit-text-recognition
+ * at pod resolution. We disable iOS autolinking in
+ * react-native.config.js so the pod is never installed there. The login
+ * screen also hides the Google button on iOS. signInWithGoogle() below
+ * bails early on iOS with a clear error in case a future caller slips
+ * through — saves you the confusing "RNGoogleSignin is not linked" crash.
  *
- * The Web Client ID is the one Supabase validates against — the iOS
- * Client ID only configures the native iOS SDK. On Android, the SDK
- * pairs Package name + SHA-1 (configured in Google Cloud Console) with
- * the same Web Client ID to obtain ID tokens.
+ * On Android the SDK pairs Package name + SHA-1 (configured in Google
+ * Cloud Console) with the Web Client ID to obtain ID tokens. The Web
+ * Client ID is the one Supabase validates against.
  */
 
+import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import {
   GoogleSignin,
@@ -72,6 +76,12 @@ export const GOOGLE_SIGN_IN_CANCELLED = 'SIGN_IN_CANCELLED';
  * show nothing, per project UX convention.
  */
 export async function signInWithGoogle(): Promise<string> {
+  if (Platform.OS === 'ios') {
+    throw new GoogleSignInError(
+      'Google Sign-In is not available on iOS in this build. Please use email or Apple sign-in.',
+      'IOS_NOT_SUPPORTED',
+    );
+  }
   configureGoogleSignIn();
 
   try {

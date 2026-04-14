@@ -26,3 +26,10 @@ eslint.config.mjs
 .prettierignore
 lib/__tests__/
 .maestro/
+
+# CNG / Prebuild — force EAS to regenerate iOS from app.json on every
+# build instead of reusing a stale committed folder. Recommended by
+# expo-doctor when app.json has plugins but the ios/ folder is absent
+# from the repo (our current state).
+# https://docs.expo.dev/workflow/prebuild/#usage-with-eas-build
+/ios
