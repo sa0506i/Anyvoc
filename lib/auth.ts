@@ -170,10 +170,30 @@ export async function signOut(): Promise<void> {
  * touched — the user can continue as a guest afterwards.
  */
 export async function deleteAccount(): Promise<void> {
-  const { error } = await supabase.functions.invoke('delete-account');
+  const { data, error } = await supabase.functions.invoke('delete-account');
   if (error) {
-    throw new AuthError(error.message, error);
+    // Supabase SDK wraps non-2xx responses in a generic message. Try to
+    // pull the actual server body so diagnostics are useful. The SDK
+    // attaches the raw Response object under `error.context` in some
+    // versions and `error.response` in others; we try both.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ctx: any = (error as any).context ?? (error as any).response;
+    let serverBody: string | null = null;
+    try {
+      if (ctx && typeof ctx.text === 'function') {
+        serverBody = await ctx.text();
+      }
+    } catch {
+      // ignore — we'll fall through with the generic message.
+    }
+    console.warn('deleteAccount Edge Function failed', {
+      message: error.message,
+      status: ctx?.status,
+      body: serverBody,
+    });
+    throw new AuthError(serverBody && serverBody.length < 300 ? serverBody : error.message, error);
   }
+  console.log('deleteAccount succeeded', data);
   // Server-side deletion invalidates the session; signOut() clears local
   // tokens so the app state reflects reality.
   await signOut();
