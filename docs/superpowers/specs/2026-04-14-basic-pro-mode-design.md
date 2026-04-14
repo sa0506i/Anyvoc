@@ -156,28 +156,43 @@ and no full-text translation. Pro removes all limits.
 
 ### 6. Enforcement at the 4 add paths
 
-Each path performs the same three-step gate **before** calling any Claude API:
+**Daily-limit gate is UI-first for in-app paths.** When the user taps the "+ Add"
+FAB (opens `showAddMenu`), the menu computes
+`overDailyLimit = !proMode && countContentsAddedToday(db) >= 3` on open.
+
+- If `overDailyLimit` is true:
+  - Render a hint banner **at the top of the add menu**:
+    *"Basic Mode is limited to three content additions per day."*
+  - The three menu items (Enter Text / Choose Image / Add Link) remain visible
+    but are **disabled** (reduced opacity, non-pressable, no haptic).
+  - `testID="daily-limit-hint"` on the banner text.
+- If `overDailyLimit` is false: menu renders normally, no banner.
+
+The menu state is evaluated **every time** the menu opens (not cached), so that
+after a successful add the count is refreshed on the next open. This makes the
+gate essentially declarative — handlers `handleAddText`, `handleAddImage`,
+`handleAddLink` never need to check the daily limit themselves, because disabled
+menu items cannot invoke them.
+
+**Truncation gate** still runs inside each handler, before the API call:
 
 ```
-1. If !proMode:
-     if countContentsAddedToday(db) >= 3  → abort, show "daily limit" dialog.
-2. const { text, truncated } = applyBasicLimit(raw, proMode);
-3. Call processText(text, { proMode });
-   - processText passes proMode down to processSharedText.
-4. On success: if truncated, show "content truncated" dialog.
+1. const { text, truncated } = applyBasicLimit(raw, proMode);
+2. Call processText(text, { proMode }); // → processSharedText gets proMode
+3. On success: if truncated, show "content truncated" dialog.
 ```
 
-Order matters: the daily-count check comes first (no API call if over quota), then
-truncation (so the API receives ≤1000 chars), then processing. The truncation
-dialog is only shown after successful save to avoid confusing the user if processing
-itself fails.
+**Share intent path** has no menu, so the daily-limit check runs inside
+`processSharedText`. The function's return type gains `rejected?: 'daily-limit'`
+and `truncated?: boolean`; the content-tab caller renders a dialog on rejection
+or truncation.
 
-| Path          | File                                         | Notes                                          |
-|---------------|----------------------------------------------|------------------------------------------------|
-| Text          | `app/(tabs)/content.tsx` `handleAddText`     | Gate runs on button press.                     |
-| Image OCR     | `app/(tabs)/content.tsx` `handleAddImage`    | OCR runs offline, but daily-count gate fires first. |
-| URL/Link      | `app/(tabs)/content.tsx` `handleAddLink`     | URL fetch happens after the daily-count gate.  |
-| Share intent  | `lib/shareProcessing.ts` `processSharedText` | Gate at function entry; return type gains `truncated?: boolean` and `rejected?: 'daily-limit'`. Content-tab caller renders dialog accordingly. |
+| Path          | File                                         | Daily-limit check                                | Truncation check                   |
+|---------------|----------------------------------------------|--------------------------------------------------|-------------------------------------|
+| Text          | `app/(tabs)/content.tsx` `handleAddText`     | Menu banner + disabled items (UI-only)           | Inside handler before `processText` |
+| Image OCR     | `app/(tabs)/content.tsx` `handleAddImage`    | Menu banner + disabled items (UI-only)           | After OCR, before `processText`     |
+| URL/Link      | `app/(tabs)/content.tsx` `handleAddLink`     | Menu banner + disabled items (UI-only)           | After URL fetch, before `processText` |
+| Share intent  | `lib/shareProcessing.ts` `processSharedText` | Gate at function entry → returns `rejected: 'daily-limit'`; caller shows dialog | Inside function before `translateText`/`extractVocabulary` |
 
 ### 7. Skip full-text translation in Basic
 
@@ -216,19 +231,18 @@ which is already schema-legal.
 - If `translated_text` is non-empty (e.g. from a previous Pro session): render it
   normally, regardless of current mode.
 
-### 9. Info / warning dialogs
+### 9. Info / warning surfaces
 
-All via the (now extended) `ConfirmDialog` with single confirm button. Shared title
-convention so they're recognisable:
+Two different surfaces depending on trigger:
 
-| Trigger                       | Title              | Message                                                                                  |
-|-------------------------------|--------------------|------------------------------------------------------------------------------------------|
-| Content was truncated         | Content truncated  | Content was truncated to 1000 characters (Basic mode). Enable Pro mode to remove this limit. |
-| Daily add-limit hit           | Daily limit reached | Basic mode allows 3 content additions per day. Enable Pro mode for unlimited additions. |
+| Trigger                         | Surface                        | Text                                                                                       |
+|---------------------------------|--------------------------------|--------------------------------------------------------------------------------------------|
+| In-app add while over daily limit | **Banner inside the add menu** | "Basic Mode is limited to three content additions per day."                                |
+| Share intent while over daily limit | `ConfirmDialog` (single OK button) on content tab | "Basic Mode is limited to three content additions per day. The shared content was not saved." |
+| Content was truncated (any path) | `ConfirmDialog` (single OK button) on content tab | "Content was truncated to 1000 characters (Basic mode). Enable Pro mode to remove this limit." |
 
-Two independent state booleans on the content tab: `showTruncatedDialog`,
-`showDailyLimitDialog`. Only one visible at a time (truncation only happens on
-successful save; limit rejection aborts before save).
+Content-tab state: `showTruncatedDialog`, `showShareLimitDialog`. Only one is
+visible at a time.
 
 ## Architecture / Harness
 
