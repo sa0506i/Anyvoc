@@ -234,6 +234,59 @@ describe('processSharedText — proMode', () => {
     expect(result.truncated).toBe(false);
   });
 
+  it('does NOT call recordContentAdd when rejected by daily limit', async () => {
+    const db = createMockDb();
+    // Simulate 3 previous additions
+    for (let i = 0; i < 3; i++) recordContentAdd(db);
+    const beforeCount = db.getFirstSync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM content_adds_log',
+      [],
+    )?.count;
+
+    const result = await processSharedText(
+      db,
+      'Hallo.',
+      'title',
+      'text',
+      undefined,
+      { ...baseSettings, proMode: false },
+      noop,
+    );
+
+    expect(result.rejected).toBe('daily-limit');
+    const afterCount = db.getFirstSync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM content_adds_log',
+      [],
+    )?.count;
+    // Count must be unchanged from the 3 we seeded — rejection does not log.
+    expect(afterCount).toBe(beforeCount);
+    expect(afterCount).toBe(3);
+  });
+
+  it('does NOT call recordContentAdd when language detection rejects', async () => {
+    const db = createMockDb();
+    // Force a language mismatch: learning = de but detectLanguage returns 'fr'
+    (claude.detectLanguage as jest.Mock).mockResolvedValueOnce('fr');
+
+    await expect(
+      processSharedText(
+        db,
+        'Bonjour.',
+        'title',
+        'text',
+        undefined,
+        { ...baseSettings, proMode: true }, // Pro so no daily-limit gate
+        noop,
+      ),
+    ).rejects.toThrow(/appears to be in French/);
+
+    const count = db.getFirstSync<{ count: number }>(
+      'SELECT COUNT(*) as count FROM content_adds_log',
+      [],
+    )?.count;
+    expect(count).toBe(0);
+  });
+
   it('extractVocabulary and translateText run in parallel in Pro mode', async () => {
     const db = createMockDb();
     const extractStart = jest.fn();

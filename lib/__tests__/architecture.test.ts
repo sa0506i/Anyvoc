@@ -346,7 +346,60 @@ describe('Architecture: proMode gates translateText in shareProcessing', () => {
   });
 });
 
-// ─── Rule 13: app/ screens must import useTheme, not hardcode colors ─
+// ─── Rule 12: clearAllData must not delete from content_adds_log ─────
+// CLAUDE.md: The daily-limit counter lives in content_adds_log.
+// Clearing it inside clearAllData would reset the counter on app-reset,
+// allowing Basic users to bypass the daily cap. The table must survive a reset.
+describe('Architecture: clearAllData does not wipe the daily-limit log', () => {
+  it('lib/database.ts clearAllData must not contain DELETE FROM content_adds_log', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'database.ts'), 'utf8');
+    // Locate the clearAllData function body. Match from "export function clearAllData"
+    // up to the closing "}" at column 0 (function-level closing brace).
+    const match = src.match(/export function clearAllData\b[\s\S]*?\n\}/);
+    expect(match).not.toBeNull();
+    const body = match![0];
+    // The log table must never appear inside a DELETE statement in this function.
+    expect(body).not.toMatch(/DELETE\s+FROM\s+content_adds_log/i);
+    if (/DELETE\s+FROM\s+content_adds_log/i.test(body)) {
+      throw new Error(
+        `DAILY-LIMIT LOG CLEARED in lib/database.ts clearAllData()\n` +
+          `content_adds_log must NOT be deleted during app reset.\n` +
+          `The daily-limit counter must survive a reset to prevent Basic-mode bypass.\n` +
+          `See CLAUDE.md "Database Schema" section and commit f3e8c22.`,
+      );
+    }
+  });
+});
+
+// ─── Rule 13: processSharedText checks daily limit before API calls ───
+// CLAUDE.md: Basic-mode users over quota must be rejected before any
+// billable API call (extractVocabulary or translateText). Moving the gate
+// below those calls would charge the user before rejection.
+describe('Architecture: processSharedText checks daily limit before API calls', () => {
+  it('countContentsAddedToday reference appears before any extractVocabulary/translateText call', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'shareProcessing.ts'), 'utf8');
+    const gateIdx = src.indexOf('countContentsAddedToday');
+    const extractIdx = src.indexOf('extractVocabulary(');
+    const translateIdx = src.indexOf('translateText(');
+
+    expect(gateIdx).toBeGreaterThan(-1);
+    expect(extractIdx).toBeGreaterThan(-1);
+    expect(translateIdx).toBeGreaterThan(-1);
+    expect(gateIdx).toBeLessThan(extractIdx);
+    expect(gateIdx).toBeLessThan(translateIdx);
+
+    if (gateIdx >= extractIdx || gateIdx >= translateIdx) {
+      throw new Error(
+        `DAILY-LIMIT GATE OUT OF ORDER in lib/shareProcessing.ts\n` +
+          `countContentsAddedToday() must be called BEFORE extractVocabulary() and translateText().\n` +
+          `Moving the gate below API calls would trigger billable requests before rejection.\n` +
+          `See CLAUDE.md "Known Issues" section.`,
+      );
+    }
+  });
+});
+
+// ─── Rule 15: app/ screens must import useTheme, not hardcode colors ─
 // Known baseline: 7 existing #FFFFFF usages in button text/icons (pre-existing debt).
 // This test catches NEW hardcoded colors beyond the baseline.
 describe('Architecture: screens use theme system', () => {
