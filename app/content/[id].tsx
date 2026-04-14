@@ -271,10 +271,14 @@ export default function ContentDetailScreen() {
 
       {activeTab === 'translation' && (
         <ScrollView style={styles.scrollContent} contentContainerStyle={styles.textContent}>
-          {content.translated_text ? (
+          {content.translated_text && content.translated_text.trim().length > 0 ? (
             <Text style={styles.bodyText}>{content.translated_text}</Text>
           ) : (
-            <Text style={styles.emptyText}>No translation available</Text>
+            <View style={styles.proPlaceholder}>
+              <Text style={styles.proPlaceholderText}>
+                Full-text translation is a Pro feature. Enable Pro mode in Settings.
+              </Text>
+            </View>
           )}
         </ScrollView>
       )}
@@ -498,5 +502,16 @@ const createStyles = (c: ThemeColors) =>
     pressed: {
       transform: [{ scale: 0.97 }],
       opacity: 0.85,
+    },
+    proPlaceholder: {
+      padding: spacing.lg,
+      alignItems: 'center',
+    },
+    proPlaceholderText: {
+      fontSize: fontSize.sm,
+      color: c.textSecondary,
+      fontWeight: '300',
+      textAlign: 'center',
+      lineHeight: 20,
     },
   });
