@@ -32,6 +32,7 @@ import {
   getAllReviewDays,
   clearAllData,
   countContentsAddedToday,
+  recordContentAdd,
   BASIC_MODE_DAILY_CONTENT_LIMIT,
   type Content,
   type Vocabulary,
@@ -79,6 +80,11 @@ function createMockDb(): SQLiteDatabase {
     CREATE TABLE IF NOT EXISTS review_days (
       day TEXT PRIMARY KEY
     );
+    CREATE TABLE IF NOT EXISTS content_adds_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      added_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_content_adds_log_added_at ON content_adds_log(added_at);
   `);
 
   return {
@@ -355,47 +361,50 @@ describe('clearAllData', () => {
 });
 
 describe('countContentsAddedToday', () => {
-  it('returns 0 for an empty contents table', () => {
+  it('returns 0 for an empty log table', () => {
     expect(countContentsAddedToday(db)).toBe(0);
   });
 
-  it('counts only rows whose created_at is on the local calendar day', () => {
-    const now = new Date(2026, 3, 14, 15, 0, 0); // April 14 2026, 15:00 local
-    const todayStart = new Date(2026, 3, 14, 0, 0, 0).getTime();
-    const yesterday = new Date(2026, 3, 13, 23, 30, 0).getTime();
+  it('counts only rows whose added_at is on the local calendar day', () => {
+    const now = new Date(2026, 3, 14, 15, 0, 0);
+    const yesterday = new Date(2026, 3, 13, 23, 30, 0);
 
-    insertContent(db, {
-      id: 'a',
-      title: 'T',
-      original_text: 'x',
-      translated_text: null,
-      source_type: 'text',
-      source_url: null,
-      created_at: todayStart + 1000,
-    });
-    insertContent(db, {
-      id: 'b',
-      title: 'T',
-      original_text: 'x',
-      translated_text: null,
-      source_type: 'text',
-      source_url: null,
-      created_at: todayStart + 5000,
-    });
-    insertContent(db, {
-      id: 'c',
-      title: 'T',
-      original_text: 'x',
-      translated_text: null,
-      source_type: 'text',
-      source_url: null,
-      created_at: yesterday,
-    });
+    recordContentAdd(db, new Date(2026, 3, 14, 0, 0, 1)); // today
+    recordContentAdd(db, new Date(2026, 3, 14, 10, 0, 0)); // today
+    recordContentAdd(db, yesterday); // not today
 
     expect(countContentsAddedToday(db, now)).toBe(2);
   });
 
   it('exports BASIC_MODE_DAILY_CONTENT_LIMIT = 3', () => {
     expect(BASIC_MODE_DAILY_CONTENT_LIMIT).toBe(3);
+  });
+
+  it('survives clearAllData (log table is not wiped)', () => {
+    const now = new Date(2026, 3, 14, 15, 0, 0);
+    recordContentAdd(db, new Date(2026, 3, 14, 9, 0, 0));
+    recordContentAdd(db, new Date(2026, 3, 14, 10, 0, 0));
+    recordContentAdd(db, new Date(2026, 3, 14, 11, 0, 0));
+    expect(countContentsAddedToday(db, now)).toBe(3);
+    clearAllData(db);
+    expect(countContentsAddedToday(db, now)).toBe(3);
+  });
+
+  it('is not decremented when a content row is deleted', () => {
+    const now = new Date(2026, 3, 14, 15, 0, 0);
+    const addedAt = new Date(2026, 3, 14, 10, 0, 0).getTime();
+    insertContent(db, {
+      id: 'x',
+      title: 'T',
+      original_text: 'x',
+      translated_text: null,
+      source_type: 'text',
+      source_url: null,
+      created_at: addedAt,
+    });
+    recordContentAdd(db, new Date(addedAt));
+    expect(countContentsAddedToday(db, now)).toBe(1);
+    deleteContent(db, 'x');
+    expect(countContentsAddedToday(db, now)).toBe(1);
   });
 });

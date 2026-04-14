@@ -4,6 +4,7 @@ import {
   insertContent,
   insertVocabularyBatch,
   countContentsAddedToday,
+  recordContentAdd,
   BASIC_MODE_DAILY_CONTENT_LIMIT,
   type Content,
   type Vocabulary,
@@ -109,6 +110,7 @@ export async function processSharedText(
     source_url: sourceUrl ?? null,
     created_at: now,
   });
+  recordContentAdd(db);
 
   const filteredVocabs = vocabs.filter((v) => isAtOrAboveLevel(v.level, settings.level));
 

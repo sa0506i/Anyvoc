@@ -70,6 +70,12 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
     CREATE TABLE IF NOT EXISTS review_days (
       day TEXT PRIMARY KEY
     );
+
+    CREATE TABLE IF NOT EXISTS content_adds_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      added_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_content_adds_log_added_at ON content_adds_log(added_at);
   `);
 
   // Backfill review_days from existing vocabulary last_reviewed timestamps
@@ -174,10 +180,17 @@ export const BASIC_MODE_DAILY_CONTENT_LIMIT = 3;
 export function countContentsAddedToday(db: SQLiteDatabase, now: Date = new Date()): number {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const row = db.getFirstSync<{ count: number }>(
-    'SELECT COUNT(*) as count FROM contents WHERE created_at >= ?',
+    'SELECT COUNT(*) as count FROM content_adds_log WHERE added_at >= ?',
     [todayStart],
   );
   return row?.count ?? 0;
+}
+
+/** Logs a content-addition event for Basic-mode daily-limit accounting.
+ *  The row persists across app reset and item deletion — by design, so
+ *  users cannot bypass the Basic-mode 3-per-day limit. */
+export function recordContentAdd(db: SQLiteDatabase, now: Date = new Date()): void {
+  db.runSync('INSERT INTO content_adds_log (added_at) VALUES (?)', [now.getTime()]);
 }
 
 // --- Vocabulary ---

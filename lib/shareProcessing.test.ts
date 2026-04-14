@@ -8,7 +8,7 @@
 import Database from 'better-sqlite3';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { processSharedText, type ShareProcessingSettings } from './shareProcessing';
-import { insertContent } from './database';
+import { insertContent, recordContentAdd } from './database';
 
 // Mock the 3 Claude API functions + language detection
 jest.mock('./claude', () => ({
@@ -67,6 +67,11 @@ function createMockDb(): SQLiteDatabase {
     CREATE TABLE IF NOT EXISTS review_days (
       day TEXT PRIMARY KEY
     );
+    CREATE TABLE IF NOT EXISTS content_adds_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      added_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_content_adds_log_added_at ON content_adds_log(added_at);
   `);
 
   return {
@@ -138,17 +143,8 @@ describe('processSharedText — proMode', () => {
 
   it('rejects with daily-limit when Basic mode and >=3 contents today', async () => {
     const db = createMockDb();
-    const now = Date.now();
     for (let i = 0; i < 3; i++) {
-      insertContent(db, {
-        id: `c${i}`,
-        title: 't',
-        original_text: 'x',
-        translated_text: null,
-        source_type: 'text',
-        source_url: null,
-        created_at: now,
-      });
+      recordContentAdd(db);
     }
 
     const result = await processSharedText(
@@ -168,17 +164,8 @@ describe('processSharedText — proMode', () => {
 
   it('does not reject in Pro mode even with 3 contents today', async () => {
     const db = createMockDb();
-    const now = Date.now();
     for (let i = 0; i < 3; i++) {
-      insertContent(db, {
-        id: `c${i}`,
-        title: 't',
-        original_text: 'x',
-        translated_text: null,
-        source_type: 'text',
-        source_url: null,
-        created_at: now,
-      });
+      recordContentAdd(db);
     }
 
     const result = await processSharedText(
@@ -193,6 +180,22 @@ describe('processSharedText — proMode', () => {
 
     expect(result.rejected).toBeUndefined();
     expect(claude.extractVocabulary).toHaveBeenCalled();
+  });
+
+  it('calls recordContentAdd on successful insert in Basic mode', async () => {
+    const db = createMockDb();
+    await processSharedText(
+      db,
+      'Hallo.',
+      'title',
+      'text',
+      undefined,
+      { ...baseSettings, proMode: false },
+      noop,
+    );
+    expect(
+      db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM content_adds_log', []),
+    ).toEqual({ count: 1 });
   });
 
   it('truncates long text in Basic mode and sets truncated=true', async () => {
