@@ -17,12 +17,14 @@ import {
   QuizDirection,
   QuizMode,
 } from '../hooks/useSettings';
+import { useAuthStore } from '../lib/authStore';
+import { signOut as supabaseSignOut, deleteAccount, AuthError } from '../lib/auth';
 import { useTheme } from '../hooks/useTheme';
 import { languages, getLanguageName, getLanguageFlag } from '../constants/languages';
 import { CEFR_LEVELS_UI, displayLevel, uiToInternalLevel } from '../constants/levels';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, fontSize, borderRadius, marineShadow } from '../constants/theme';
-import ConfirmDialog from '../components/ConfirmDialog';
+import ConfirmDialog, { useAlert } from '../components/ConfirmDialog';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -34,9 +36,13 @@ export default function SettingsScreen() {
   const cardsPerRound = useSettingsStore((s) => s.cardsPerRound);
   const proMode = useSettingsStore((s) => s.proMode);
   const { updateSetting, resetApp } = useSettingsActions();
+  const authUser = useAuthStore((s) => s.user);
+  const isAuthed = useAuthStore((s) => s.isAuthed);
+  const clearAuth = useAuthStore((s) => s.clear);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { confirm, AlertDialog } = useAlert();
 
   const nativeFlag = getLanguageFlag(nativeLanguage);
   const learningFlag = getLanguageFlag(learningLanguage);
@@ -80,6 +86,49 @@ export default function SettingsScreen() {
     setShowResetDialog(false);
     await resetApp();
     router.back();
+  };
+
+  const handleSignIn = () => {
+    router.push('/auth/login');
+  };
+
+  const handleSignOut = () => {
+    confirm(
+      'Sign out',
+      'You will be signed out of your account. Your local vocabulary will remain on this device.',
+      async () => {
+        try {
+          await supabaseSignOut();
+          clearAuth();
+        } catch (err) {
+          console.warn('signOut failed', err);
+          // Even on failure, clear local state — the user wanted out.
+          clearAuth();
+        }
+      },
+      { confirmLabel: 'Sign out' },
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    confirm(
+      'Delete account',
+      'Your account will be permanently deleted from our servers. Your local vocabulary will remain on this device. This action cannot be undone.',
+      async () => {
+        try {
+          await deleteAccount();
+          clearAuth();
+        } catch (err) {
+          console.warn('deleteAccount failed', err);
+          const message =
+            err instanceof AuthError && err.message
+              ? err.message
+              : 'Could not delete the account. Please try again later.';
+          confirm('Delete failed', message, () => {}, { confirmLabel: 'OK' });
+        }
+      },
+      { destructive: true, confirmLabel: 'Delete' },
+    );
   };
 
   if (showLanguagePicker) {
@@ -133,6 +182,49 @@ export default function SettingsScreen() {
     >
       <Header />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* Account */}
+        <Text style={styles.sectionTitle}>Account</Text>
+        {isAuthed ? (
+          <>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Signed in as</Text>
+              <Text
+                testID="settings-account-email"
+                style={styles.rowValue}
+                numberOfLines={1}
+                ellipsizeMode="middle"
+              >
+                {authUser?.email ?? ''}
+              </Text>
+            </View>
+            <Pressable
+              testID="settings-sign-out-btn"
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+              onPress={handleSignOut}
+            >
+              <Text style={styles.rowLabel}>Sign out</Text>
+              <Ionicons name="log-out-outline" size={18} color={colors.textSecondary} />
+            </Pressable>
+            <Pressable
+              testID="settings-delete-account-btn"
+              style={({ pressed }) => [styles.deleteAccountBtn, pressed && styles.pressed]}
+              onPress={handleDeleteAccount}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
+              <Text style={styles.deleteAccountText}>Delete account</Text>
+            </Pressable>
+          </>
+        ) : (
+          <Pressable
+            testID="settings-sign-in-btn"
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            onPress={handleSignIn}
+          >
+            <Text style={styles.rowLabel}>Sign in</Text>
+            <Text style={styles.rowValue}>Email · Apple · Google →</Text>
+          </Pressable>
+        )}
+
         {/* Mode */}
         <Text style={styles.sectionTitle}>Mode</Text>
         <Text style={styles.sectionHint}>
@@ -288,6 +380,7 @@ export default function SettingsScreen() {
         onCancel={() => setShowResetDialog(false)}
         onConfirm={confirmReset}
       />
+      <AlertDialog />
     </KeyboardAvoidingView>
   );
 }
@@ -443,6 +536,24 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       paddingHorizontal: spacing.lg,
     },
     resetText: {
+      color: c.error,
+      fontSize: fontSize.sm,
+      fontWeight: '600',
+    },
+    deleteAccountBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: spacing.xs,
+      backgroundColor: c.errorBgLight,
+      borderWidth: 1,
+      borderColor: c.errorBgMedium,
+      borderRadius: borderRadius.full,
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      marginTop: spacing.sm,
+    },
+    deleteAccountText: {
       color: c.error,
       fontSize: fontSize.sm,
       fontWeight: '600',

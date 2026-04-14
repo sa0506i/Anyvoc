@@ -1,14 +1,15 @@
 import { Suspense, useEffect, useMemo } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { ThemeProvider, DarkTheme } from '@react-navigation/native';
-import { SQLiteProvider } from 'expo-sqlite';
+import { SQLiteProvider, useSQLiteContext } from 'expo-sqlite';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ShareIntentProvider } from 'expo-share-intent';
-import { initDatabase } from '../lib/database';
-import { useSettingsActions } from '../hooks/useSettings';
+import { initDatabase, getSetting } from '../lib/database';
+import { useSettingsActions, useSettingsStore } from '../hooks/useSettings';
+import { useAuthStore } from '../lib/authStore';
 import { useTheme } from '../hooks/useTheme';
 import { darkColors, type ThemeColors } from '../constants/theme';
 import ShareIntentHandler from '../components/ShareIntentHandler';
@@ -30,6 +31,13 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { loadSettings } = useSettingsActions();
+  const settingsLoaded = useSettingsStore((s) => s.loaded);
+  const restoreSession = useAuthStore((s) => s.restoreSession);
+  const authLoading = useAuthStore((s) => s.isLoading);
+  const isAuthed = useAuthStore((s) => s.isAuthed);
+  const db = useSQLiteContext();
+  const router = useRouter();
+  const segments = useSegments();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -52,7 +60,26 @@ function RootNavigator() {
 
   useEffect(() => {
     loadSettings();
+    restoreSession();
   }, []);
+
+  // Gate: once settings + auth have resolved, route unseen-onboarding
+  // guests to the welcome screen. Grandfathered installs have
+  // onboarding_seen='true' set by the DB migration, so they skip this.
+  useEffect(() => {
+    if (!settingsLoaded || authLoading) return;
+    const onboardingSeen = getSetting(db, 'onboarding_seen') === 'true';
+    const inAuthGroup = segments[0] === 'auth';
+    if (!onboardingSeen && !isAuthed && !inAuthGroup) {
+      router.replace('/auth/welcome');
+    }
+  }, [settingsLoaded, authLoading, isAuthed, segments, db, router]);
+
+  // Hide everything until both bootstraps finish — prevents a flash of
+  // (tabs) before the welcome redirect can fire.
+  if (!settingsLoaded || authLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <ShareIntentProvider>
@@ -82,6 +109,12 @@ function RootNavigator() {
               headerShown: false,
             }}
           />
+          <Stack.Screen
+            name="auth/welcome"
+            options={{ headerShown: false, gestureEnabled: false }}
+          />
+          <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/verify" options={{ headerShown: false }} />
         </Stack>
 
         <ShareIntentHandler />
