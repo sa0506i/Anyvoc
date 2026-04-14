@@ -560,7 +560,10 @@ describe('Architecture: native provider SDKs only in their wrapper files', () =>
   }> = [
     {
       pattern: /['"]@react-native-google-signin\/google-signin['"]/,
-      allowedFiles: [path.join('lib', 'googleSignIn.ts')],
+      // Android implementation lives in .android.ts. The .d.ts facade
+      // and the .ios.ts stub are covered by Rule 19 (the stub MUST NOT
+      // import it; the facade is type-only).
+      allowedFiles: [path.join('lib', 'googleSignIn.android.ts')],
       name: '@react-native-google-signin/google-signin',
     },
     {
@@ -640,6 +643,61 @@ describe('Architecture: react-native.config.js disables google-signin on iOS', (
     }
     expect(hasPackage).toBe(true);
     expect(hasIosNull).toBe(true);
+  });
+});
+
+// ─── Rule 19: googleSignIn platform-split is intact ─────────────────
+// CLAUDE.md "Authentication": we ship platform-specific implementations
+// via Metro's .ios/.android suffix resolution plus a .d.ts facade for
+// TypeScript. The iOS stub must stay google-signin-free — its whole
+// purpose is to keep the library OUT of the iOS bundle (its module-load
+// TurboModuleRegistry.getEnforcing("RNGoogleSignin") crashes the JS
+// thread when the native pod is excluded — Rules 16 + 18).
+describe('Architecture: googleSignIn is platform-split with an iOS stub', () => {
+  const iosPath = path.join(ROOT, 'lib', 'googleSignIn.ios.ts');
+  const androidPath = path.join(ROOT, 'lib', 'googleSignIn.android.ts');
+  const dtsPath = path.join(ROOT, 'lib', 'googleSignIn.d.ts');
+
+  it('all three files (ios, android, .d.ts) exist', () => {
+    const missing: string[] = [];
+    if (!fs.existsSync(iosPath)) missing.push('lib/googleSignIn.ios.ts');
+    if (!fs.existsSync(androidPath)) missing.push('lib/googleSignIn.android.ts');
+    if (!fs.existsSync(dtsPath)) missing.push('lib/googleSignIn.d.ts');
+    if (missing.length > 0) {
+      throw new Error(
+        `Platform-split googleSignIn wrapper is incomplete.\n` +
+          `Missing: ${missing.join(', ')}\n\n` +
+          `The split requires:\n` +
+          `  - googleSignIn.android.ts: real implementation\n` +
+          `  - googleSignIn.ios.ts:     google-signin-free stub\n` +
+          `  - googleSignIn.d.ts:       type facade for TS consumers\n` +
+          `Without all three, either Metro cannot resolve the module for\n` +
+          `a platform, or TypeScript cannot type-check consumers.\n` +
+          `See CLAUDE.md "Authentication" section.`,
+      );
+    }
+    expect(missing).toEqual([]);
+  });
+
+  it('lib/googleSignIn.ios.ts does not import @react-native-google-signin/google-signin', () => {
+    if (!fs.existsSync(iosPath)) return; // previous test already failed
+    const content = fs.readFileSync(iosPath, 'utf8');
+    // Match only actual module references, not doc-block mentions. ESM
+    // imports and CJS require() both land in a string literal adjacent
+    // to the keyword — that is the signal we care about.
+    const IMPORT_RE =
+      /(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)['"]@react-native-google-signin\/google-signin['"]/;
+    const match = content.match(IMPORT_RE);
+    expect(match).toBeNull();
+    if (match) {
+      throw new Error(
+        `lib/googleSignIn.ios.ts imports @react-native-google-signin/google-signin.\n` +
+          `This is the iOS stub — its whole purpose is to keep google-signin\n` +
+          `OUT of the iOS bundle. A static import here reintroduces the\n` +
+          `TurboModuleRegistry.getEnforcing crash on /auth/login.\n` +
+          `See CLAUDE.md "Authentication" section.`,
+      );
+    }
   });
 });
 

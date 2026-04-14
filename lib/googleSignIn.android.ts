@@ -1,21 +1,29 @@
 /**
- * Google Sign-In wrapper — **Android-only at runtime.**
+ * Google Sign-In wrapper — **Android implementation.**
  *
- * The native iOS SDK that @react-native-google-signin/google-signin v16
- * pulls (GoogleSignIn ~> 9.0, GoogleUtilities ~> 8.0, GTMSessionFetcher
- * ~> 3.x) conflicts with @infinitered/react-native-mlkit-text-recognition
- * at pod resolution. We disable iOS autolinking in
- * react-native.config.js so the pod is never installed there. The login
- * screen also hides the Google button on iOS. signInWithGoogle() below
- * bails early on iOS with a clear error in case a future caller slips
- * through — saves you the confusing "RNGoogleSignin is not linked" crash.
+ * This file is the default and the Android build path. Metro
+ * substitutes `lib/googleSignIn.ios.ts` (a google-signin-free stub) on
+ * iOS because the library calls
+ *   TurboModuleRegistry.getEnforcing('RNGoogleSignin')
+ * at module load, which would crash the JS thread on iOS where the
+ * native pod is intentionally excluded (Rules 16 + 18).
+ *
+ * Consumers always import from `'./googleSignIn'` — trust Metro to pick
+ * the right implementation. Architecture test Rule 19 keeps the stub
+ * honest.
+ *
+ * Background: the native iOS SDK that @react-native-google-signin/
+ * google-signin v16 pulls (GoogleSignIn ~> 9.0, GoogleUtilities ~> 8.0,
+ * GTMSessionFetcher ~> 3.x) conflicts with
+ * @infinitered/react-native-mlkit-text-recognition at pod resolution.
+ * That is why we Android-only this wrapper today. See CLAUDE.md
+ * "Authentication" for the exit paths.
  *
  * On Android the SDK pairs Package name + SHA-1 (configured in Google
  * Cloud Console) with the Web Client ID to obtain ID tokens. The Web
  * Client ID is the one Supabase validates against.
  */
 
-import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import {
   GoogleSignin,
@@ -76,12 +84,6 @@ export const GOOGLE_SIGN_IN_CANCELLED = 'SIGN_IN_CANCELLED';
  * show nothing, per project UX convention.
  */
 export async function signInWithGoogle(): Promise<string> {
-  if (Platform.OS === 'ios') {
-    throw new GoogleSignInError(
-      'Google Sign-In is not available on iOS in this build. Please use email or Apple sign-in.',
-      'IOS_NOT_SUPPORTED',
-    );
-  }
   configureGoogleSignIn();
 
   try {
