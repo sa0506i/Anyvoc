@@ -85,20 +85,18 @@ export async function processSharedText(
     );
   }
 
-  onProgress('Extracting vocabulary...');
-  const vocabs = await extractVocabulary(
-    limitedText,
-    nativeName,
-    learningName,
-    settings.learningLanguage as SupportedLanguage,
-  );
-
-  // 3) Full-text translation is a Pro feature.
-  let translation: string | null = null;
-  if (isPro) {
-    onProgress('Translating text...');
-    translation = await translateText(limitedText, learningName, nativeName);
-  }
+  onProgress('Processing text...');
+  const [vocabs, translation] = await Promise.all([
+    extractVocabulary(
+      limitedText,
+      nativeName,
+      learningName,
+      settings.learningLanguage as SupportedLanguage,
+    ),
+    isPro
+      ? translateText(limitedText, learningName, nativeName)
+      : Promise.resolve<string | null>(null),
+  ]);
 
   const now = Date.now();
   insertContent(db, {

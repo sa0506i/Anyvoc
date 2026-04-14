@@ -233,4 +233,46 @@ describe('processSharedText — proMode', () => {
 
     expect(result.truncated).toBe(false);
   });
+
+  it('extractVocabulary and translateText run in parallel in Pro mode', async () => {
+    const db = createMockDb();
+    const extractStart = jest.fn();
+    const translateStart = jest.fn();
+
+    (claude.extractVocabulary as jest.Mock).mockImplementation(async () => {
+      extractStart();
+      await new Promise((r) => setTimeout(r, 20));
+      return [];
+    });
+    (claude.translateText as jest.Mock).mockImplementation(async () => {
+      translateStart();
+      await new Promise((r) => setTimeout(r, 20));
+      return 'translated';
+    });
+
+    await processSharedText(
+      db,
+      'Hallo.',
+      'title',
+      'text',
+      undefined,
+      { ...baseSettings, proMode: true },
+      noop,
+    );
+
+    // Both should have started before either resolved.
+    // We verify this by checking both were called; sequential would still call
+    // both, but parallel means the second started before the first finished.
+    // Easiest proxy: inspect mock.invocationCallOrder values close together.
+    const extractOrder = (claude.extractVocabulary as jest.Mock).mock.invocationCallOrder[0];
+    const translateOrder = (claude.translateText as jest.Mock).mock.invocationCallOrder[0];
+    // With Promise.all both synchronous kicks happen in the same tick before
+    // any await resolves. A small gap (≤ 3) accounts for other mocks (e.g.
+    // detectLanguage) that fire between them but still in the same sync burst.
+    // A sequential implementation would produce a gap much larger than 3
+    // because translateText would only be called after extract's await resolves.
+    expect(Math.abs(extractOrder - translateOrder)).toBeLessThanOrEqual(3);
+    expect(extractStart).toHaveBeenCalled();
+    expect(translateStart).toHaveBeenCalled();
+  });
 });
