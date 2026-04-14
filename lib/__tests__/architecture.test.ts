@@ -643,6 +643,44 @@ describe('Architecture: react-native.config.js disables google-signin on iOS', (
   });
 });
 
+// ─── Rule 18: package.json excludes google-signin from Expo autolinking on iOS ──
+// CLAUDE.md "Authentication": @react-native-google-signin/google-signin
+// ships BOTH an RN native module (RNGoogleSignin) AND an Expo module
+// adapter (ExpoAdapterGoogleSignIn). react-native.config.js only blocks
+// the RN side. Expo autolinking has its own channel — expo-module.config.json
+// inside the package — which bundles the adapter pod independently.
+// package.json's "expo.autolinking.ios.exclude" is the matching override.
+// Missing this entry on iOS silently re-admits the pod conflict with MLKit.
+describe('Architecture: package.json excludes google-signin from Expo autolinking on iOS', () => {
+  it('has expo.autolinking.ios.exclude containing the google-signin package', () => {
+    const pkgPath = path.join(ROOT, 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as {
+      expo?: { autolinking?: { ios?: { exclude?: unknown } } };
+    };
+
+    const excludes = pkg?.expo?.autolinking?.ios?.exclude;
+
+    if (
+      !Array.isArray(excludes) ||
+      !excludes.includes('@react-native-google-signin/google-signin')
+    ) {
+      throw new Error(
+        'package.json is missing expo.autolinking.ios.exclude for\n' +
+          '"@react-native-google-signin/google-signin".\n\n' +
+          'Without this, Expo module autolinking bundles the\n' +
+          'ExpoAdapterGoogleSignIn pod on iOS, which transitively pulls\n' +
+          'GoogleSignIn 9.x / GTMSessionFetcher 3.x / GoogleUtilities 8.x\n' +
+          'and collides with MLKit. EAS iOS pod resolution fails.\n' +
+          'Note: react-native.config.js (Rule 16) is necessary but NOT\n' +
+          'sufficient — it only controls RN autolinking, not Expo module\n' +
+          'autolinking. Both must agree.\n' +
+          'See CLAUDE.md "Authentication" section.',
+      );
+    }
+    expect(excludes).toContain('@react-native-google-signin/google-signin');
+  });
+});
+
 // ─── Rule 17: .easignore must contain /ios for CNG builds ────────────
 // CLAUDE.md "Authentication": the project has android/ committed but
 // not ios/. expo-doctor flags this as a mixed CNG state — EAS skips

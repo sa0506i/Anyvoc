@@ -99,5 +99,14 @@
       "eslint --max-warnings 50",
       "prettier --check"
     ]
+  },
+  "expo": {
+    "autolinking": {
+      "ios": {
+        "exclude": [
+          "@react-native-google-signin/google-signin"
+        ]
+      }
+    }
   }
 }

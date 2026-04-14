@@ -49,7 +49,6 @@
       ],
       "expo-localization",
       "expo-secure-store",
-      "@react-native-google-signin/google-signin",
       "expo-apple-authentication"
     ],
     "extra": {
