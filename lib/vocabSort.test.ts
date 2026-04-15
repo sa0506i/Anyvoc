@@ -1,4 +1,11 @@
-import { sortKey, escapeRegex, extractSearchTerms, sortVocabulary, SortOption } from './vocabSort';
+import {
+  sortKey,
+  escapeRegex,
+  extractSearchTerms,
+  sortVocabulary,
+  DEFAULT_SORT_DIRECTION,
+  SortOption,
+} from './vocabSort';
 
 describe('sortKey', () => {
   it('strips German articles', () => {
@@ -104,10 +111,22 @@ describe('sortVocabulary', () => {
     { original: 'das Haus', level: 'B1', leitner_box: 5, created_at: 200 },
   ];
 
-  it('sorts by date (newest first)', () => {
+  it('sorts by date (default asc = oldest first)', () => {
     const sorted = sortVocabulary(items, 'date');
+    expect(sorted[0].original).toBe('die Katze'); // created_at 100
+    expect(sorted[2].original).toBe('der Hund'); // created_at 300
+  });
+
+  it('sorts by date desc = newest first', () => {
+    const sorted = sortVocabulary(items, 'date', 'desc');
     expect(sorted[0].original).toBe('der Hund');
     expect(sorted[2].original).toBe('die Katze');
+  });
+
+  it('UI default direction for date is desc (newest first)', () => {
+    expect(DEFAULT_SORT_DIRECTION.date).toBe('desc');
+    const sorted = sortVocabulary(items, 'date', DEFAULT_SORT_DIRECTION.date);
+    expect(sorted[0].original).toBe('der Hund');
   });
 
   it('sorts alphabetically (stripping articles)', () => {
@@ -143,5 +162,32 @@ describe('sortVocabulary', () => {
   it('handles single item', () => {
     const single = [items[0]];
     expect(sortVocabulary(single, 'alphabetical')).toEqual(single);
+  });
+
+  describe('direction toggle', () => {
+    it('alphabetical desc reverses A→Z to Z→A', () => {
+      const asc = sortVocabulary(items, 'alphabetical', 'asc');
+      const desc = sortVocabulary(items, 'alphabetical', 'desc');
+      expect(desc.map((i) => i.original)).toEqual([...asc].reverse().map((i) => i.original));
+    });
+
+    it('level desc puts highest level first', () => {
+      const sorted = sortVocabulary(items, 'level', 'desc');
+      expect(sorted[0].level).toBe('B1');
+      expect(sorted[2].level).toBe('A1');
+    });
+
+    it('box desc puts highest box first', () => {
+      const sorted = sortVocabulary(items, 'box', 'desc');
+      expect(sorted[0].leitner_box).toBe(5);
+      expect(sorted[2].leitner_box).toBe(1);
+    });
+
+    it('DEFAULT_SORT_DIRECTION matches expected per-option defaults', () => {
+      expect(DEFAULT_SORT_DIRECTION.date).toBe('desc');
+      expect(DEFAULT_SORT_DIRECTION.alphabetical).toBe('asc');
+      expect(DEFAULT_SORT_DIRECTION.level).toBe('asc');
+      expect(DEFAULT_SORT_DIRECTION.box).toBe('asc');
+    });
   });
 });

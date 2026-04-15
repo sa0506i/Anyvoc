@@ -92,6 +92,7 @@ export async function processSharedText(
       nativeName,
       learningName,
       settings.learningLanguage as SupportedLanguage,
+      settings.nativeLanguage,
     ),
     isPro
       ? translateText(limitedText, learningName, nativeName)

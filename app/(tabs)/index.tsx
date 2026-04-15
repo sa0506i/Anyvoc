@@ -19,6 +19,7 @@ import {
 } from '../../lib/leitner';
 import { useTrainerStore } from '../../hooks/useTrainer';
 import { useSettingsStore } from '../../hooks/useSettings';
+import { isAtOrAboveLevel } from '../../constants/levels';
 import FlashCard from '../../components/FlashCard';
 import TypingCard from '../../components/TypingCard';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -40,6 +41,7 @@ export default function TrainerScreen() {
   const quizDirection = useSettingsStore((s) => s.quizDirection);
   const quizMode = useSettingsStore((s) => s.quizMode);
   const cardsPerRound = useSettingsStore((s) => s.cardsPerRound);
+  const minLevel = useSettingsStore((s) => s.level);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -73,17 +75,24 @@ export default function TrainerScreen() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const refreshStats = useCallback(() => {
-    const allVocab = getAllVocabulary(db);
-    const vocabStats = getVocabularyStats(db);
+    // Hide vocab below the user's CEFR minimum from the trainer view.
+    // Storage is untouched — lowering the level brings them back.
+    // Architecture rule 20.
+    const allVocab = getAllVocabulary(db).filter((v) => isAtOrAboveLevel(v.level, minLevel));
+    const rawStats = getVocabularyStats(db);
+    // Recompute box counts + total from the filtered list so the
+    // maturity bars match what the user can actually see / train on.
+    const byBox: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const v of allVocab) byBox[v.leitner_box] = (byBox[v.leitner_box] ?? 0) + 1;
     const dueCards = getCardsForReview(allVocab);
     const reviewDays = getAllReviewDays(db);
-    setStats(vocabStats);
+    setStats({ ...rawStats, total: allVocab.length, byBox });
     setStreak(getStreakDays(allVocab));
     setBestStreakVal(getBestStreak(reviewDays));
     setAvgPerDay(getAveragePerDay(allVocab, reviewDays.length));
     setDueCount(dueCards.length);
     setAllReviewDaysList(reviewDays);
-  }, [db]);
+  }, [db, minLevel]);
 
   useFocusEffect(
     useCallback(() => {
@@ -92,7 +101,9 @@ export default function TrainerScreen() {
   );
 
   const handleStartRound = (practice = false) => {
-    const allVocab = getAllVocabulary(db);
+    // Same level filter as refreshStats — keeps the round pool consistent
+    // with what the trainer summary advertises. Architecture rule 20.
+    const allVocab = getAllVocabulary(db).filter((v) => isAtOrAboveLevel(v.level, minLevel));
     let pool;
     if (practice) {
       // Continue-Mode: random selection from entire vocabulary

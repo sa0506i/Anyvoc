@@ -776,6 +776,118 @@ describe('Architecture: .easignore forces CNG prebuild for iOS', () => {
   });
 });
 
+// ─── Rule 20: Level filter applied at vocab view boundaries ────────
+// CLAUDE.md "Vocabulary post-processing": every screen that shows
+// vocabulary to the user must hide entries below the user's CEFR
+// minimum via isAtOrAboveLevel(). Storage stays untouched so lowering
+// the level brings them back. The sensor enforces that each enumerated
+// view file references the helper — adding a new vocab view without
+// the filter is the regression we want to catch.
+describe('Architecture: Rule 20 — vocab views apply level filter', () => {
+  const REQUIRED_FILES = [
+    'app/(tabs)/vocabulary.tsx',
+    'app/(tabs)/index.tsx',
+    'app/content/[id].tsx',
+  ];
+
+  for (const rel of REQUIRED_FILES) {
+    it(`${rel} references isAtOrAboveLevel`, () => {
+      const full = path.join(ROOT, rel);
+      const src = fs.readFileSync(full, 'utf8');
+      if (!src.includes('isAtOrAboveLevel')) {
+        throw new Error(
+          `LEVEL FILTER MISSING in ${rel}\n` +
+            `Vocabulary views must filter by the user's CEFR minimum via\n` +
+            `isAtOrAboveLevel(v.level, settings.level) — see\n` +
+            `constants/levels.ts. Storage stays untouched; only the view\n` +
+            `hides below-level entries so raising the level no longer shows\n` +
+            `them. See CLAUDE.md "Vocabulary post-processing" section.`,
+        );
+      }
+      expect(src).toContain('isAtOrAboveLevel');
+    });
+  }
+});
+
+// ─── Rule 21: extractVocabulary + translateSingleWord run post-processor ─
+// CLAUDE.md "Vocabulary post-processing": both LLM extraction paths must
+// pipe their output through postProcessExtractedVocab so the
+// abbreviation / proper-noun / German-capitalisation guards cannot be
+// silently bypassed by a future refactor.
+describe('Architecture: Rule 21 — claude.ts wires postProcessExtractedVocab', () => {
+  const claudeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+
+  it('imports postProcessExtractedVocab from ./vocabFilters', () => {
+    expect(claudeSrc).toMatch(/postProcessExtractedVocab.*from\s+['"]\.\/vocabFilters['"]/s);
+  });
+
+  it('extractVocabulary calls postProcessExtractedVocab', () => {
+    const extractStart = claudeSrc.indexOf('export async function extractVocabulary');
+    const translateStart = claudeSrc.indexOf('export async function translateText');
+    expect(extractStart).toBeGreaterThan(-1);
+    expect(translateStart).toBeGreaterThan(extractStart);
+    const body = claudeSrc.substring(extractStart, translateStart);
+    if (!body.includes('postProcessExtractedVocab(')) {
+      throw new Error(
+        `POST-PROCESSOR MISSING in extractVocabulary()\n` +
+          `Call postProcessExtractedVocab(allVocabs, learningLanguageCode,\n` +
+          `nativeLanguageCode) right after the JSON parse loop — before the\n` +
+          `classifier loop. See CLAUDE.md "Vocabulary post-processing".`,
+      );
+    }
+    expect(body).toContain('postProcessExtractedVocab(');
+  });
+
+  it('translateSingleWord calls postProcessExtractedVocab', () => {
+    const fnStart = claudeSrc.indexOf('export async function translateSingleWord');
+    expect(fnStart).toBeGreaterThan(-1);
+    const fnBody = claudeSrc.substring(fnStart);
+    if (!fnBody.includes('postProcessExtractedVocab(')) {
+      throw new Error(
+        `POST-PROCESSOR MISSING in translateSingleWord()\n` +
+          `Wrap the parsed result in postProcessExtractedVocab so German\n` +
+          `target capitalisation and abbreviation filtering apply to the\n` +
+          `single-word path too. See CLAUDE.md "Vocabulary post-processing".`,
+      );
+    }
+    expect(fnBody).toContain('postProcessExtractedVocab(');
+  });
+});
+
+// ─── Rule 22: lib/vocabFilters.ts must stay pure / offline ─────────
+// CLAUDE.md "Vocabulary post-processing": vocabFilters is a pure helper
+// reused by tests and (eventually) batch scripts. It must not pull in
+// I/O, the database, the LLM client, or expo-* runtime modules.
+describe('Architecture: Rule 22 — vocabFilters.ts is pure / offline', () => {
+  const FORBIDDEN_PATTERNS: { pattern: RegExp; reason: string }[] = [
+    { pattern: /\bfetch\s*\(/, reason: 'no network calls (fetch)' },
+    { pattern: /from\s+['"]\.\/claude['"]/, reason: 'no LLM client import' },
+    { pattern: /from\s+['"]\.\/database['"]/, reason: 'no database import' },
+    { pattern: /from\s+['"]expo-[^'"]+['"]/, reason: 'no expo-* runtime import' },
+    { pattern: /from\s+['"]@expo\//, reason: 'no @expo/* runtime import' },
+    { pattern: /from\s+['"](?:node:)?fs['"]/, reason: 'no fs import' },
+  ];
+
+  it('lib/vocabFilters.ts contains no forbidden imports', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
+    const violations: string[] = [];
+    for (const { pattern, reason } of FORBIDDEN_PATTERNS) {
+      const m = src.match(pattern);
+      if (m) violations.push(`${reason}: matched "${m[0]}"`);
+    }
+    if (violations.length > 0) {
+      throw new Error(
+        `IMPURE IMPORT in lib/vocabFilters.ts:\n  ${violations.join('\n  ')}\n\n` +
+          `vocabFilters must remain a pure helper so unit tests stay fast\n` +
+          `and the batch-classification scripts can reuse it. Move I/O to\n` +
+          `the calling site (lib/claude.ts). See CLAUDE.md "Vocabulary\n` +
+          `post-processing" section.`,
+      );
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
 // ─── Rule 13: app/auth/ UI strings must be English ──────────────────
 // CLAUDE.md "Authentication": the project-wide convention is English UI
 // strings for all new features. The auth screens establish that pattern

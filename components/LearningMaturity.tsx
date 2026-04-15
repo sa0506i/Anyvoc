@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
+import { formatCount } from '../lib/formatCount';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../constants/theme';
 
 interface LearningMaturityProps {
@@ -16,19 +17,30 @@ export default function LearningMaturity({ boxCounts, onBoxPress }: LearningMatu
 
   return (
     <View style={styles.container}>
-      {[1, 2, 3, 4, 5].map((box, index) => (
-        <Pressable
-          key={box}
-          style={styles.box}
-          onPress={onBoxPress ? () => onBoxPress(box) : undefined}
-          disabled={!onBoxPress}
-        >
-          <View style={[styles.boxVisual, { backgroundColor: boxColors[box] }]}>
-            <Text style={styles.boxCount}>{boxCounts[box] ?? 0}</Text>
-          </View>
-          <Text style={styles.boxLabel}>{MATURITY_LABELS[index]}</Text>
-        </Pressable>
-      ))}
+      {[1, 2, 3, 4, 5].map((box, index) => {
+        const count = boxCounts[box] ?? 0;
+        return (
+          <Pressable
+            key={box}
+            style={styles.box}
+            onPress={onBoxPress ? () => onBoxPress(box) : undefined}
+            disabled={!onBoxPress}
+          >
+            <View style={[styles.boxVisual, { backgroundColor: boxColors[box] }]}>
+              <Text
+                style={styles.boxCount}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.5}
+                accessibilityLabel={`${count} ${MATURITY_LABELS[index]}`}
+              >
+                {formatCount(count)}
+              </Text>
+            </View>
+            <Text style={styles.boxLabel}>{MATURITY_LABELS[index]}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

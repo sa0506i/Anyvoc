@@ -11,12 +11,14 @@ import {
   type Vocabulary,
 } from '../../lib/database';
 import { useVocabularyList } from '../../hooks/useVocabulary';
+import { useSettingsStore } from '../../hooks/useSettings';
 import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import EditVocabModal from '../../components/EditVocabModal';
 import { MATURITY_LABELS } from '../../components/LearningMaturity';
 import { SORT_OPTIONS, sortVocabulary } from '../../lib/vocabSort';
+import { isAtOrAboveLevel } from '../../constants/levels';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
@@ -26,7 +28,8 @@ export default function VocabularyScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
   const params = useLocalSearchParams<{ box?: string; filter?: string }>();
-  const { searchQuery, sortBy, setSearchQuery, setSortBy } = useVocabularyList();
+  const { searchQuery, sortBy, sortDirection, setSearchQuery, setSortBy } = useVocabularyList();
+  const minLevel = useSettingsStore((s) => s.level);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -60,7 +63,9 @@ export default function VocabularyScreen() {
   }, [router]);
 
   const filteredAndSorted = useMemo(() => {
-    let result = vocabulary;
+    // Hide vocab below the user's CEFR minimum. Storage is untouched —
+    // lowering the level reveals these rows again. Architecture rule 20.
+    let result = vocabulary.filter((v) => isAtOrAboveLevel(v.level, minLevel));
 
     // Active filter (from URL params)
     if (activeFilter?.type === 'box') {
@@ -80,8 +85,8 @@ export default function VocabularyScreen() {
       );
     }
 
-    return sortVocabulary(result, sortBy);
-  }, [vocabulary, searchQuery, sortBy, activeFilter]);
+    return sortVocabulary(result, sortBy, sortDirection);
+  }, [vocabulary, searchQuery, sortBy, sortDirection, activeFilter, minLevel]);
 
   const handleDelete = (vocab: Vocabulary) => {
     deleteVocabulary(db, vocab.id);
@@ -131,21 +136,32 @@ export default function VocabularyScreen() {
 
       {/* Sort */}
       <View style={styles.sortRow}>
-        {SORT_OPTIONS.map((opt) => (
-          <Pressable
-            key={opt.value}
-            style={({ pressed }) => [
-              styles.sortChip,
-              sortBy === opt.value && styles.sortChipActive,
-              pressed && styles.pressed,
-            ]}
-            onPress={() => setSortBy(opt.value)}
-          >
-            <Text style={[styles.sortChipText, sortBy === opt.value && styles.sortChipTextActive]}>
-              {opt.label}
-            </Text>
-          </Pressable>
-        ))}
+        {SORT_OPTIONS.map((opt) => {
+          const isActive = sortBy === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              style={({ pressed }) => [
+                styles.sortChip,
+                isActive && styles.sortChipActive,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => setSortBy(opt.value)}
+            >
+              <Text style={[styles.sortChipText, isActive && styles.sortChipTextActive]}>
+                {opt.label}
+              </Text>
+              {isActive && (
+                <Ionicons
+                  name={sortDirection === 'asc' ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color="#FFFFFF"
+                  style={styles.sortChipChevron}
+                />
+              )}
+            </Pressable>
+          );
+        })}
       </View>
 
       {/* Active filter badge */}
@@ -238,12 +254,17 @@ const createStyles = (c: ThemeColors) =>
       gap: spacing.sm,
     },
     sortChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
       borderRadius: borderRadius.full,
       backgroundColor: c.glass,
       borderWidth: 1,
       borderColor: c.glassBorder,
+    },
+    sortChipChevron: {
+      marginLeft: spacing.xs,
     },
     sortChipActive: {
       backgroundColor: c.primary,

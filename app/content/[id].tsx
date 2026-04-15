@@ -40,6 +40,7 @@ import {
 } from '../../lib/vocabSort';
 import { useTheme } from '../../hooks/useTheme';
 import { useAlert } from '../../components/ConfirmDialog';
+import { isAtOrAboveLevel } from '../../constants/levels';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
 
 type Tab = 'original' | 'translation' | 'vocabulary';
@@ -50,6 +51,7 @@ export default function ContentDetailScreen() {
   const db = useSQLiteContext();
   const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
   const learningLanguage = useSettingsStore((s) => s.learningLanguage);
+  const minLevel = useSettingsStore((s) => s.level);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -81,7 +83,12 @@ export default function ContentDetailScreen() {
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('date');
 
-  const sortedVocabulary = useMemo(() => sortVocabulary(vocabulary, sortBy), [vocabulary, sortBy]);
+  const sortedVocabulary = useMemo(() => {
+    // Hide vocab below the user's CEFR minimum. Storage is untouched —
+    // lowering the level brings them back. Architecture rule 20.
+    const filtered = vocabulary.filter((v) => isAtOrAboveLevel(v.level, minLevel));
+    return sortVocabulary(filtered, sortBy);
+  }, [vocabulary, sortBy, minLevel]);
 
   const loadData = useCallback(() => {
     if (!id) return;
@@ -160,6 +167,7 @@ export default function ContentDetailScreen() {
         learningName,
         nativeName,
         learningLanguage as SupportedLanguage,
+        nativeLanguage,
       );
 
       if (!result.translation) {

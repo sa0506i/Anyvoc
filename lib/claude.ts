@@ -1,4 +1,5 @@
 import { classifyWord, type SupportedLanguage } from './classifier';
+import { postProcessExtractedVocab } from './vocabFilters';
 import { franc } from 'franc-min';
 
 const API_URL = 'https://anyvoc-backend.fly.dev/api/chat';
@@ -184,7 +185,9 @@ Examples: "o passaporte" (not "passaporte"), "der Hund" (not "Hund"), "le chat" 
 The learning language is ${learningLanguageName}; the native language is ${nativeLanguageName}.
 
 Rules:
-- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, and numbers.
+- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
+- Proper nouns to ignore include: people's names (Maria, João, Anna), cities (Berlin, Lisboa, Paris), countries (Portugal, Deutschland), brand or product names (Google, iPhone), and titles of works. Never include any of these in the output.
+- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters such as "GNR", "DLRG", "IRS", "EU", "USA". Never include these in the output.
 - "original" field: the word in ${learningLanguageName}. "translation" field: the translation in ${nativeLanguageName}.
 ${VOCAB_FORMATTING_RULES}
 - List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms". Example: source contains "rivais", base form is "o rival" → source_forms: ["rivais"].
@@ -206,6 +209,7 @@ export async function extractVocabulary(
   nativeLanguageName: string,
   learningLanguageName: string,
   learningLanguageCode: SupportedLanguage,
+  nativeLanguageCode?: string,
 ): Promise<ExtractedVocab[]> {
   const chunks = chunkText(text);
   const allVocabs: ExtractedVocab[] = [];
@@ -277,6 +281,17 @@ export async function extractVocabulary(
     }
   }
 
+  // Post-processing: drop abbreviations + likely proper nouns the LLM let
+  // through, and capitalise German noun translations. Pure, offline.
+  // Architecture rule 21 enforces this call site.
+  const filtered = postProcessExtractedVocab(
+    allVocabs,
+    learningLanguageCode,
+    nativeLanguageCode ?? '',
+  );
+  allVocabs.length = 0;
+  allVocabs.push(...filtered);
+
   // Deterministic CEFR classification via lib/classifier — the LLM no longer
   // assigns levels. High/medium-confidence words resolve synchronously.
   for (const vocab of allVocabs) {
@@ -316,6 +331,7 @@ export async function translateSingleWord(
   fromLanguageName: string,
   toLanguageName: string,
   fromLanguageCode: SupportedLanguage,
+  toLanguageCode?: string,
 ): Promise<{ original: string; translation: string; level: string; type: string }> {
   // CEFR level is determined locally after the translation comes back —
   // the LLM is only responsible for formatting + translation.
@@ -349,6 +365,23 @@ Respond exclusively as a JSON object, with no additional text. Leave the level f
     }
   } catch {
     // fallback to default above
+  }
+
+  // Post-processing: drop abbreviations / proper nouns and apply German
+  // capitalisation when target is German. Architecture rule 21 enforces
+  // this call site.
+  const post = postProcessExtractedVocab(
+    [{ original: parsed.original, translation: parsed.translation, type: parsed.type }],
+    fromLanguageCode,
+    toLanguageCode ?? '',
+  );
+  if (post.length === 0) {
+    // Edge case: the LLM returned an abbreviation or proper noun. Leave
+    // the parsed result as-is so the caller can show it; the UI layer
+    // already deduplicates and the word never gets persisted unless the
+    // user explicitly confirms.
+  } else {
+    parsed.translation = post[0].translation;
   }
 
   // Local deterministic CEFR assignment.

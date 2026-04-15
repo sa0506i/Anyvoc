@@ -174,6 +174,44 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 - Web/URL content: extracted via `lib/urlExtractor.ts` using `@mozilla/readability` + `linkedom` (offline). Falls back to LLM API only when Readability yields <100 chars (e.g. SPAs, login pages).
 - **OCR:** On-device via `expo-mlkit-ocr` (Google ML Kit) — no API call for image text extraction.
 
+## Vocabulary post-processing (lib/vocabFilters.ts)
+
+After the LLM extracts vocabulary, every entry passes through
+`postProcessExtractedVocab(items, learningLangCode, nativeLangCode)` in
+`lib/vocabFilters.ts` before classification + insertion. The module is
+pure (no I/O, no DB, no expo-*, no fetch) so unit tests stay fast and
+the batch-classification scripts can reuse it.
+
+Three responsibilities:
+
+1. **`isAbbreviation(original)`** — drops all-uppercase tokens of 2+
+   characters (`GNR`, `DLRG`, `IRS`, `EU`, `B2B`). Acronyms slip past
+   the LLM with surprising frequency; this is a safety net.
+2. **`isLikelyProperNoun(original, learningLangCode)`** — drops
+   single-word entries whose base form (after stripping articles via
+   `STRIP_PREFIX`) starts with an uppercase letter, in non-German
+   learning languages. German is excluded because every common noun is
+   capitalised; for German we rely on the LLM prompt's "ignore proper
+   nouns" rule.
+3. **`capitaliseGermanNouns(translation, type)`** — when the user's
+   native language is German and the entry is a noun, capitalises the
+   noun part of the translation while preserving the article
+   (`"der hund" → "der Hund"`, `"die ärztin" → "die Ärztin"`,
+   multi-form supported).
+
+The single integration point `postProcessExtractedVocab` is called from
+both `extractVocabulary()` and `translateSingleWord()` in `lib/claude.ts`.
+
+The view layer additionally hides vocabulary below the user's CEFR
+minimum via `isAtOrAboveLevel()` from `constants/levels.ts`. Storage is
+untouched — lowering the level immediately brings hidden rows back.
+Applied in `app/(tabs)/vocabulary.tsx`, `app/(tabs)/index.tsx`, and
+`app/content/[id].tsx`.
+
+Architecture rule 20 (level filter), rule 21 (post-processor wired in
+both LLM paths), and rule 22 (vocabFilters stays pure) enforce these
+invariants computationally.
+
 ## Vocabulary Formatting Rules (system prompt)
 
 - **Nouns:** direct article + singular; feminine form after comma if exists
