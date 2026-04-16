@@ -94,6 +94,13 @@ function extractWithReadability(html: string): { title: string; text: string } |
     if (text.length < READABILITY_MIN_LENGTH) {
       return null;
     }
+    // Reject if extracted "text" is mostly code/CSS, not natural language.
+    // Natural prose has mostly word characters and spaces; CSS/JS has lots of
+    // punctuation like {, }, :, ;, (, ), #
+    const codePunctuation = text.match(/[{}();:#.]/g)?.length ?? 0;
+    if (codePunctuation / text.length > 0.05) {
+      return null;
+    }
     return {
       title: article.title || '',
       text,
