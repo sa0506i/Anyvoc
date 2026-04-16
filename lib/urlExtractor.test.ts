@@ -30,13 +30,26 @@ const ARTICLE_HTML = `
 </body>
 </html>`;
 
-// HTML with no article content (e.g. login page)
+// HTML where Readability returns null but text density > 200 (passes density check).
+// Text lives in <noscript> which Readability ignores but stripNoiseTags preserves.
 const NO_ARTICLE_HTML = `
 <!DOCTYPE html>
 <html>
-<head><title>Login</title></head>
+<head><title>App</title></head>
 <body>
-  <form><input type="text" /><input type="password" /><button>Login</button></form>
+  <div id="root"></div>
+  <noscript>You need JavaScript to run this app. This application requires a modern browser with JavaScript enabled. Please enable JavaScript in your browser settings and try again. For the best experience use Chrome Firefox or Safari. The application provides real-time news updates and article content.</noscript>
+</body>
+</html>`;
+
+// HTML with almost no text (JS-rendered SPA shell)
+const JS_RENDERED_HTML = `
+<!DOCTYPE html>
+<html>
+<head><title>App</title></head>
+<body>
+  <div id="root"></div>
+  <script src="/static/js/main.abc123.js"></script>
 </body>
 </html>`;
 
@@ -77,7 +90,7 @@ describe('fetchArticleContent', () => {
   it('throws when both Readability and Claude fail', async () => {
     mockFetchHtml(NO_ARTICLE_HTML);
     mockedCallClaude.mockResolvedValue('NO_ARTICLE_CONTENT');
-    await expect(fetchArticleContent('https://example.com/login')).rejects.toThrow(
+    await expect(fetchArticleContent('https://example.com/landing')).rejects.toThrow(
       'No meaningful article content',
     );
   });
@@ -89,6 +102,14 @@ describe('fetchArticleContent', () => {
   it('rejects non-HTML content types', async () => {
     mockFetchHtml('binary data', 'application/pdf');
     await expect(fetchArticleContent('https://example.com/file.pdf')).rejects.toThrow('HTML page');
+  });
+
+  it('skips Claude fallback for JS-rendered pages with no text content', async () => {
+    mockFetchHtml(JS_RENDERED_HTML);
+    await expect(fetchArticleContent('https://example.com/app')).rejects.toThrow(
+      'loads its content dynamically',
+    );
+    expect(mockedCallClaude).not.toHaveBeenCalled();
   });
 });
 

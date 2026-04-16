@@ -5,6 +5,7 @@ import { parseHTML } from 'linkedom';
 const FETCH_TIMEOUT_MS = 10000;
 const MIN_CONTENT_LENGTH = 50;
 const READABILITY_MIN_LENGTH = 100;
+const MIN_TEXT_FOR_FALLBACK = 200;
 
 const USER_AGENT =
   'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
@@ -339,6 +340,18 @@ export async function fetchArticleContent(url: string): Promise<{ title: string;
   const readabilityResult = extractWithReadability(rawHtml);
   if (readabilityResult) {
     return readabilityResult;
+  }
+
+  // Check text density on raw HTML before expensive Claude fallback — JS-rendered
+  // pages have almost no text in their source, so the API call would be wasted.
+  const rawTextOnly = rawHtml
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (rawTextOnly.length < MIN_TEXT_FOR_FALLBACK) {
+    throw new Error(
+      'This page loads its content dynamically and cannot be extracted. Try copying the text manually.',
+    );
   }
 
   // Fallback to Claude API

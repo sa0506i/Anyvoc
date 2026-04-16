@@ -220,8 +220,9 @@ describe('Approved Fixtures: translateSingleWord', () => {
 // URL extraction fixtures (via callClaude mock)
 // ─────────────────────────────────────────────────────────────
 
-// Minimal HTML that triggers Claude fallback (Readability will find <100 chars)
-const THIN_HTML = `<!DOCTYPE html><html><head><title>X</title></head><body><p>Hi</p></body></html>`;
+// HTML that triggers Claude fallback: Readability returns null (text in <noscript>)
+// but raw text density > 200 chars so the density check passes.
+const THIN_HTML = `<!DOCTYPE html><html><head><title>X</title></head><body><div id="root"></div><noscript>You need JavaScript to run this app. This application requires a modern browser with JavaScript enabled. Please enable JavaScript in your browser settings and try again. For the best experience use Chrome Firefox or Safari. The application provides real-time news updates.</noscript></body></html>`;
 
 describe('Approved Fixtures: URL extraction (Claude fallback)', () => {
   it('parses TITLE + separator + body format', async () => {
