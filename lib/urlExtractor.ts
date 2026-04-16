@@ -254,12 +254,54 @@ export function cleanArticleHtml(html: string): string {
   }
   text = parts.join('\n\n').replace(/^\n+/, '');
 
-  // Remove trailing date/time metadata patterns
+  // Strip leading audio/video player timestamps (e.g. "00:00\n01:20")
+  text = text.replace(/^(?:\d{1,2}:\d{2}\n+)+/, '');
+
+  // Remove trailing date/time metadata patterns (named months in multiple languages)
   text = text.replace(
     /\n+(?:\d{1,2}[.\s]+)?(?:January|February|March|April|May|June|July|August|September|October|November|December|Janeiro|Fevereiro|Mar[cç]o|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro|Januar|Februar|M[aä]rz|Mai|Juni|Juli|Oktober|Dezember)[\s.,]+\d{1,4}[\s.,]*\d{0,4}(?:[\s.:]+\d{1,2}(?:[:.]?\d{2})?)?\s*$/i,
     '',
   );
+  // ISO dates: "2026-04-16 08:45"
   text = text.replace(/\n+\d{4}-\d{2}-\d{2}[\s.:]*\d{0,2}[:.]?\d{0,2}\s*$/, '');
+  // European numeric dates: "15.04.2026, kl. 23.49" / "Publisert\n15.04.2026..." / "Oppdatert\n16.04.2026..."
+  text = text.replace(
+    /(?:\n+(?:Publisert|Oppdatert|Publicerad|Opdateret|Gepubliceerd|Pubblicato|Publicado|Opublikowano|Aktualizováno)\n+\d{1,2}\.\d{2}\.\d{4}[\s,]*(?:kl\.?\s*\d{1,2}[.:]\d{2})?)+\s*$/i,
+    '',
+  );
+
+  // Strip trailing CTA / boilerplate lines (common across news sites)
+  text = text.replace(
+    /\n+(?:Dziękujemy za przeczytanie artykułu!|Em destaque|Edição impressa|Ver mais|Opinião|Lees ook|Lue myös|Läs också|Les også)\s*(?:\n+(?:Em destaque|Edição impressa|Ver mais|Opinião|\d{1,2}\s+de\s+\w+\s+de\s+\d{4})\s*)*$/i,
+    '',
+  );
+
+  // Remove print-version headers (e.g. "En utskrift från Dagens Nyheter, 2026-04-16 10:59\nArtikelns ursprungsadress: ...")
+  text = text.replace(
+    /^(?:En utskrift från[^\n]*\n+(?:Artikelns ursprungsadress:[^\n]*\n+)?)/i,
+    '',
+  );
+
+  // Collapse repeated phrases on a single line (e.g. "Société Société Société" → "Société")
+  text = text
+    .split('\n')
+    .map((line) => {
+      // Try splitting into 2 or 3 equal parts; if all parts match, keep one
+      const trimmed = line.trim();
+      for (const n of [3, 2]) {
+        const words = trimmed.split(/\s+/);
+        if (words.length >= n && words.length % n === 0) {
+          const chunkSize = words.length / n;
+          const chunk = words.slice(0, chunkSize).join(' ');
+          const allSame = Array.from({ length: n }, (_, i) =>
+            words.slice(i * chunkSize, (i + 1) * chunkSize).join(' '),
+          ).every((c) => c === chunk);
+          if (allSame) return chunk;
+        }
+      }
+      return line;
+    })
+    .join('\n');
 
   // Deduplicate lead: drop first paragraph if it's a subset of the second
   // (exact prefix match OR >80% word overlap)

@@ -247,6 +247,90 @@ describe('cleanArticleHtml', () => {
     expect(text).toMatch(/First block of content\.\n\nSecond block of content\./);
   });
 
+  it('strips leading audio/video player timestamps', () => {
+    const html = `
+      <div>
+        <div>00:00</div>
+        <div>01:20</div>
+        <p>Actual article content starts here.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).not.toMatch(/00:00/);
+    expect(text).not.toMatch(/01:20/);
+    expect(text).toContain('Actual article content');
+  });
+
+  it('strips trailing Norwegian date format (Publisert/Oppdatert DD.MM.YYYY, kl. HH.MM)', () => {
+    const html = `
+      <div>
+        <p>Norwegian article content.</p>
+        <p>Publisert</p>
+        <p>15.04.2026, kl. 23.49</p>
+        <p>Oppdatert</p>
+        <p>16.04.2026, kl. 09.24</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('Norwegian article content');
+    expect(text).not.toMatch(/Publisert/);
+    expect(text).not.toMatch(/15\.04\.2026/);
+    expect(text).not.toMatch(/Oppdatert/);
+  });
+
+  it('strips trailing CTA boilerplate', () => {
+    const html = `
+      <div>
+        <p>Polish article content here.</p>
+        <p>Dziękujemy za przeczytanie artykułu!</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('Polish article content');
+    expect(text).not.toMatch(/Dziękujemy/);
+  });
+
+  it('strips trailing Portuguese footer sections', () => {
+    const html = `
+      <div>
+        <p>Portuguese article content.</p>
+        <p>Em destaque</p>
+        <p>Edição impressa</p>
+        <p>16 de Abril de 2026</p>
+        <p>Ver mais</p>
+        <p>Opinião</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('Portuguese article content');
+    expect(text).not.toMatch(/Em destaque/);
+    expect(text).not.toMatch(/Edição impressa/);
+    expect(text).not.toMatch(/Opinião/);
+  });
+
+  it('removes print-version headers (Swedish DN pattern)', () => {
+    const html = `
+      <div>
+        <p>En utskrift från Dagens Nyheter, 2026-04-16 10:59</p>
+        <p>Artikelns ursprungsadress: https://www.dn.se/some-article/</p>
+        <p>Actual Swedish article content.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).not.toMatch(/En utskrift från/);
+    expect(text).not.toMatch(/ursprungsadress/);
+    expect(text).toContain('Actual Swedish article content');
+  });
+
+  it('collapses repeated words on a single line', () => {
+    const html = `
+      <div>
+        <p>Société Société Société</p>
+        <p>Faits divers Faits divers Faits divers</p>
+        <p>Actual French article content here.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    // Repeated words should be collapsed to single instance
+    expect(text).not.toMatch(/Société Société/);
+    expect(text).not.toMatch(/Faits divers Faits divers/);
+    expect(text).toContain('Actual French article content');
+  });
+
   it('returns empty string for empty or whitespace-only input', () => {
     expect(cleanArticleHtml('')).toBe('');
     expect(cleanArticleHtml('   ')).toBe('');
