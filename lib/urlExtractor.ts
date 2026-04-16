@@ -199,6 +199,7 @@ export function cleanArticleHtml(html: string): string {
   // Phase 1: DOM element removal
   document.querySelectorAll('table').forEach((el: Element) => el.remove());
   document.querySelectorAll('figure, figcaption').forEach((el: Element) => el.remove());
+  document.querySelectorAll('svg').forEach((el: Element) => el.remove());
   document.querySelectorAll('nav, aside').forEach((el: Element) => el.remove());
 
   // Remove footnote-reference <sup> elements that contain only link numbers

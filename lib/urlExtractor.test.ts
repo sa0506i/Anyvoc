@@ -136,6 +136,18 @@ describe('cleanArticleHtml', () => {
     expect(text).not.toContain('[2]');
   });
 
+  it('removes inline SVG elements with title labels', () => {
+    const html = `
+      <div>
+        <p><svg xmlns="http://www.w3.org/2000/svg"><title>Benachrichtigung</title><path d="M10 15"/></svg><svg xmlns="http://www.w3.org/2000/svg"><title>Abspielen</title></svg></p>
+        <p>Actual article text starts here.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).not.toContain('Benachrichtigung');
+    expect(text).not.toContain('Abspielen');
+    expect(text).toContain('Actual article text');
+  });
+
   it('removes elements with noise class names', () => {
     const html = `
       <div>
