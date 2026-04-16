@@ -17,6 +17,12 @@ function getDeviceNativeLanguage(): string {
   return 'en';
 }
 
+/** Returns a sensible default learning language that differs from the native language. */
+function getDefaultLearningLanguage(nativeLang: string): string {
+  if (nativeLang !== 'en') return 'en';
+  return languages.find((l) => l.code !== nativeLang)?.code ?? 'de';
+}
+
 export type QuizDirection = 'native-to-learning' | 'learning-to-native' | 'random';
 export type QuizMode = 'flashcard' | 'typing';
 
@@ -66,9 +72,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       dbSetSetting(db, 'nativeLanguage', deviceLang);
     }
 
+    // First launch: derive learningLanguage that differs from native and persist it.
+    if (!settings['learningLanguage']) {
+      const defaultLearning = getDefaultLearningLanguage(settings['nativeLanguage']);
+      settings['learningLanguage'] = defaultLearning;
+      dbSetSetting(db, 'learningLanguage', defaultLearning);
+    }
+
     set({
       nativeLanguage: settings['nativeLanguage'] ?? getDeviceNativeLanguage(),
-      learningLanguage: settings['learningLanguage'] ?? 'en',
+      learningLanguage:
+        settings['learningLanguage'] ??
+        getDefaultLearningLanguage(settings['nativeLanguage'] ?? getDeviceNativeLanguage()),
       level: settings['level'] ?? 'A2',
       quizDirection: (settings['quizDirection'] as QuizDirection) ?? 'random',
       quizMode: (settings['quizMode'] as QuizMode) ?? 'flashcard',
@@ -90,10 +105,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   resetApp: (db) => {
     clearAllData(db);
     const deviceLang = getDeviceNativeLanguage();
+    const defaultLearning = getDefaultLearningLanguage(deviceLang);
     dbSetSetting(db, 'nativeLanguage', deviceLang);
+    dbSetSetting(db, 'learningLanguage', defaultLearning);
     set({
       nativeLanguage: deviceLang,
-      learningLanguage: 'en',
+      learningLanguage: defaultLearning,
       level: 'A2',
       quizDirection: 'random',
       quizMode: 'flashcard',
