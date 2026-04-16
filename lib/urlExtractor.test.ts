@@ -8,7 +8,7 @@ jest.mock('./claude', () => ({
   callClaude: jest.fn(),
 }));
 
-import { fetchArticleContent } from './urlExtractor';
+import { fetchArticleContent, cleanArticleHtml } from './urlExtractor';
 import { callClaude } from './claude';
 
 const mockedCallClaude = callClaude as jest.MockedFunction<typeof callClaude>;
@@ -89,5 +89,125 @@ describe('fetchArticleContent', () => {
   it('rejects non-HTML content types', async () => {
     mockFetchHtml('binary data', 'application/pdf');
     await expect(fetchArticleContent('https://example.com/file.pdf')).rejects.toThrow('HTML page');
+  });
+});
+
+describe('cleanArticleHtml', () => {
+  it('removes <table> elements (infoboxes)', () => {
+    const html = `
+      <div>
+        <p>Article introduction paragraph with enough text to be meaningful.</p>
+        <table class="infobox"><tr><td>Partei</td><td>TISZA</td></tr></table>
+        <p>Article body continues here with more content.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('Article introduction');
+    expect(text).toContain('Article body continues');
+    expect(text).not.toContain('Partei');
+    expect(text).not.toContain('TISZA');
+  });
+
+  it('removes <figure> and <figcaption> elements', () => {
+    const html = `
+      <div>
+        <p>Main article text here.</p>
+        <figure>
+          <img src="photo.jpg" alt="A photo" />
+          <figcaption>Photo: Reuters / Some Photographer 2026</figcaption>
+        </figure>
+        <p>More article text follows.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('Main article text');
+    expect(text).toContain('More article text');
+    expect(text).not.toContain('Reuters');
+    expect(text).not.toContain('figcaption');
+  });
+
+  it('removes footnote reference <sup> elements', () => {
+    const html = `
+      <div>
+        <p>The party was founded in 2021<sup><a href="#cite1">[1]</a></sup> in Eger<sup><a href="#cite2">[2]</a></sup>.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('The party was founded in 2021');
+    expect(text).toContain('in Eger');
+    expect(text).not.toContain('[1]');
+    expect(text).not.toContain('[2]');
+  });
+
+  it('removes elements with noise class names', () => {
+    const html = `
+      <div>
+        <div class="breadcrumb">Home > News > Politics</div>
+        <p>Actual article content here.</p>
+        <div class="navbox">Related articles links</div>
+        <div class="catlinks">Categories: Politics</div>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('Actual article content');
+    expect(text).not.toContain('Home > News');
+    expect(text).not.toContain('Related articles');
+    expect(text).not.toContain('Categories:');
+  });
+
+  it('removes <nav> and <aside> elements', () => {
+    const html = `
+      <div>
+        <nav>Menu items</nav>
+        <p>Real article text.</p>
+        <aside>Sidebar content</aside>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('Real article text');
+    expect(text).not.toContain('Menu items');
+    expect(text).not.toContain('Sidebar content');
+  });
+
+  it('deduplicates lead paragraph when teaser repeats first body paragraph', () => {
+    const html = `
+      <div>
+        <p>The regiment is hosting the parachute course until day 23.</p>
+        <p>The regiment is hosting the parachute course until day 23. Additional details follow in this extended version of the lead.</p>
+        <p>Second body paragraph with different content.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    // The short duplicate should be removed, keeping only the longer version
+    const matches = text.match(/The regiment is hosting/g);
+    expect(matches).toHaveLength(1);
+    expect(text).toContain('Second body paragraph');
+  });
+
+  it('strips trailing date/time metadata', () => {
+    const html = `
+      <div>
+        <p>Article content here.</p>
+        <p>Abril 16, 2026 . 08:45</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('Article content');
+    expect(text).not.toMatch(/Abril 16, 2026/);
+  });
+
+  it('normalizes excessive whitespace', () => {
+    const html = `
+      <div>
+        <p>First paragraph.</p>
+
+
+
+        <p>Second paragraph.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    // Should have at most one blank line between paragraphs
+    expect(text).not.toMatch(/\n{3,}/);
+    expect(text).toContain('First paragraph.');
+    expect(text).toContain('Second paragraph.');
+  });
+
+  it('returns empty string for empty or whitespace-only input', () => {
+    expect(cleanArticleHtml('')).toBe('');
+    expect(cleanArticleHtml('   ')).toBe('');
+    expect(cleanArticleHtml('<div>   </div>')).toBe('');
   });
 });

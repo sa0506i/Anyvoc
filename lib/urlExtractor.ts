@@ -150,6 +150,16 @@ TITLE: <the article title>
   return { title, text };
 }
 
+/**
+ * Take Readability's cleaned article HTML and extract only the main
+ * article text, removing tables, figure captions, footnote refs,
+ * breadcrumbs, duplicate leads, and trailing metadata.
+ */
+export function cleanArticleHtml(html: string): string {
+  // Stub — will be implemented in Task 2
+  return html;
+}
+
 export async function fetchArticleContent(url: string): Promise<{ title: string; text: string }> {
   const rawHtml = await fetchHtml(url);
 
