@@ -4,7 +4,7 @@ import { CEFR_LEVELS } from '../constants/levels';
 // Used for both text-matching (search terms) and A–Z sorting (so that
 // "o gato" sorts under "g", not under "o").
 export const STRIP_PREFIX =
-  /^(ein|eine|einen|einem|einer|der|die|das|dem|den|des|un|une|des|du|le|la|les|l'|el|la|los|las|un|una|unos|unas|il|lo|la|i|gli|le|un|uno|una|un'|the|a|an|o|os|a|as|um|uma|uns|umas|de|het|een|en|ett|się|se|si|s'|sich)\s+/i;
+  /^(the|a|an|to|der|die|das|dem|den|des|ein|eine|einen|einem|einer|eines|zu|le|la|les|l'|un|une|des|du|el|los|las|una|unos|unas|il|lo|i|gli|uno|un'|o|os|as|um|uma|uns|umas|de|het|een|te|en|ei|ett|et|det|att|å|at|się|se|si|s'|sich)\s+/i;
 
 export type SortOption = 'date' | 'alphabetical' | 'level' | 'box';
 export type SortDirection = 'asc' | 'desc';

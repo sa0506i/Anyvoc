@@ -17,7 +17,8 @@ import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import EditVocabModal from '../../components/EditVocabModal';
 import { MATURITY_LABELS } from '../../components/LearningMaturity';
-import { SORT_OPTIONS, sortVocabulary } from '../../lib/vocabSort';
+import { sortVocabulary } from '../../lib/vocabSort';
+import SortChips from '../../components/SortChips';
 import { isAtOrAboveLevel } from '../../constants/levels';
 import { useTheme } from '../../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
@@ -135,33 +136,8 @@ export default function VocabularyScreen() {
       </View>
 
       {/* Sort */}
-      <View style={styles.sortRow}>
-        {SORT_OPTIONS.map((opt) => {
-          const isActive = sortBy === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              style={({ pressed }) => [
-                styles.sortChip,
-                isActive && styles.sortChipActive,
-                pressed && styles.pressed,
-              ]}
-              onPress={() => setSortBy(opt.value)}
-            >
-              <Text style={[styles.sortChipText, isActive && styles.sortChipTextActive]}>
-                {opt.label}
-              </Text>
-              {isActive && (
-                <Ionicons
-                  name={sortDirection === 'asc' ? 'chevron-up' : 'chevron-down'}
-                  size={14}
-                  color="#FFFFFF"
-                  style={styles.sortChipChevron}
-                />
-              )}
-            </Pressable>
-          );
-        })}
+      <View style={styles.sortRowWrapper}>
+        <SortChips sortBy={sortBy} sortDirection={sortDirection} onPress={setSortBy} />
       </View>
 
       {/* Active filter badge */}
@@ -248,36 +224,8 @@ const createStyles = (c: ThemeColors) =>
       fontWeight: '300' as const,
       color: c.text,
     },
-    sortRow: {
-      flexDirection: 'row',
+    sortRowWrapper: {
       padding: spacing.md,
-      gap: spacing.sm,
-    },
-    sortChip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
-      backgroundColor: c.glass,
-      borderWidth: 1,
-      borderColor: c.glassBorder,
-    },
-    sortChipChevron: {
-      marginLeft: spacing.xs,
-    },
-    sortChipActive: {
-      backgroundColor: c.primary,
-      borderColor: c.primary,
-    },
-    sortChipText: {
-      fontSize: fontSize.sm,
-      fontWeight: '300' as const,
-      color: c.text,
-    },
-    sortChipTextActive: {
-      color: '#FFFFFF',
-      fontWeight: '600' as const,
     },
     list: {
       padding: spacing.md,

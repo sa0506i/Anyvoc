@@ -137,7 +137,13 @@ function getAoa(language: SupportedLanguage): Record<string, number> {
 // "a posse" bug where PT 'a' was missing and the word got classified
 // differently on auto-extract vs manual add.
 const ARTICLE_PREFIXES = new Set([
+  // English
+  'the',
+  'a',
+  'an',
+  'to',
   // German
+  'zu',
   'der',
   'die',
   'das',
@@ -191,10 +197,16 @@ const ARTICLE_PREFIXES = new Set([
   'de',
   'het',
   'een',
+  'te',
   // Swedish / Danish / Norwegian
   'en',
+  'ei',
   'ett',
   'et',
+  'det',
+  'att',
+  'å',
+  'at',
   // Reflexive pronouns
   'sich',
   'se',

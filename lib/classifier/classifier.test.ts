@@ -60,6 +60,84 @@ describe('classifyWord — local classification', () => {
     expect(mockedCallClaude).not.toHaveBeenCalled();
   });
 
+  // Regression: EN articles (the/a/an) were missing from ARTICLE_PREFIXES.
+  it('the enemy (en) — article "the" is stripped, not C level', async () => {
+    const lvl = await classifyWord('the enemy', 'en');
+    expect(['A1', 'A2', 'B1', 'B2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  it('the button (en) — article "the" is stripped, A1', async () => {
+    expect(await classifyWord('the button', 'en')).toBe('A1');
+  });
+
+  it('a house (en) — article "a" is stripped', async () => {
+    const lvl = await classifyWord('a house', 'en');
+    expect(['A1', 'A2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  it('an hour (en) — article "an" is stripped', async () => {
+    const lvl = await classifyWord('an hour', 'en');
+    expect(['A1', 'A2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  // Regression: EN infinitive particle "to" was not stripped.
+  it('to stick (en) — infinitive "to" is stripped, A1', async () => {
+    const lvl = await classifyWord('to stick', 'en');
+    expect(['A1', 'A2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  // Regression: infinitive particles missing across 5 languages.
+  it('att vara (sv) — infinitive "att" is stripped', async () => {
+    const lvl = await classifyWord('att vara', 'sv');
+    expect(['A1', 'A2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  it('å være (no) — infinitive "å" is stripped', async () => {
+    const lvl = await classifyWord('å være', 'no');
+    expect(['A1', 'A2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  it('at være (da) — infinitive "at" is stripped', async () => {
+    const lvl = await classifyWord('at være', 'da');
+    expect(['A1', 'A2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  it('te doen (nl) — infinitive "te" is stripped', async () => {
+    const lvl = await classifyWord('te doen', 'nl');
+    expect(['A1', 'A2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  it('zu machen (de) — infinitive "zu" is stripped', async () => {
+    const lvl = await classifyWord('zu machen', 'de');
+    expect(['A1', 'A2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  // Regression: NO/DA "ei" and "det" were missing from ARTICLE_PREFIXES.
+  it('ei jente (no) — article "ei" is stripped', async () => {
+    const lvl = await classifyWord('ei jente', 'no');
+    expect(['A1', 'A2', 'B1', 'B2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  it('det nye (no) — determiner "det" is stripped, not C1', async () => {
+    const lvl = await classifyWord('det nye', 'no');
+    expect(['A1', 'A2', 'B1']).toContain(lvl);
+  });
+
+  it('det offentlige (da) — determiner "det" is stripped, not C1', async () => {
+    const lvl = await classifyWord('det offentlige', 'da');
+    expect(['A1', 'A2', 'B1', 'B2']).toContain(lvl);
+  });
+
   it('Episteme (de) — unknown word, API fails → local neutral default (B2/C1)', async () => {
     // No mock set → callClaude returns undefined → fallback bails to local label.
     // After the double-fallback rescue (features.ts aoaNorm=0.4 when both

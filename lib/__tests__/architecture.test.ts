@@ -968,3 +968,123 @@ describe('Architecture: app/auth/ UI strings are English', () => {
     });
   }
 });
+
+// ─── Rule 24: ARTICLE_PREFIXES covers all supported languages ───────
+describe('Architecture: Rule 24 — ARTICLE_PREFIXES covers all language articles', () => {
+  const featuresPath = path.join(ROOT, 'lib', 'classifier', 'features.ts');
+  const featuresContent = fs.readFileSync(featuresPath, 'utf8');
+
+  const setBlock = featuresContent.match(/ARTICLE_PREFIXES\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  const entries = setBlock
+    ? (setBlock[1]!.match(/'([^']+)'/g) ?? []).map((s) => s.replace(/'/g, ''))
+    : [];
+  const prefixSet = new Set(entries);
+
+  const REQUIRED: Record<string, string[]> = {
+    en: ['the', 'a', 'an', 'to'],
+    de: [
+      'zu',
+      'der',
+      'die',
+      'das',
+      'den',
+      'dem',
+      'des',
+      'ein',
+      'eine',
+      'einen',
+      'einem',
+      'eines',
+      'einer',
+    ],
+    fr: ['le', 'la', 'les', 'l', 'un', 'une', 'des', 'du'],
+    es: ['el', 'los', 'las', 'un', 'una', 'unos', 'unas'],
+    it: ['il', 'lo', 'gli', 'un', 'uno'],
+    pt: ['o', 'os', 'as', 'um', 'uma', 'uns', 'umas'],
+    nl: ['de', 'het', 'een', 'te'],
+    sv: ['en', 'ett', 'att'],
+    no: ['en', 'ei', 'et', 'det', 'å'],
+    da: ['en', 'et', 'det', 'at'],
+  };
+
+  const REQUIRED_REFLEXIVE = ['sich', 'se', 'si'];
+
+  for (const [lang, articles] of Object.entries(REQUIRED)) {
+    for (const art of articles) {
+      it(`"${art}" (${lang}) is in ARTICLE_PREFIXES`, () => {
+        if (!prefixSet.has(art)) {
+          throw new Error(
+            `MISSING ARTICLE "${art}" for ${lang} in ARTICLE_PREFIXES.\n` +
+              `Without it, "${art} <word>" lookups hit low-frequency bigrams and\n` +
+              `inflate classification to C1/C2. Add '${art}' to ARTICLE_PREFIXES\n` +
+              `in lib/classifier/features.ts. See CLAUDE.md "CEFR Classifier".`,
+          );
+        }
+        expect(prefixSet.has(art)).toBe(true);
+      });
+    }
+  }
+
+  for (const pron of REQUIRED_REFLEXIVE) {
+    it(`reflexive "${pron}" is in ARTICLE_PREFIXES`, () => {
+      expect(prefixSet.has(pron)).toBe(true);
+    });
+  }
+
+  // STRIP_PREFIX in vocabSort.ts must cover every entry in ARTICLE_PREFIXES
+  it('STRIP_PREFIX in vocabSort.ts covers all ARTICLE_PREFIXES entries', () => {
+    const sortPath = path.join(ROOT, 'lib', 'vocabSort.ts');
+    const sortContent = fs.readFileSync(sortPath, 'utf8');
+    const regexMatch = sortContent.match(/STRIP_PREFIX\s*=\s*\/\^?\(([^)]+)\)/);
+    expect(regexMatch).not.toBeNull();
+    const regexEntries = new Set(
+      regexMatch![1].split('|').map((s) => s.replace(/['"]/g, '').toLowerCase()),
+    );
+    const missing = entries.filter((e) => !regexEntries.has(e) && !regexEntries.has(e + "'"));
+    if (missing.length > 0) {
+      throw new Error(
+        `STRIP_PREFIX in vocabSort.ts is missing: ${missing.join(', ')}.\n` +
+          `Both ARTICLE_PREFIXES (classifier) and STRIP_PREFIX (sort/search)\n` +
+          `must stay in sync. Add the missing entries to the STRIP_PREFIX regex.`,
+      );
+    }
+    expect(missing).toEqual([]);
+  });
+});
+
+// ─── Rule 25: Sort chip UI uses shared SortChips component ──────────
+describe('Architecture: Rule 25 — vocab views use shared SortChips component', () => {
+  const files = [
+    path.join(ROOT, 'app', '(tabs)', 'vocabulary.tsx'),
+    path.join(ROOT, 'app', 'content', '[id].tsx'),
+  ];
+
+  for (const file of files) {
+    const relPath = path.relative(ROOT, file);
+    it(`${relPath} imports SortChips component`, () => {
+      const src = fs.readFileSync(file, 'utf8');
+      const importsSortChips = /import\s+SortChips\s+from\s+['"].*SortChips['"]/.test(src);
+      if (!importsSortChips) {
+        throw new Error(
+          `${relPath} does not import the shared SortChips component.\n` +
+            `Sort chip rendering must use components/SortChips.tsx to prevent\n` +
+            `visual and behavioural drift between vocabulary views.\n` +
+            `See CLAUDE.md "Styling Conventions" section.`,
+        );
+      }
+      expect(importsSortChips).toBe(true);
+    });
+
+    it(`${relPath} does not inline sort chip styles`, () => {
+      const src = fs.readFileSync(file, 'utf8');
+      const hasInlineStyles = /sortChip[^s].*:.*\{/.test(src);
+      if (hasInlineStyles) {
+        throw new Error(
+          `${relPath} still contains inline sortChip styles.\n` +
+            `Remove them and use the shared SortChips component instead.`,
+        );
+      }
+      expect(hasInlineStyles).toBe(false);
+    });
+  }
+});

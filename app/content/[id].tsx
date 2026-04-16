@@ -32,12 +32,14 @@ import VocabCard from '../../components/VocabCard';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EditVocabModal from '../../components/EditVocabModal';
 import {
-  SORT_OPTIONS,
+  DEFAULT_SORT_DIRECTION,
   sortVocabulary,
   extractSearchTerms,
   escapeRegex,
   type SortOption,
+  type SortDirection,
 } from '../../lib/vocabSort';
+import SortChips from '../../components/SortChips';
 import { useTheme } from '../../hooks/useTheme';
 import { useAlert } from '../../components/ConfirmDialog';
 import { isAtOrAboveLevel } from '../../constants/levels';
@@ -81,14 +83,26 @@ export default function ContentDetailScreen() {
   const [editingVocab, setEditingVocab] = useState<Vocabulary | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('original');
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>('date');
+  const [sortBy, setSortByRaw] = useState<SortOption>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>(DEFAULT_SORT_DIRECTION.date);
+  const setSortBy = useCallback(
+    (sort: SortOption) => {
+      if (sort === sortBy) {
+        setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+      } else {
+        setSortByRaw(sort);
+        setSortDirection(DEFAULT_SORT_DIRECTION[sort]);
+      }
+    },
+    [sortBy],
+  );
 
   const sortedVocabulary = useMemo(() => {
     // Hide vocab below the user's CEFR minimum. Storage is untouched —
     // lowering the level brings them back. Architecture rule 20.
     const filtered = vocabulary.filter((v) => isAtOrAboveLevel(v.level, minLevel));
-    return sortVocabulary(filtered, sortBy);
-  }, [vocabulary, sortBy, minLevel]);
+    return sortVocabulary(filtered, sortBy, sortDirection);
+  }, [vocabulary, sortBy, sortDirection, minLevel]);
 
   const loadData = useCallback(() => {
     if (!id) return;
@@ -297,27 +311,8 @@ export default function ContentDetailScreen() {
           keyExtractor={(item) => item.id}
           ListHeaderComponent={
             vocabulary.length > 0 ? (
-              <View style={styles.sortRow}>
-                {SORT_OPTIONS.map((opt) => (
-                  <Pressable
-                    key={opt.value}
-                    style={({ pressed }) => [
-                      styles.sortChip,
-                      sortBy === opt.value && styles.sortChipActive,
-                      pressed && styles.pressed,
-                    ]}
-                    onPress={() => setSortBy(opt.value)}
-                  >
-                    <Text
-                      style={[
-                        styles.sortChipText,
-                        sortBy === opt.value && styles.sortChipTextActive,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </Pressable>
-                ))}
+              <View style={styles.sortRowWrapper}>
+                <SortChips sortBy={sortBy} sortDirection={sortDirection} onPress={setSortBy} />
               </View>
             ) : null
           }
@@ -448,31 +443,8 @@ const createStyles = (c: ThemeColors) =>
     listContent: {
       padding: spacing.md,
     },
-    sortRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
+    sortRowWrapper: {
       paddingBottom: spacing.md,
-    },
-    sortChip: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
-      borderRadius: borderRadius.full,
-      backgroundColor: c.glass,
-      borderWidth: 1,
-      borderColor: c.glassBorder,
-    },
-    sortChipActive: {
-      backgroundColor: c.primary,
-      borderColor: c.primary,
-    },
-    sortChipText: {
-      fontSize: fontSize.sm,
-      fontWeight: '300' as const,
-      color: c.text,
-    },
-    sortChipTextActive: {
-      color: '#FFFFFF',
-      fontWeight: '600' as const,
     },
     bodyText: {
       fontSize: fontSize.md,
