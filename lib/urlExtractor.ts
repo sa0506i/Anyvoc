@@ -85,16 +85,16 @@ function extractWithReadability(html: string): { title: string; text: string } |
     const { document } = parseHTML(html);
     const reader = new Readability(document, { charThreshold: 50 });
     const article = reader.parse();
-    if (
-      !article ||
-      !article.textContent ||
-      article.textContent.trim().length < READABILITY_MIN_LENGTH
-    ) {
+    if (!article || !article.content) {
+      return null;
+    }
+    const text = cleanArticleHtml(article.content);
+    if (text.length < READABILITY_MIN_LENGTH) {
       return null;
     }
     return {
       title: article.title || '',
-      text: article.textContent.trim(),
+      text,
     };
   } catch {
     return null;
