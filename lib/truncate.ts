@@ -1,9 +1,10 @@
 /**
- * Truncation utilities for Basic mode content limits. Pure TypeScript,
+ * Truncation utilities for content limits. Pure TypeScript,
  * no external dependencies. See docs/superpowers/specs/2026-04-14-basic-pro-mode-design.md.
  */
 
 export const BASIC_MODE_CHAR_LIMIT = 2000;
+export const PRO_MODE_CHAR_LIMIT = 5000;
 
 /** Characters that end a sentence. */
 const SENTENCE_ENDINGS = new Set(['.', '!', '?', '…']);
@@ -47,11 +48,11 @@ export function truncateAtSentence(
   return { text, truncated: true };
 }
 
-/** Applies the Basic-mode truncation only when `proMode` is false. */
+/** Applies tier-appropriate truncation: 2000 chars for Basic, 5000 for Pro. */
 export function applyBasicLimit(
   text: string,
   proMode: boolean,
 ): { text: string; truncated: boolean } {
-  if (proMode) return { text, truncated: false };
-  return truncateAtSentence(text);
+  const limit = proMode ? PRO_MODE_CHAR_LIMIT : BASIC_MODE_CHAR_LIMIT;
+  return truncateAtSentence(text, limit);
 }

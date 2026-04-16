@@ -217,9 +217,9 @@ describe('processSharedText — proMode', () => {
     expect(extractArg.length).toBeLessThanOrEqual(2010);
   });
 
-  it('does not truncate in Pro mode', async () => {
+  it('does not truncate short text in Pro mode', async () => {
     const db = createMockDb();
-    const longText = 'Ein Satz. '.repeat(200);
+    const longText = 'Ein Satz. '.repeat(200); // 2000 chars, under 5000 Pro limit
 
     const result = await processSharedText(
       db,
@@ -232,6 +232,23 @@ describe('processSharedText — proMode', () => {
     );
 
     expect(result.truncated).toBe(false);
+  });
+
+  it('truncates long text in Pro mode at 5000 chars and sets truncated=true', async () => {
+    const db = createMockDb();
+    const longText = 'Ein Satz. '.repeat(600); // 6000 chars, over 5000 Pro limit
+
+    const result = await processSharedText(
+      db,
+      longText,
+      'title',
+      'text',
+      undefined,
+      { ...baseSettings, proMode: true },
+      noop,
+    );
+
+    expect(result.truncated).toBe(true);
   });
 
   it('does NOT call recordContentAdd when rejected by daily limit', async () => {
