@@ -54,7 +54,6 @@ export default function ContentDetailScreen() {
   const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
   const learningLanguage = useSettingsStore((s) => s.learningLanguage);
   const minLevel = useSettingsStore((s) => s.level);
-  const proMode = useSettingsStore((s) => s.proMode);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -62,15 +61,15 @@ export default function ContentDetailScreen() {
 
   const Header = ({ title }: { title: string }) => (
     <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
-      <View style={styles.headerSideLeft}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={styles.backText}>{'\u2190 Back'}</Text>
-        </Pressable>
-      </View>
+      <View style={styles.headerSide} />
       <Text style={styles.headerTitle} numberOfLines={1}>
         {title}
       </Text>
-      <View style={styles.headerSide} />
+      <View style={styles.headerSide}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.closeButton}>
+          <Ionicons name="close" size={20} color={colors.text} style={styles.closeIcon} />
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -283,13 +282,11 @@ export default function ContentDetailScreen() {
           <HighlightedText
             text={content.original_text}
             highlights={highlights}
-            onRemoveHighlight={proMode ? handleRemoveHighlight : undefined}
-            onAddWord={proMode ? handleAddWord : undefined}
+            onRemoveHighlight={handleRemoveHighlight}
+            onAddWord={handleAddWord}
           />
           <Text style={styles.hint}>
-            {proMode
-              ? 'Tap highlighted words to remove. Long press a word to add it.'
-              : 'Enable Pro mode to add and remove words manually from the text.'}
+            Tap highlighted words to remove. Long press a word to add it.
           </Text>
         </ScrollView>
       )}
@@ -377,12 +374,8 @@ const createStyles = (c: ThemeColors) =>
       paddingBottom: spacing.sm,
       backgroundColor: c.backgroundMid,
     },
-    headerSideLeft: {
-      width: 80,
-      alignItems: 'flex-start',
-    },
     headerSide: {
-      width: 80,
+      width: 40,
       alignItems: 'flex-end',
     },
     headerTitle: {
@@ -392,10 +385,21 @@ const createStyles = (c: ThemeColors) =>
       fontWeight: '600',
       color: c.text,
     },
-    backText: {
-      fontSize: fontSize.md,
-      color: c.primary,
-      fontWeight: '600',
+    closeButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: c.subtleOverlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    closeIcon: {
+      lineHeight: 20,
+      textAlign: 'center',
+      textAlignVertical: 'center',
+      includeFontPadding: false,
+      width: 20,
+      height: 20,
     },
     centered: {
       flex: 1,

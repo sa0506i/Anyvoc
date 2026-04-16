@@ -136,24 +136,14 @@ const headerStyles = StyleSheet.create({
 export default function TabLayout() {
   const router = useRouter();
   const { colors } = useTheme();
-  const nativeLanguage = useSettingsStore((s) => s.nativeLanguage);
   const learningLanguage = useSettingsStore((s) => s.learningLanguage);
-  const nativeFlag = getLanguageFlag(nativeLanguage);
-  const learningFlag = getLanguageFlag(learningLanguage);
+  const flag = getLanguageFlag(learningLanguage);
 
   return (
     <Tabs
       tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        headerLeft: () => (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 16 }}>
-            <Text style={{ fontSize: 20 }}>{nativeFlag}</Text>
-            <Text style={{ fontSize: 12, color: colors.textSecondary, marginHorizontal: 2 }}>
-              {'\u2192'}
-            </Text>
-            <Text style={{ fontSize: 20 }}>{learningFlag}</Text>
-          </View>
-        ),
+        headerLeft: () => <Text style={{ fontSize: 22, marginLeft: 16 }}>{flag}</Text>,
         headerStyle: { backgroundColor: colors.backgroundMid },
         headerTitleAlign: 'center',
         headerShadowVisible: false,
