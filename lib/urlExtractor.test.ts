@@ -205,6 +205,21 @@ describe('cleanArticleHtml', () => {
     expect(text).toContain('Second paragraph.');
   });
 
+  it('preserves paragraph breaks for block-level elements without <p> wrappers', () => {
+    const html = `
+      <div>
+        <div>First block of content.</div>
+        <div>Second block of content.</div>
+        <li>A list item.</li>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).toContain('First block of content.');
+    expect(text).toContain('Second block of content.');
+    expect(text).toContain('A list item.');
+    // Each block should be on its own paragraph (separated by blank line)
+    expect(text).toMatch(/First block of content\.\n\nSecond block of content\./);
+  });
+
   it('returns empty string for empty or whitespace-only input', () => {
     expect(cleanArticleHtml('')).toBe('');
     expect(cleanArticleHtml('   ')).toBe('');

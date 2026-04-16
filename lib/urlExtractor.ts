@@ -150,6 +150,28 @@ TITLE: <the article title>
   return { title, text };
 }
 
+/** Block-level tags that need paragraph breaks in textContent extraction. */
+const BLOCK_TAGS = [
+  'P',
+  'DIV',
+  'H1',
+  'H2',
+  'H3',
+  'H4',
+  'H5',
+  'H6',
+  'LI',
+  'BR',
+  'BLOCKQUOTE',
+  'PRE',
+  'SECTION',
+  'ARTICLE',
+  'HEADER',
+  'FOOTER',
+  'DT',
+  'DD',
+];
+
 /** Class-name fragments that indicate non-article content. */
 const NOISE_CLASS_PATTERNS = [
   'infobox',
@@ -197,26 +219,6 @@ export function cleanArticleHtml(html: string): string {
   }
 
   // Insert newlines after block-level elements so textContent preserves paragraph breaks
-  const BLOCK_TAGS = [
-    'P',
-    'DIV',
-    'H1',
-    'H2',
-    'H3',
-    'H4',
-    'H5',
-    'H6',
-    'LI',
-    'BR',
-    'BLOCKQUOTE',
-    'PRE',
-    'SECTION',
-    'ARTICLE',
-    'HEADER',
-    'FOOTER',
-    'DT',
-    'DD',
-  ];
   const root = document.getElementById('__root');
   if (root) {
     root.querySelectorAll(BLOCK_TAGS.join(',')).forEach((el: Element) => {
@@ -242,7 +244,7 @@ export function cleanArticleHtml(html: string): string {
 
   // Remove trailing date/time metadata patterns
   text = text.replace(
-    /\n+(?:\d{1,2}[.\s]+)?(?:January|February|March|April|May|June|July|August|September|October|November|December|Janeiro|Fevereiro|Mar[cç]o|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro|Januar|Februar|M[aä]rz|Mai|Juni|Juli|Oktober|Dezember)[\s.,]+\d{1,4}[\s.,]*\d{0,4}[\s.:]*(?:\d{1,2}[\s.:]*)*\s*$/i,
+    /\n+(?:\d{1,2}[.\s]+)?(?:January|February|March|April|May|June|July|August|September|October|November|December|Janeiro|Fevereiro|Mar[cç]o|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro|Januar|Februar|M[aä]rz|Mai|Juni|Juli|Oktober|Dezember)[\s.,]+\d{1,4}[\s.,]*\d{0,4}(?:[\s.:]+\d{1,2}(?:[:.]?\d{2})?)?\s*$/i,
     '',
   );
   text = text.replace(/\n+\d{4}-\d{2}-\d{2}[\s.:]*\d{0,2}[:.]?\d{0,2}\s*$/, '');
