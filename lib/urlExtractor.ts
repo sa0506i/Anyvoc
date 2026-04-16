@@ -242,6 +242,18 @@ export function cleanArticleHtml(html: string): string {
     .map((line) => line.trim())
     .join('\n');
 
+  // Strip leading breadcrumb fragments: short paragraphs at the start without sentence punctuation
+  const parts = text.split(/\n+/);
+  while (
+    parts.length > 1 &&
+    parts[0].length > 0 &&
+    parts[0].length < 30 &&
+    !/[.!?:,;]/.test(parts[0])
+  ) {
+    parts.shift();
+  }
+  text = parts.join('\n\n').replace(/^\n+/, '');
+
   // Remove trailing date/time metadata patterns
   text = text.replace(
     /\n+(?:\d{1,2}[.\s]+)?(?:January|February|March|April|May|June|July|August|September|October|November|December|Janeiro|Fevereiro|Mar[cç]o|Abril|Maio|Junho|Julho|Agosto|Setembro|Outubro|Novembro|Dezembro|Januar|Februar|M[aä]rz|Mai|Juni|Juli|Oktober|Dezember)[\s.,]+\d{1,4}[\s.,]*\d{0,4}(?:[\s.:]+\d{1,2}(?:[:.]?\d{2})?)?\s*$/i,
@@ -249,15 +261,26 @@ export function cleanArticleHtml(html: string): string {
   );
   text = text.replace(/\n+\d{4}-\d{2}-\d{2}[\s.:]*\d{0,2}[:.]?\d{0,2}\s*$/, '');
 
-  // Deduplicate lead: if first paragraph is a substring of the second, drop it
+  // Deduplicate lead: drop first paragraph if it's a subset of the second
+  // (exact prefix match OR >80% word overlap)
   const paragraphs = text.split(/\n\n+/);
-  if (
-    paragraphs.length >= 2 &&
-    paragraphs[1].startsWith(paragraphs[0]) &&
-    paragraphs[0].length > 20
-  ) {
-    paragraphs.shift();
-    text = paragraphs.join('\n\n');
+  if (paragraphs.length >= 2 && paragraphs[0].length > 20) {
+    const isPrefix = paragraphs[1].startsWith(paragraphs[0]);
+    if (!isPrefix) {
+      const wordsA = new Set(paragraphs[0].toLowerCase().split(/\s+/));
+      const wordsB = new Set(paragraphs[1].toLowerCase().split(/\s+/));
+      let overlap = 0;
+      for (const w of wordsA) {
+        if (wordsB.has(w)) overlap++;
+      }
+      if (wordsA.size > 0 && overlap / wordsA.size > 0.8) {
+        paragraphs.shift();
+        text = paragraphs.join('\n\n');
+      }
+    } else {
+      paragraphs.shift();
+      text = paragraphs.join('\n\n');
+    }
   }
 
   // Final trim and whitespace normalization

@@ -164,7 +164,7 @@ describe('cleanArticleHtml', () => {
     expect(text).not.toContain('Sidebar content');
   });
 
-  it('deduplicates lead paragraph when teaser repeats first body paragraph', () => {
+  it('deduplicates lead paragraph when teaser repeats first body paragraph (prefix)', () => {
     const html = `
       <div>
         <p>The regiment is hosting the parachute course until day 23.</p>
@@ -172,10 +172,37 @@ describe('cleanArticleHtml', () => {
         <p>Second body paragraph with different content.</p>
       </div>`;
     const text = cleanArticleHtml(html);
-    // The short duplicate should be removed, keeping only the longer version
     const matches = text.match(/The regiment is hosting/g);
     expect(matches).toHaveLength(1);
     expect(text).toContain('Second body paragraph');
+  });
+
+  it('deduplicates lead paragraph when teaser has >80% word overlap with body', () => {
+    const html = `
+      <div>
+        <p>O Regimento de Infantaria está a acolher até dia 23 o Curso de Paraquedista</p>
+        <p>O Regimento de Infantaria está a acolher até dia 23 o Curso de Paraquedista 01/2026. Mais detalhes sobre o curso seguem aqui.</p>
+        <p>Second body paragraph with different content.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    const matches = text.match(/O Regimento de Infantaria/g);
+    expect(matches).toHaveLength(1);
+    expect(text).toContain('Second body paragraph');
+  });
+
+  it('strips leading breadcrumb fragments (short lines without punctuation)', () => {
+    const html = `
+      <div>
+        <div>DR</div>
+        <div>Atualidade</div>
+        <div>Aveiro</div>
+        <p>O Regimento de Infantaria está a acolher o curso.</p>
+      </div>`;
+    const text = cleanArticleHtml(html);
+    expect(text).not.toMatch(/^DR/);
+    expect(text).not.toContain('Atualidade');
+    expect(text).not.toContain('Aveiro');
+    expect(text).toContain('O Regimento de Infantaria');
   });
 
   it('strips trailing date/time metadata', () => {
