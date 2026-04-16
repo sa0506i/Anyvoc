@@ -888,6 +888,46 @@ describe('Architecture: Rule 22 — vocabFilters.ts is pure / offline', () => {
   });
 });
 
+// ─── Rule 23: extractWithReadability must use cleanArticleHtml ──────
+// CLAUDE.md "LLM API": Readability's article.content HTML is post-processed
+// by cleanArticleHtml() to remove infoboxes, footnotes, SVGs, etc.
+// Using article.textContent directly would reintroduce noise.
+describe('Architecture: Rule 23 — Readability pipeline uses cleanArticleHtml', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'urlExtractor.ts'), 'utf8');
+
+  it('extractWithReadability calls cleanArticleHtml(article.content)', () => {
+    // Extract the function body of extractWithReadability
+    const fnMatch = src.match(/function extractWithReadability\b[\s\S]*?^}/m);
+    expect(fnMatch).not.toBeNull();
+    const fnBody = fnMatch![0];
+
+    expect(fnBody).toContain('cleanArticleHtml(article.content)');
+  });
+
+  it('extractWithReadability does NOT use article.textContent', () => {
+    const fnMatch = src.match(/function extractWithReadability\b[\s\S]*?^}/m);
+    const fnBody = fnMatch![0];
+
+    if (fnBody.includes('article.textContent')) {
+      throw new Error(
+        `extractWithReadability uses article.textContent directly.\n\n` +
+          `Readability's textContent includes infobox tables, footnotes,\n` +
+          `SVG icon labels, and other non-article noise. Always use\n` +
+          `cleanArticleHtml(article.content) instead.\n` +
+          `See CLAUDE.md "LLM API" section.`,
+      );
+    }
+  });
+
+  it('fetchArticleContent has text density check before Claude fallback', () => {
+    const fnMatch = src.match(/async function fetchArticleContent\b[\s\S]*?^}/m);
+    expect(fnMatch).not.toBeNull();
+    const fnBody = fnMatch![0];
+
+    expect(fnBody).toContain('MIN_TEXT_FOR_FALLBACK');
+  });
+});
+
 // ─── Rule 13: app/auth/ UI strings must be English ──────────────────
 // CLAUDE.md "Authentication": the project-wide convention is English UI
 // strings for all new features. The auth screens establish that pattern

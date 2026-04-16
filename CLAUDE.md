@@ -52,7 +52,7 @@ lib/
                      # getBestStreak, getAveragePerDay
   matchAnswer.ts     # Local answer matching for typing quiz (offline, no LLM)
   shareHandler.ts    # Share intent processing
-  urlExtractor.ts    # Web URL content extraction via Readability (Claude fallback)
+  urlExtractor.ts    # Web URL content extraction via Readability + cleanArticleHtml (Claude fallback)
   uuid.ts            # generateUUID()
   classifier/        # Local CEFR classifier (see section below)
     features.ts      # Zipf + AoA lookup, normalisation, fallback
@@ -171,7 +171,7 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 - Always strip markdown fences before parsing: `responseText.match(/\[[\s\S]*\]/)`
 - Error handling: catch `ClaudeAPIError` separately (401 = proxy auth error, 429 = rate limit)
 - `detectLanguage()` is **offline** (uses `franc-min` trigram detection, synchronous). Returns `string | null` — `null` means undetermined/unsupported. No API call.
-- Web/URL content: extracted via `lib/urlExtractor.ts` using `@mozilla/readability` + `linkedom` (offline). Falls back to LLM API only when Readability yields <100 chars (e.g. SPAs, login pages).
+- Web/URL content: extracted via `lib/urlExtractor.ts` using `@mozilla/readability` + `linkedom` (offline). Readability's HTML output (`article.content`) is post-processed by `cleanArticleHtml()` which removes infobox tables, figure captions, SVG icon labels, footnote refs, breadcrumbs, duplicate leads, trailing metadata, and repeated phrases via DOM manipulation + text heuristics. Falls back to LLM API only when Readability yields <100 chars of cleaned text AND the raw HTML has >200 chars of visible text (text density check). JS-rendered pages (Reddit, BuzzFeed) with <200 chars of raw text are rejected immediately without an API call.
 - **OCR:** On-device via `expo-mlkit-ocr` (Google ML Kit) — no API call for image text extraction.
 
 ## Vocabulary post-processing (lib/vocabFilters.ts)
@@ -382,7 +382,7 @@ Key pattern: **task → constraint → verify**. Claude Code will run `npx tsc -
 | Claude API | `lib/claude.test.ts` | 27 | `global.fetch` + mocked classifier |
 | CEFR classifier | `lib/classifier/classifier.test.ts` | 26 | Mocked Claude fallback |
 | Language detection | `lib/detectLanguage.test.ts` | 7 | No mocks (franc-min is deterministic) |
-| URL extraction | `lib/urlExtractor.test.ts` | 5 | `global.fetch` + mocked `callClaude` |
+| URL extraction | `lib/urlExtractor.test.ts` | 25 | `global.fetch` + mocked `callClaude` |
 | Architecture boundaries | `lib/__tests__/architecture.test.ts` | 100+ | Pure file scanning, no mocks |
 | Approved LLM fixtures | `lib/__tests__/approved-fixtures.test.ts` | 16 | `global.fetch` + mocked `callClaude` |
 | Build scripts | `scripts/build-freq.test.ts` | — | — |
