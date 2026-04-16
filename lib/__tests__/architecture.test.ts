@@ -355,26 +355,16 @@ describe('Architecture: proMode gates translateText in shareProcessing', () => {
 
 // ─── Rule 12: clearAllData must not delete from content_adds_log ─────
 // CLAUDE.md: The daily-limit counter lives in content_adds_log.
-// Clearing it inside clearAllData would reset the counter on app-reset,
-// allowing Basic users to bypass the daily cap. The table must survive a reset.
-describe('Architecture: clearAllData does not wipe the daily-limit log', () => {
-  it('lib/database.ts clearAllData must not contain DELETE FROM content_adds_log', () => {
+// Reset / logout clears all user data including the daily-limit counter,
+// so users start fresh after a full reset. The counter still persists
+// across individual content deletions (tested in database.test.ts).
+describe('Architecture: clearAllData wipes the daily-limit log', () => {
+  it('lib/database.ts clearAllData must contain DELETE FROM content_adds_log', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lib', 'database.ts'), 'utf8');
-    // Locate the clearAllData function body. Match from "export function clearAllData"
-    // up to the closing "}" at column 0 (function-level closing brace).
     const match = src.match(/export function clearAllData\b[\s\S]*?\n\}/);
     expect(match).not.toBeNull();
     const body = match![0];
-    // The log table must never appear inside a DELETE statement in this function.
-    expect(body).not.toMatch(/DELETE\s+FROM\s+content_adds_log/i);
-    if (/DELETE\s+FROM\s+content_adds_log/i.test(body)) {
-      throw new Error(
-        `DAILY-LIMIT LOG CLEARED in lib/database.ts clearAllData()\n` +
-          `content_adds_log must NOT be deleted during app reset.\n` +
-          `The daily-limit counter must survive a reset to prevent Basic-mode bypass.\n` +
-          `See CLAUDE.md "Database Schema" section and commit f3e8c22.`,
-      );
-    }
+    expect(body).toMatch(/DELETE\s+FROM\s+content_adds_log/i);
   });
 });
 
@@ -1087,4 +1077,122 @@ describe('Architecture: Rule 25 — vocab views use shared SortChips component',
       expect(hasInlineStyles).toBe(false);
     });
   }
+});
+
+// ─── Rule 26: Default learning language must differ from native language ──
+// CLAUDE.md: When native language is English, learning language must not
+// default to English. A helper function must ensure they differ.
+describe('Architecture: Rule 26 — default learning language differs from native', () => {
+  it('hooks/useSettings.ts has getDefaultLearningLanguage that avoids same-language default', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'hooks', 'useSettings.ts'), 'utf8');
+    // The helper must exist
+    expect(src).toMatch(/function getDefaultLearningLanguage/);
+    // It must check against the native language to avoid same-language
+    expect(src).toMatch(/nativeLang/);
+  });
+
+  it('hooks/useSettings.ts loadSettings and resetApp both use getDefaultLearningLanguage', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'hooks', 'useSettings.ts'), 'utf8');
+    // Count occurrences — must appear in at least loadSettings + resetApp = 2+ places
+    const matches = src.match(/getDefaultLearningLanguage/g);
+    expect(matches).not.toBeNull();
+    // Function definition (1) + loadSettings usage (2) + resetApp usage (1) = 4+
+    expect(matches!.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ─── Rule 27: translateSingleWord prompt must include CRITICAL FORMATTING RULE ─
+// CLAUDE.md: Both extractVocabulary and translateSingleWord must enforce
+// vocabulary formatting rules (articles on nouns, infinitive for verbs,
+// etc.) with equal emphasis. The CRITICAL FORMATTING RULE block and the
+// shared VOCAB_FORMATTING_RULES constant must both appear in the
+// translateSingleWord system prompt.
+describe('Architecture: Rule 27 — translateSingleWord prompt has CRITICAL FORMATTING RULE', () => {
+  it('lib/claude.ts translateSingleWord systemPrompt includes CRITICAL FORMATTING RULE', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+    // Find the translateSingleWord function body
+    const match = src.match(/export async function translateSingleWord\b[\s\S]*?\n\}/);
+    expect(match).not.toBeNull();
+    const body = match![0];
+    // Must include the critical emphasis block
+    expect(body).toMatch(/CRITICAL FORMATTING RULE/);
+    // Must reference the shared rules constant
+    expect(body).toMatch(/VOCAB_FORMATTING_RULES/);
+    // Must instruct about base form / inflected input
+    expect(body).toMatch(/inflect|conjugat|base form|dictionary/i);
+  });
+
+  it('lib/claude.ts VOCAB_FORMATTING_RULES mentions articles for nouns', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+    const match = src.match(/const VOCAB_FORMATTING_RULES\s*=\s*`[\s\S]*?`;/);
+    expect(match).not.toBeNull();
+    const rules = match![0];
+    expect(rules).toMatch(/article/i);
+    expect(rules).toMatch(/infinitive/i);
+    expect(rules).toMatch(/reflexive/i);
+  });
+});
+
+// ─── Rule 28: Pro mode gates manual word add/remove in content detail ─
+// CLAUDE.md: Manual vocabulary add (long-press) and remove (tap highlight)
+// are Pro features. The content detail screen must pass undefined for
+// onAddWord and onRemoveHighlight when proMode is false.
+describe('Architecture: Rule 27 — content detail gates word add/remove behind proMode', () => {
+  it('app/content/[id].tsx reads proMode from settings store', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'app', 'content', '[id].tsx'), 'utf8');
+    expect(src).toMatch(/useSettingsStore\(.*proMode/);
+  });
+
+  it('app/content/[id].tsx conditionally passes onAddWord based on proMode', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'app', 'content', '[id].tsx'), 'utf8');
+    // onAddWord must be conditional: proMode ? handler : undefined
+    expect(src).toMatch(/onAddWord\s*=\s*\{.*proMode\b/);
+  });
+
+  it('app/content/[id].tsx conditionally passes onRemoveHighlight based on proMode', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'app', 'content', '[id].tsx'), 'utf8');
+    // onRemoveHighlight must be conditional: proMode ? handler : undefined
+    expect(src).toMatch(/onRemoveHighlight\s*=\s*\{.*proMode\b/);
+  });
+
+  it('components/HighlightedText.tsx declares onAddWord and onRemoveHighlight as optional', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'components', 'HighlightedText.tsx'), 'utf8');
+    // Both props must be optional (have ?)
+    expect(src).toMatch(/onAddWord\??\s*:\s*\(/);
+    expect(src).toMatch(/onRemoveHighlight\??\s*:\s*\(/);
+    // Specifically, they must have the ? for optional
+    const addMatch = src.match(/onAddWord(\??)\s*:/);
+    expect(addMatch?.[1]).toBe('?');
+    const removeMatch = src.match(/onRemoveHighlight(\??)\s*:/);
+    expect(removeMatch?.[1]).toBe('?');
+  });
+});
+
+// ─── Rule 29: Pro mode switch disabled for guest users ─────────────
+// CLAUDE.md: Pro mode is only available to signed-in users. The switch
+// must be disabled and visually greyed out when the user is not
+// authenticated.
+describe('Architecture: Rule 29 — Pro mode switch disabled for guests', () => {
+  it('app/settings.tsx Pro mode Switch has disabled={!isAuthed}', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'app', 'settings.tsx'), 'utf8');
+    // Find the pro-mode-switch section
+    const switchIdx = src.indexOf('pro-mode-switch');
+    expect(switchIdx).toBeGreaterThan(-1);
+    // Within reasonable proximity after the testID, there must be a disabled prop
+    const after = src.slice(switchIdx, switchIdx + 300);
+    expect(after).toMatch(/disabled\s*=\s*\{.*!isAuthed/);
+    if (!/disabled\s*=\s*\{.*!isAuthed/.test(after)) {
+      throw new Error(
+        `Pro mode Switch in app/settings.tsx must have disabled={!isAuthed}.\n` +
+          `Guest users must not be able to toggle Pro mode.\n` +
+          `See CLAUDE.md "Settings Keys" section.`,
+      );
+    }
+  });
+
+  it('app/settings.tsx Pro mode row has disabledRow style when not authed', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'app', 'settings.tsx'), 'utf8');
+    // The Pro Mode row must apply disabledRow conditionally on auth
+    expect(src).toMatch(/!isAuthed\s*&&\s*styles\.disabledRow/);
+  });
 });

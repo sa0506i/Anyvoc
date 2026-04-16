@@ -381,14 +381,14 @@ describe('countContentsAddedToday', () => {
     expect(BASIC_MODE_DAILY_CONTENT_LIMIT).toBe(3);
   });
 
-  it('survives clearAllData (log table is not wiped)', () => {
+  it('is reset by clearAllData (counter starts fresh after reset/logout)', () => {
     const now = new Date(2026, 3, 14, 15, 0, 0);
     recordContentAdd(db, new Date(2026, 3, 14, 9, 0, 0));
     recordContentAdd(db, new Date(2026, 3, 14, 10, 0, 0));
     recordContentAdd(db, new Date(2026, 3, 14, 11, 0, 0));
     expect(countContentsAddedToday(db, now)).toBe(3);
     clearAllData(db);
-    expect(countContentsAddedToday(db, now)).toBe(3);
+    expect(countContentsAddedToday(db, now)).toBe(0);
   });
 
   it('is not decremented when a content row is deleted', () => {

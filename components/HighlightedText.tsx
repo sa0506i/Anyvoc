@@ -13,8 +13,8 @@ interface HighlightRange {
 interface HighlightedTextProps {
   text: string;
   highlights: HighlightRange[];
-  onRemoveHighlight: (vocabId: string) => void;
-  onAddWord: (word: string) => void;
+  onRemoveHighlight?: (vocabId: string) => void;
+  onAddWord?: (word: string) => void;
 }
 
 export default function HighlightedText({
@@ -44,24 +44,28 @@ export default function HighlightedText({
     segments.push({ text: text.substring(lastEnd) });
   }
 
-  const handleHighlightPress = (vocabId: string, word: string) => {
-    confirm(
-      'Remove Vocabulary',
-      `Remove "${word}" from the vocabulary list?`,
-      () => onRemoveHighlight(vocabId),
-      {
-        destructive: true,
-        confirmLabel: 'Remove',
-      },
-    );
-  };
+  const handleHighlightPress = onRemoveHighlight
+    ? (vocabId: string, word: string) => {
+        confirm(
+          'Remove Vocabulary',
+          `Remove "${word}" from the vocabulary list?`,
+          () => onRemoveHighlight(vocabId),
+          {
+            destructive: true,
+            confirmLabel: 'Remove',
+          },
+        );
+      }
+    : undefined;
 
-  const handleWordLongPress = (word: string) => {
-    // Strip punctuation from the word for adding
-    const cleaned = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
-    if (!cleaned) return;
-    onAddWord(cleaned);
-  };
+  const handleWordLongPress = onAddWord
+    ? (word: string) => {
+        // Strip punctuation from the word for adding
+        const cleaned = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+        if (!cleaned) return;
+        onAddWord(cleaned);
+      }
+    : undefined;
 
   // Split plain text into individual words (preserving whitespace/punctuation)
   // so each word gets its own long-press target
@@ -70,7 +74,7 @@ export default function HighlightedText({
     const tokens = segmentText.match(/[\p{L}\p{N}]+(?:['']\p{L}+)*|[^\p{L}\p{N}]+/gu) || [];
     return tokens.map((token, j) => {
       const isWord = /\p{L}/u.test(token);
-      if (isWord) {
+      if (isWord && handleWordLongPress) {
         return (
           <Text key={`${keyPrefix}-${j}`} onLongPress={() => handleWordLongPress(token)}>
             {token}
@@ -89,7 +93,11 @@ export default function HighlightedText({
             <Text
               key={i}
               style={styles.highlighted}
-              onPress={() => handleHighlightPress(seg.highlight!.vocabId, seg.text)}
+              onPress={
+                handleHighlightPress
+                  ? () => handleHighlightPress(seg.highlight!.vocabId, seg.text)
+                  : undefined
+              }
             >
               {seg.text}
             </Text>

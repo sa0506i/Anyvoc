@@ -219,8 +219,8 @@ export function countContentsAddedToday(db: SQLiteDatabase, now: Date = new Date
 }
 
 /** Logs a content-addition event for Basic-mode daily-limit accounting.
- *  The row persists across app reset and item deletion — by design, so
- *  users cannot bypass the Basic-mode 3-per-day limit. */
+ *  Rows persist across individual item deletion but are cleared on full
+ *  app reset / logout (via clearAllData). */
 export function recordContentAdd(db: SQLiteDatabase, now: Date = new Date()): void {
   db.runSync('INSERT INTO content_adds_log (added_at) VALUES (?)', [now.getTime()]);
 }
@@ -385,5 +385,6 @@ export function clearAllData(db: SQLiteDatabase): void {
     db.runSync('DELETE FROM contents');
     db.runSync('DELETE FROM settings');
     db.runSync('DELETE FROM review_days');
+    db.runSync('DELETE FROM content_adds_log');
   });
 }

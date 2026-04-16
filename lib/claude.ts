@@ -335,9 +335,12 @@ export async function translateSingleWord(
 ): Promise<{ original: string; translation: string; level: string; type: string }> {
   // CEFR level is determined locally after the translation comes back —
   // the LLM is only responsible for formatting + translation.
-  const systemPrompt = `You are a language teacher assistant. Translate the following word/phrase from ${fromLanguageName} to ${toLanguageName} and determine its word type.
+  const systemPrompt = `You are a language teacher assistant. The user sends a word or phrase in ${fromLanguageName} — it may be inflected, conjugated, or in plural form. Your job: determine the dictionary base form, translate it into ${toLanguageName}, and identify its word type.
 
-Formatting rules (apply to both "original" and "translation" fields):
+CRITICAL FORMATTING RULE: Every noun MUST include its article in the base form. Never write a bare noun without an article.
+Examples: "o passaporte" (not "passaporte"), "der Hund" (not "Hund"), "le chat" (not "chat"), "el libro" (not "libro").
+
+Formatting rules (apply to BOTH "original" and "translation" fields):
 ${VOCAB_FORMATTING_RULES}
 
 Respond exclusively as a JSON object, with no additional text. Leave the level field as "" — it is set locally after translation:

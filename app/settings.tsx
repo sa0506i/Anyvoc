@@ -24,7 +24,7 @@ import { languages, getLanguageName, getLanguageFlag } from '../constants/langua
 import { CEFR_LEVELS_UI, displayLevel, uiToInternalLevel } from '../constants/levels';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, fontSize, borderRadius, marineShadow } from '../constants/theme';
-import ConfirmDialog, { useAlert } from '../components/ConfirmDialog';
+import { useAlert } from '../components/ConfirmDialog';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -49,24 +49,17 @@ export default function SettingsScreen() {
 
   const Header = () => (
     <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
-      <View style={styles.headerSide} />
-      <Text style={styles.headerTitle}>Settings</Text>
-      <View style={styles.headerSide}>
-        <Pressable
-          testID="settings-close-btn"
-          onPress={() => router.back()}
-          hitSlop={8}
-          style={styles.closeButton}
-        >
-          <Ionicons name="close" size={20} color={colors.text} style={styles.closeIcon} />
+      <View style={styles.headerSideLeft}>
+        <Pressable testID="settings-close-btn" onPress={() => router.back()} hitSlop={8}>
+          <Text style={styles.backText}>{'\u2190 Back'}</Text>
         </Pressable>
       </View>
+      <Text style={styles.headerTitle}>Settings</Text>
+      <View style={styles.headerSide} />
     </View>
   );
 
   const [showLanguagePicker, setShowLanguagePicker] = useState<'native' | 'learning' | null>(null);
-  const [showResetDialog, setShowResetDialog] = useState(false);
-
   const quizModeOptions: { value: QuizMode; label: string }[] = [
     { value: 'flashcard', label: 'Flashcard' },
     { value: 'typing', label: 'Typing' },
@@ -78,57 +71,50 @@ export default function SettingsScreen() {
     { value: 'random', parts: [nativeFlag, '⇄', learningFlag] },
   ];
 
-  const handleReset = () => {
-    setShowResetDialog(true);
-  };
-
-  const confirmReset = async () => {
-    setShowResetDialog(false);
-    // Reset means fresh-start — if the user is signed in, also sign them
-    // out so the welcome screen can show after the next reload. Failure
-    // to sign out server-side must NOT block the local reset.
-    if (isAuthed) {
-      try {
-        await supabaseSignOut();
-      } catch (err) {
-        console.warn('signOut during reset failed', err);
-      }
-      clearAuth();
-    }
-    await resetApp();
-    router.back();
-  };
-
   const handleSignIn = () => {
     router.push('/auth/login');
   };
 
+  const handleReset = () => {
+    confirm(
+      'Reset App',
+      'All vocabulary, content, statistics, and Leitner progress will be deleted. This action cannot be undone.',
+      async () => {
+        await resetApp();
+        router.back();
+      },
+      { destructive: true, confirmLabel: 'Reset' },
+    );
+  };
+
   const handleSignOut = () => {
     confirm(
-      'Sign out',
-      'You will be signed out of your account. Your local vocabulary will remain on this device.',
+      'Log off',
+      'All vocabulary, content, statistics, and Leitner progress will be deleted. You will be signed out. This action cannot be undone.',
       async () => {
         try {
           await supabaseSignOut();
-          clearAuth();
         } catch (err) {
           console.warn('signOut failed', err);
-          // Even on failure, clear local state — the user wanted out.
-          clearAuth();
         }
+        clearAuth();
+        await resetApp();
+        router.back();
       },
-      { confirmLabel: 'Sign out' },
+      { destructive: true, confirmLabel: 'Log off' },
     );
   };
 
   const handleDeleteAccount = () => {
     confirm(
       'Delete account',
-      'Your account will be permanently deleted from our servers. Your local vocabulary will remain on this device. This action cannot be undone.',
+      'Your account will be permanently deleted. All vocabulary, content, statistics, and Leitner progress on this device will also be deleted. This action cannot be undone.',
       async () => {
         try {
           await deleteAccount();
           clearAuth();
+          await resetApp();
+          router.back();
         } catch (err) {
           console.warn('deleteAccount failed', err);
           const message =
@@ -193,38 +179,22 @@ export default function SettingsScreen() {
     >
       <Header />
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* ── User Settings ── */}
+        <Text style={styles.sectionHeader}>User Settings</Text>
+
         {/* Account */}
-        <Text style={styles.sectionTitle}>Account</Text>
         {isAuthed ? (
-          <>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>Signed in as</Text>
-              <Text
-                testID="settings-account-email"
-                style={styles.rowValue}
-                numberOfLines={1}
-                ellipsizeMode="middle"
-              >
-                {authUser?.email ?? ''}
-              </Text>
-            </View>
-            <Pressable
-              testID="settings-sign-out-btn"
-              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-              onPress={handleSignOut}
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Signed in as</Text>
+            <Text
+              testID="settings-account-email"
+              style={styles.rowValue}
+              numberOfLines={1}
+              ellipsizeMode="middle"
             >
-              <Text style={styles.rowLabel}>Sign out</Text>
-              <Ionicons name="log-out-outline" size={18} color={colors.textSecondary} />
-            </Pressable>
-            <Pressable
-              testID="settings-delete-account-btn"
-              style={({ pressed }) => [styles.deleteAccountBtn, pressed && styles.pressed]}
-              onPress={handleDeleteAccount}
-            >
-              <Ionicons name="trash-outline" size={16} color={colors.error} />
-              <Text style={styles.deleteAccountText}>Delete account</Text>
-            </Pressable>
-          </>
+              {authUser?.email ?? ''}
+            </Text>
+          </View>
         ) : (
           <Pressable
             testID="settings-sign-in-btn"
@@ -232,49 +202,50 @@ export default function SettingsScreen() {
             onPress={handleSignIn}
           >
             <Text style={styles.rowLabel}>Sign in</Text>
-            <Text style={styles.rowValue}>Email · Apple · Google →</Text>
+            <Text style={styles.rowValue}>Sign in →</Text>
           </Pressable>
         )}
 
-        {/* Mode */}
-        <Text style={styles.sectionTitle}>Mode</Text>
-        <Text style={styles.sectionHint}>
-          Basic limits content to 2000 characters, 3 additions per day, and no full-text
-          translation. Pro removes all limits.
-        </Text>
-        <View style={styles.row}>
+        {/* Pro Mode */}
+        <View style={[styles.row, !isAuthed && styles.disabledRow]}>
           <Text style={styles.rowLabel}>Pro Mode</Text>
           <Switch
             testID="pro-mode-switch"
             value={proMode}
+            disabled={!isAuthed}
             onValueChange={(on) => updateSetting('proMode', on ? 'true' : 'false')}
             trackColor={{ false: colors.subtleOverlay, true: colors.primary }}
             thumbColor={'#FFFFFF'}
           />
         </View>
+        <Text style={styles.sectionHint}>
+          {isAuthed
+            ? 'Basic limits content to 2000 characters, 3 additions per day, and no full-text translation. Pro removes all limits.'
+            : 'Sign in to unlock Pro Mode.'}
+        </Text>
 
-        {/* Languages */}
+        {/* Languages — side by side */}
         <Text style={styles.sectionTitle}>Languages</Text>
+        <View style={styles.languageRow}>
+          <Pressable
+            testID="native-language-btn"
+            style={({ pressed }) => [styles.languageCard, pressed && styles.pressed]}
+            onPress={() => setShowLanguagePicker('native')}
+          >
+            <Text style={styles.languageLabel}>Native</Text>
+            <Text style={styles.languageFlag}>{nativeFlag}</Text>
+          </Pressable>
+          <Pressable
+            testID="learning-language-btn"
+            style={({ pressed }) => [styles.languageCard, pressed && styles.pressed]}
+            onPress={() => setShowLanguagePicker('learning')}
+          >
+            <Text style={styles.languageLabel}>Learning</Text>
+            <Text style={styles.languageFlag}>{learningFlag}</Text>
+          </Pressable>
+        </View>
 
-        <Pressable
-          testID="native-language-btn"
-          style={styles.row}
-          onPress={() => setShowLanguagePicker('native')}
-        >
-          <Text style={styles.rowLabel}>Native Language</Text>
-          <Text style={styles.rowValue}>{getLanguageName(nativeLanguage)} →</Text>
-        </Pressable>
-
-        <Pressable
-          testID="learning-language-btn"
-          style={styles.row}
-          onPress={() => setShowLanguagePicker('learning')}
-        >
-          <Text style={styles.rowLabel}>Learning Language</Text>
-          <Text style={styles.rowValue}>{getLanguageName(learningLanguage)} →</Text>
-        </Pressable>
-
-        {/* Level */}
+        {/* Language Level */}
         <Text style={styles.sectionTitle}>Language Level</Text>
         <Text style={styles.sectionHint}>Vocabulary below this level will be ignored</Text>
         <View style={styles.levelRow}>
@@ -370,27 +341,61 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        {/* Reset App */}
-        <Text style={styles.sectionTitle}>Reset App</Text>
-        <Text style={styles.sectionHint}>
-          Delete all vocabulary and go back to initial settings
-        </Text>
-        <Pressable testID="reset-app-btn" style={styles.resetButton} onPress={handleReset}>
-          <Ionicons name="trash-outline" size={16} color={colors.error} />
-          <Text style={styles.resetText}>Reset</Text>
-        </Pressable>
+        {/* ── Support ── */}
+        <Text style={styles.sectionHeader}>Support</Text>
+        <View style={[styles.row, styles.disabledRow]}>
+          <Text style={styles.disabledLabel}>Feedback</Text>
+          <Ionicons name="chatbubble-outline" size={18} color={colors.textSecondary} />
+        </View>
+        <View style={[styles.row, styles.disabledRow]}>
+          <Text style={styles.disabledLabel}>FAQ</Text>
+          <Ionicons name="help-circle-outline" size={18} color={colors.textSecondary} />
+        </View>
+
+        {/* ── Legal ── */}
+        <Text style={styles.sectionHeader}>Legal</Text>
+        <View style={[styles.row, styles.disabledRow]}>
+          <Text style={styles.disabledLabel}>Terms of Use</Text>
+          <Ionicons name="document-text-outline" size={18} color={colors.textSecondary} />
+        </View>
+        <View style={[styles.row, styles.disabledRow]}>
+          <Text style={styles.disabledLabel}>Data Privacy</Text>
+          <Ionicons name="shield-outline" size={18} color={colors.textSecondary} />
+        </View>
+        <View style={[styles.row, styles.disabledRow]}>
+          <Text style={styles.disabledLabel}>Impressum</Text>
+          <Ionicons name="information-circle-outline" size={18} color={colors.textSecondary} />
+        </View>
+        {/* ── Bottom actions ── */}
+        {isAuthed ? (
+          <View style={styles.bottomActions}>
+            <Pressable
+              testID="settings-delete-account-btn"
+              style={styles.bottomActionBtn}
+              onPress={handleDeleteAccount}
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
+              <Text style={styles.resetText}>Delete Account</Text>
+            </Pressable>
+            <Pressable
+              testID="settings-sign-out-btn"
+              style={styles.bottomActionBtn}
+              onPress={handleSignOut}
+            >
+              <Ionicons name="log-out-outline" size={16} color={colors.error} />
+              <Text style={styles.resetText}>Log Off</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.bottomActions}>
+            <Pressable testID="reset-app-btn" style={styles.bottomActionBtn} onPress={handleReset}>
+              <Ionicons name="trash-outline" size={16} color={colors.error} />
+              <Text style={styles.resetText}>Reset App</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
-      <ConfirmDialog
-        visible={showResetDialog}
-        title="Reset App"
-        message="All vocabulary, content, statistics, and Leitner progress will be deleted. This action cannot be undone."
-        cancelLabel="Cancel"
-        confirmLabel="Reset"
-        destructive
-        onCancel={() => setShowResetDialog(false)}
-        onConfirm={confirmReset}
-      />
       <AlertDialog />
     </KeyboardAvoidingView>
   );
@@ -409,8 +414,12 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       paddingBottom: spacing.sm,
       backgroundColor: c.backgroundMid,
     },
+    headerSideLeft: {
+      width: 80,
+      alignItems: 'flex-start',
+    },
     headerSide: {
-      width: 40,
+      width: 80,
       alignItems: 'flex-end',
     },
     headerTitle: {
@@ -420,25 +429,23 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       fontWeight: '600',
       color: c.text,
     },
-    closeButton: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: c.subtleOverlay,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    closeIcon: {
-      lineHeight: 20,
-      textAlign: 'center',
-      textAlignVertical: 'center',
-      includeFontPadding: false,
-      width: 20,
-      height: 20,
+    backText: {
+      fontSize: fontSize.md,
+      color: c.primary,
+      fontWeight: '600',
     },
     content: {
       padding: spacing.md,
       paddingBottom: spacing.xxl,
+    },
+    sectionHeader: {
+      fontSize: fontSize.xs,
+      fontWeight: '600',
+      color: c.textSecondary,
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginTop: spacing.xl,
+      marginBottom: spacing.xs,
     },
     sectionTitle: {
       fontSize: fontSize.md,
@@ -460,7 +467,8 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       backgroundColor: c.glass,
       borderWidth: 1,
       borderColor: c.glassBorder,
-      padding: spacing.md,
+      height: 44,
+      paddingHorizontal: spacing.md,
       borderRadius: borderRadius.md,
       marginTop: spacing.sm,
     },
@@ -490,7 +498,7 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
     },
     directionChip: {
       flex: 1,
-      paddingVertical: spacing.sm + 2,
+      height: 44,
       borderRadius: borderRadius.full,
       backgroundColor: c.glass,
       borderWidth: 1,
@@ -513,13 +521,14 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
     },
     levelChip: {
       flex: 1,
+      height: 44,
       paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
       borderRadius: borderRadius.full,
       backgroundColor: c.glass,
       borderWidth: 1,
       borderColor: c.glassBorder,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     levelChipActive: {
       backgroundColor: c.primary,
@@ -534,37 +543,58 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       color: '#FFFFFF',
       fontWeight: '600',
     },
-    resetButton: {
+    languageRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    languageCard: {
+      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      alignSelf: 'flex-start',
+      justifyContent: 'center',
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      height: 56,
+      borderRadius: borderRadius.md,
+      gap: spacing.sm,
+    },
+    languageFlag: {
+      fontSize: 28,
+    },
+    languageLabel: {
+      fontSize: fontSize.xs,
+      color: c.textSecondary,
+      fontWeight: '300',
+    },
+    disabledRow: {
+      opacity: 0.4,
+    },
+    disabledLabel: {
+      fontSize: fontSize.md,
+      color: c.textSecondary,
+      fontWeight: '300',
+    },
+    bottomActions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: spacing.xl,
+    },
+    bottomActionBtn: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
       gap: spacing.xs,
       backgroundColor: c.errorBgLight,
       borderWidth: 1,
       borderColor: c.errorBgMedium,
       borderRadius: borderRadius.full,
-      paddingVertical: spacing.sm,
+      height: 44,
       paddingHorizontal: spacing.lg,
     },
     resetText: {
-      color: c.error,
-      fontSize: fontSize.sm,
-      fontWeight: '600',
-    },
-    deleteAccountBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'flex-start',
-      gap: spacing.xs,
-      backgroundColor: c.errorBgLight,
-      borderWidth: 1,
-      borderColor: c.errorBgMedium,
-      borderRadius: borderRadius.full,
-      paddingVertical: spacing.sm,
-      paddingHorizontal: spacing.lg,
-      marginTop: spacing.sm,
-    },
-    deleteAccountText: {
       color: c.error,
       fontSize: fontSize.sm,
       fontWeight: '600',
