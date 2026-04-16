@@ -6,6 +6,7 @@ const FETCH_TIMEOUT_MS = 10000;
 const MIN_CONTENT_LENGTH = 50;
 const READABILITY_MIN_LENGTH = 100;
 const MIN_TEXT_FOR_FALLBACK = 200;
+const MAX_HTML_SIZE = 500_000;
 
 const USER_AGENT =
   'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
@@ -336,8 +337,16 @@ export function cleanArticleHtml(html: string): string {
 export async function fetchArticleContent(url: string): Promise<{ title: string; text: string }> {
   const rawHtml = await fetchHtml(url);
 
+  // Cap HTML size before any parsing — pages like weather.com deliver 3 MB+
+  // of markup (mostly inline scripts/JSON-LD). Hermes (Android) runs out of
+  // memory when linkedom builds a DOM tree from megabytes of HTML.
+  // stripNoiseTags regex can't reliably strip nested script blocks, so we
+  // hard-cap first, then strip noise for a cleaner Readability input.
+  const cappedHtml = rawHtml.length > MAX_HTML_SIZE ? rawHtml.substring(0, MAX_HTML_SIZE) : rawHtml;
+  const strippedHtml = stripNoiseTags(cappedHtml);
+
   // Try Readability first (offline, free)
-  const readabilityResult = extractWithReadability(rawHtml);
+  const readabilityResult = extractWithReadability(strippedHtml);
   if (readabilityResult) {
     return readabilityResult;
   }
@@ -354,7 +363,6 @@ export async function fetchArticleContent(url: string): Promise<{ title: string;
     );
   }
 
-  // Fallback to Claude API
-  const cleanedHtml = truncateHtml(stripNoiseTags(rawHtml));
-  return extractWithClaude(cleanedHtml, url);
+  // Fallback to Claude API — tighter 60 KB limit for token budget
+  return extractWithClaude(truncateHtml(strippedHtml), url);
 }
