@@ -257,6 +257,27 @@ and (c) do not add any inline `← Back` button to the sub-screen body.
 Architecture test **Rule 30** enforces both the single-label invariant and the
 state-aware handler structure.
 
+## Share-processing progress messages
+
+Four user actions trigger the full vocabulary-extraction pipeline:
+system share sheet (text or link), manual "Add Link", manual "Add
+Image", manual "Add Text". The global loading overlay is rendered by
+[components/GlobalLoadingOverlay.tsx](components/GlobalLoadingOverlay.tsx)
+from [hooks/useShareProcessingStore.ts](hooks/useShareProcessingStore.ts)
+and driven by exactly two producer files:
+[components/ShareIntentHandler.tsx](components/ShareIntentHandler.tsx)
+for the system share sheet and [app/(tabs)/content.tsx](<app/(tabs)/content.tsx>)
+for the three in-app paths.
+
+**Message rules:**
+
+1. **All message text lives in [constants/progressMessages.ts](constants/progressMessages.ts).** `shareStore.start`, `shareStore.setMessage`, and `shareStore.setRotating` must take constants from that file — never inline literals or ad-hoc arrays. Architecture test **Rule 32** enforces this.
+2. **Rotation cadence is `ROTATION_INTERVAL_MS` (4 s).** The 5 s on-screen cap is a product requirement, so no single message should be visible longer than that. `setRotating` advances through the list automatically and stops on the last entry (no loop). For the LLM phase the list has 8 entries → 32 s of rotation; on the rare call longer than that the final message stays on screen.
+3. **`processSharedText` emits opaque event codes**, not strings — the `onProgress: (event: ShareProgressEvent) => void` callback currently supports `'llm-start'` (caller sets `LLM_ROTATION`) and `'saving'` (caller sets `SAVING`). Keeping the event vocabulary separate from UI copy lets the message set change without touching the data layer.
+4. **Entry-point conventions:** every caller must set an intro (`INTRO.{link,image,text}`) **before** any async work, optionally set an input-specific rotation (`FETCH_ROTATION` for links, `OCR_ROTATION` for images, none for text), then pass the event dispatcher to `processSharedText`, which takes over driving the overlay through the LLM and save phases. The final `shareStore.stop()` must run in a `finally` block so a thrown error still hides the overlay.
+
+When adding a new entry point or a new progress phase: add the constant to `progressMessages.ts`, emit a new event from `processSharedText` if the phase sits in the shared pipeline, update the dispatchers in both producer files, and keep the rotation under `ROTATION_INTERVAL_MS`. Rule 32 will catch inline-literal regressions automatically.
+
 ## Settings Keys (SQLite settings table)
 
 - `nativeLanguage`, `learningLanguage` → language codes

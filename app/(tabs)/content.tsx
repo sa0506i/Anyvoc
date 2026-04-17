@@ -1,15 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { displayLevel } from '../../constants/levels';
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  Modal,
-  TextInput,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
+import { View, Text, FlatList, Pressable, Modal, TextInput, StyleSheet } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -28,12 +19,20 @@ import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import { ClaudeAPIError } from '../../lib/claude';
 import { extractTextFromImageLocal } from '../../lib/ocr';
-import { processSharedText } from '../../lib/shareProcessing';
+import { processSharedText, type ShareProgressEvent } from '../../lib/shareProcessing';
 import { fetchArticleContent } from '../../lib/urlExtractor';
 import { useSettingsStore } from '../../hooks/useSettings';
+import { useShareProcessingStore } from '../../hooks/useShareProcessingStore';
 import { useTheme } from '../../hooks/useTheme';
 import { useUIStore } from '../../hooks/useUIStore';
 import { useAlert } from '../../components/ConfirmDialog';
+import {
+  INTRO,
+  FETCH_ROTATION,
+  OCR_ROTATION,
+  LLM_ROTATION,
+  SAVING,
+} from '../../constants/progressMessages';
 import {
   spacing,
   fontSize,
@@ -67,8 +66,13 @@ export default function ContentsScreen() {
   const [textInput, setTextInput] = useState('');
   const [titleInput, setTitleInput] = useState('');
   const [linkInput, setLinkInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('');
+
+  // All loading UI goes through the global overlay. No local loading state.
+  const shareStore = useShareProcessingStore();
+  const handleProgressEvent = (event: ShareProgressEvent) => {
+    if (event === 'llm-start') shareStore.setRotating(LLM_ROTATION);
+    else if (event === 'saving') shareStore.setMessage(SAVING);
+  };
 
   const loadContents = useCallback(() => {
     setContents(getContents(db));
@@ -103,7 +107,6 @@ export default function ContentsScreen() {
     sourceType: Content['source_type'],
     sourceUrl?: string,
   ) => {
-    setLoading(true);
     try {
       const result = await processSharedText(
         db,
@@ -112,7 +115,7 @@ export default function ContentsScreen() {
         sourceType,
         sourceUrl,
         { nativeLanguage, learningLanguage, level, proMode },
-        setLoadingMessage,
+        handleProgressEvent,
       );
       loadContents();
       if (result.truncated) {
@@ -137,14 +140,14 @@ export default function ContentsScreen() {
         alert('Error', msg);
       }
     } finally {
-      setLoading(false);
-      setLoadingMessage('');
+      shareStore.stop();
     }
   };
 
   const handleAddText = () => {
     if (!textInput.trim()) return;
     setShowTextModal(false);
+    shareStore.start(INTRO.text);
     processText(textInput.trim(), titleInput.trim(), 'text');
     setTextInput('');
     setTitleInput('');
@@ -173,8 +176,8 @@ export default function ContentsScreen() {
 
       const asset = result.assets[0];
 
-      setLoading(true);
-      setLoadingMessage('Reading text from image...');
+      shareStore.start(INTRO.image);
+      shareStore.setRotating(OCR_ROTATION);
 
       // Resize large images to stay within backend payload limits
       const MAX_DIMENSION = 1024;
@@ -191,12 +194,12 @@ export default function ContentsScreen() {
       const extractedText = await extractTextFromImageLocal(manipulated.uri);
 
       const title = extractedText.split(/\s+/).slice(0, 5).join(' ') + '…';
-      // processText handles its own loading + error flow for the vocab phase
-      setLoading(false);
-      setLoadingMessage('');
+      // processText takes over from here — it drives the overlay via
+      // handleProgressEvent and owns the final stop() in its finally block.
       await processText(extractedText, title, 'image');
       return;
     } catch (error) {
+      shareStore.stop();
       const msg =
         error instanceof ClaudeAPIError
           ? error.message
@@ -204,9 +207,6 @@ export default function ContentsScreen() {
             ? error.message
             : String(error);
       alert('Image Error', msg);
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
     }
   };
 
@@ -216,25 +216,23 @@ export default function ContentsScreen() {
     const url = linkInput.trim();
     setLinkInput('');
 
-    setLoading(true);
+    shareStore.start(INTRO.link);
+    shareStore.setRotating(FETCH_ROTATION);
     try {
-      setLoadingMessage('Fetching article...');
       const { title, text } = await fetchArticleContent(url);
       const fullText = title !== url ? `${title}\n\n${text}` : text;
-      setLoading(false);
-      setLoadingMessage('');
+      // processText takes over: its handleProgressEvent drives the
+      // overlay and its finally block calls shareStore.stop().
       await processText(fullText, title, 'link', url);
       return;
     } catch (error) {
+      shareStore.stop();
       if (error instanceof ClaudeAPIError) {
         alert('API Error', error.message);
       } else {
         const msg = error instanceof Error ? error.message : String(error);
         alert('Error', msg);
       }
-    } finally {
-      setLoading(false);
-      setLoadingMessage('');
     }
   };
 
@@ -433,15 +431,8 @@ export default function ContentsScreen() {
         </View>
       </Modal>
 
-      {/* Loading Overlay */}
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingCard}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>{loadingMessage}</Text>
-          </View>
-        </View>
-      )}
+      {/* Loading is rendered by GlobalLoadingOverlay (mounted in _layout.tsx)
+          driven by useShareProcessingStore — no local overlay here. */}
       <AlertDialog />
     </View>
   );
@@ -599,28 +590,6 @@ const createStyles = (c: ThemeColors) =>
       textAlign: 'right',
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
-    },
-    loadingOverlay: {
-      ...StyleSheet.absoluteFillObject,
-      backgroundColor: c.overlay,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    loadingCard: {
-      backgroundColor: c.glass,
-      borderWidth: 1,
-      borderColor: c.glassBorder,
-      borderRadius: borderRadius.lg,
-      padding: spacing.xl,
-      alignItems: 'center',
-      gap: spacing.md,
-      marginHorizontal: spacing.xl,
-    },
-    loadingText: {
-      fontSize: fontSize.md,
-      fontWeight: '300',
-      color: c.text,
-      textAlign: 'center',
     },
     pressed: {
       transform: [{ scale: 0.97 }],

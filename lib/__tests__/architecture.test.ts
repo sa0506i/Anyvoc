@@ -1346,3 +1346,51 @@ describe('Architecture: Rule 31 — auth screens use navigateAfterSignIn', () =>
     expect(hasIosGuard).toBe(true);
   });
 });
+
+// ─── Rule 32: Progress-overlay messages live only in constants/progressMessages.ts ─
+// CLAUDE.md: Inline string literals handed to the shareStore would drift
+// out of sync across the four entry points (system share, manual link,
+// manual image, manual text) and could silently exceed the 5 s on-screen
+// cap. Every call to shareStore.start / setMessage / setRotating must
+// therefore pass a constant imported from constants/progressMessages.ts.
+describe('Architecture: Rule 32 — progress messages only from constants/progressMessages.ts', () => {
+  const scanDirs = ['app', 'components'];
+  const allFiles = scanDirs.flatMap((dir) => collectSourceFiles(path.join(ROOT, dir)));
+  const storeConsumers = allFiles.filter((file) =>
+    fs.readFileSync(file, 'utf8').includes('useShareProcessingStore'),
+  );
+
+  it('should find share-store consumer files to check', () => {
+    expect(storeConsumers.length).toBeGreaterThan(0);
+  });
+
+  // Forbidden patterns: string/array literal as first arg to the store's
+  // message-setting methods. A constant identifier (imported from
+  // progressMessages.ts) produces a non-quote, non-bracket first char.
+  const FORBIDDEN = [
+    { op: 'start', re: /\.start\s*\(\s*['"`]/ },
+    { op: 'setMessage', re: /\.setMessage\s*\(\s*['"`]/ },
+    { op: 'setRotating', re: /\.setRotating\s*\(\s*\[/ },
+  ];
+
+  for (const file of storeConsumers) {
+    const relPath = path.relative(ROOT, file);
+    it(`${relPath} uses constants for shareStore message calls`, () => {
+      const src = fs.readFileSync(file, 'utf8');
+      for (const { op, re } of FORBIDDEN) {
+        const match = src.match(re);
+        if (match) {
+          throw new Error(
+            `INLINE PROGRESS MESSAGE in ${relPath}: "${match[0]}"\n` +
+              `shareStore.${op} must take a constant from constants/progressMessages.ts,\n` +
+              `not an inline literal. Inline strings drift across the four share flows\n` +
+              `and can silently exceed the 5 s on-screen cap. Import INTRO / FETCH_ROTATION /\n` +
+              `OCR_ROTATION / LLM_ROTATION / SAVING and pass the identifier.\n` +
+              `See CLAUDE.md "Share-processing progress messages" section.`,
+          );
+        }
+        expect(match).toBeNull();
+      }
+    });
+  }
+});

@@ -30,6 +30,15 @@ export interface ShareProcessingResult {
 }
 
 /**
+ * Progress events emitted by processSharedText. The caller maps each
+ * event to a concrete overlay-state transition (typically a rotation
+ * for `llm-start` and a single message for `saving`). Kept as opaque
+ * event codes rather than strings so the UI layer owns the copy —
+ * see constants/progressMessages.ts.
+ */
+export type ShareProgressEvent = 'llm-start' | 'saving';
+
+/**
  * Processes shared or manually added text: detects language, extracts
  * vocabulary, optionally translates the text (Pro only), and inserts both
  * content and vocab into the database. Progress strings are reported via
@@ -50,7 +59,7 @@ export async function processSharedText(
   sourceType: Content['source_type'],
   sourceUrl: string | undefined,
   settings: ShareProcessingSettings,
-  onProgress: (message: string) => void,
+  onProgress: (event: ShareProgressEvent) => void,
 ): Promise<ShareProcessingResult> {
   const isPro = settings.proMode ?? true;
 
@@ -73,7 +82,8 @@ export async function processSharedText(
   const nativeName = getLanguageEnglishName(settings.nativeLanguage);
   const learningName = getLanguageEnglishName(settings.learningLanguage);
 
-  onProgress('Checking language...');
+  // Language check is sub-millisecond (franc-min, offline); no overlay
+  // transition for it — the user couldn't read it anyway.
   const detectedLang = await detectLanguage(limitedText);
   if (detectedLang !== null && detectedLang !== settings.learningLanguage) {
     if (sourceType === 'image') {
@@ -85,7 +95,7 @@ export async function processSharedText(
     );
   }
 
-  onProgress('Processing text...');
+  onProgress('llm-start');
   const [vocabs, translation] = await Promise.all([
     extractVocabulary(
       limitedText,
@@ -98,6 +108,8 @@ export async function processSharedText(
       ? translateText(limitedText, learningName, nativeName)
       : Promise.resolve<string | null>(null),
   ]);
+
+  onProgress('saving');
 
   const now = Date.now();
   insertContent(db, {

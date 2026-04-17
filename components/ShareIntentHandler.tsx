@@ -3,13 +3,14 @@ import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useShareIntentContext } from 'expo-share-intent';
 import { parseShareIntent } from '../lib/shareHandler';
-import { processSharedText } from '../lib/shareProcessing';
+import { processSharedText, type ShareProgressEvent } from '../lib/shareProcessing';
 import { fetchArticleContent } from '../lib/urlExtractor';
 import { ClaudeAPIError } from '../lib/claude';
 import { useSettingsStore } from '../hooks/useSettings';
 import { useShareProcessingStore } from '../hooks/useShareProcessingStore';
 import { useUIStore } from '../hooks/useUIStore';
 import { useAlert } from './ConfirmDialog';
+import { INTRO, FETCH_ROTATION, LLM_ROTATION, SAVING } from '../constants/progressMessages';
 
 /**
  * Invisible root-level component that handles incoming system share intents.
@@ -62,7 +63,10 @@ export default function ShareIntentHandler() {
       // destination once processing finishes.
       router.navigate('/(tabs)/content');
 
-      shareStore.start('Preparing...');
+      const handleProgressEvent = (event: ShareProgressEvent) => {
+        if (event === 'llm-start') shareStore.setRotating(LLM_ROTATION);
+        else if (event === 'saving') shareStore.setMessage(SAVING);
+      };
 
       try {
         let text: string;
@@ -71,7 +75,8 @@ export default function ShareIntentHandler() {
         let sourceUrl: string | undefined;
 
         if (parsed.type === 'link' && parsed.url) {
-          shareStore.setMessage('Fetching article...');
+          shareStore.start(INTRO.link);
+          shareStore.setRotating(FETCH_ROTATION);
           const article = await fetchArticleContent(parsed.url);
           text =
             article.title !== parsed.url ? `${article.title}\n\n${article.text}` : article.text;
@@ -79,6 +84,7 @@ export default function ShareIntentHandler() {
           sourceType = 'link';
           sourceUrl = parsed.url;
         } else if (parsed.type === 'text' && parsed.text) {
+          shareStore.start(INTRO.text);
           text = parsed.text;
           title = '';
           sourceType = 'text';
@@ -96,7 +102,7 @@ export default function ShareIntentHandler() {
           sourceType,
           sourceUrl,
           { nativeLanguage, learningLanguage, level, proMode },
-          shareStore.setMessage,
+          handleProgressEvent,
         );
 
         if (result.rejected === 'daily-limit') {
