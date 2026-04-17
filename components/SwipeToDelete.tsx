@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 import { Animated, StyleSheet, Pressable } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,54 +11,57 @@ interface SwipeToDeleteProps {
   onEdit?: () => void;
 }
 
-export default function SwipeToDelete({ children, onDelete, onEdit }: SwipeToDeleteProps) {
+function SwipeToDeleteImpl({ children, onDelete, onEdit }: SwipeToDeleteProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const swipeableRef = useRef<Swipeable>(null);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     swipeableRef.current?.close();
     onDelete();
-  };
+  }, [onDelete]);
 
-  const handleEdit = () => {
+  const handleEdit = useCallback(() => {
     swipeableRef.current?.close();
     onEdit?.();
-  };
+  }, [onEdit]);
 
-  const renderRightActions = (progress: Animated.AnimatedInterpolation<number>) => {
-    const scale = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.5, 1],
-      extrapolate: 'clamp',
-    });
+  const renderRightActions = useCallback(
+    (progress: Animated.AnimatedInterpolation<number>) => {
+      const scale = progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.5, 1],
+        extrapolate: 'clamp',
+      });
+      return (
+        <Pressable style={styles.deleteContainer} onPress={handleDelete}>
+          <Animated.View style={[styles.actionIcon, { transform: [{ scale }] }]}>
+            <Ionicons name="trash" size={24} color={colors.error} />
+          </Animated.View>
+        </Pressable>
+      );
+    },
+    [styles, handleDelete, colors.error],
+  );
 
-    return (
-      <Pressable style={styles.deleteContainer} onPress={handleDelete}>
-        <Animated.View style={[styles.actionIcon, { transform: [{ scale }] }]}>
-          <Ionicons name="trash" size={24} color={colors.error} />
-        </Animated.View>
-      </Pressable>
-    );
-  };
-
-  const renderLeftActions = (progress: Animated.AnimatedInterpolation<number>) => {
-    if (!onEdit) return null;
-
-    const scale = progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.5, 1],
-      extrapolate: 'clamp',
-    });
-
-    return (
-      <Pressable style={styles.editContainer} onPress={handleEdit}>
-        <Animated.View style={[styles.actionIcon, { transform: [{ scale }] }]}>
-          <Ionicons name="create-outline" size={24} color={colors.primary} />
-        </Animated.View>
-      </Pressable>
-    );
-  };
+  const renderLeftActions = useCallback(
+    (progress: Animated.AnimatedInterpolation<number>) => {
+      if (!onEdit) return null;
+      const scale = progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.5, 1],
+        extrapolate: 'clamp',
+      });
+      return (
+        <Pressable style={styles.editContainer} onPress={handleEdit}>
+          <Animated.View style={[styles.actionIcon, { transform: [{ scale }] }]}>
+            <Ionicons name="create-outline" size={24} color={colors.primary} />
+          </Animated.View>
+        </Pressable>
+      );
+    },
+    [styles, handleEdit, onEdit, colors.primary],
+  );
 
   return (
     <Swipeable
@@ -72,6 +75,9 @@ export default function SwipeToDelete({ children, onDelete, onEdit }: SwipeToDel
     </Swipeable>
   );
 }
+
+const SwipeToDelete = memo(SwipeToDeleteImpl);
+export default SwipeToDelete;
 
 const createStyles = (c: ThemeColors) =>
   StyleSheet.create({

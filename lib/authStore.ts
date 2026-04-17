@@ -29,12 +29,15 @@ interface AuthState {
   setSession: (session: Session | null) => void;
 }
 
-let subscribed = false;
+let authSubscription: { unsubscribe: () => void } | null = null;
 
-/** Test-only: resets the one-shot onAuthStateChange subscription flag so
- *  `restoreSession` can re-register a fresh listener. No effect at runtime. */
+/** Test-only: tears down the current onAuthStateChange subscription so the
+ *  next `restoreSession` re-registers a fresh listener bound to the current
+ *  store instance. Production code never calls this — the subscription is
+ *  meant to live for the whole process. */
 export function __resetAuthSubscriptionForTests(): void {
-  subscribed = false;
+  authSubscription?.unsubscribe();
+  authSubscription = null;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -55,9 +58,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     // Subscribe once for the lifetime of the process. Covers token
     // refreshes, sign-outs from other tabs/flows, and provider flows.
-    if (!subscribed) {
-      subscribed = true;
-      supabase.auth.onAuthStateChange((_event, session) => {
+    if (!authSubscription) {
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         set({
           session,
           user: session?.user ?? null,
@@ -65,6 +67,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           isLoading: false,
         });
       });
+      authSubscription = data.subscription;
     }
   },
 

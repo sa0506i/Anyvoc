@@ -12,8 +12,7 @@ import {
 } from '../../lib/database';
 import { useVocabularyList } from '../../hooks/useVocabulary';
 import { useSettingsStore } from '../../hooks/useSettings';
-import VocabCard from '../../components/VocabCard';
-import SwipeToDelete from '../../components/SwipeToDelete';
+import VocabRow from '../../components/VocabRow';
 import EmptyState from '../../components/EmptyState';
 import EditVocabModal from '../../components/EditVocabModal';
 import { MATURITY_LABELS } from '../../components/LearningMaturity';
@@ -93,10 +92,17 @@ export default function VocabularyScreen() {
     return sortVocabulary(result, sortBy, sortDirection);
   }, [vocabulary, searchQuery, sortBy, sortDirection, activeFilter, minLevel]);
 
-  const handleDelete = (vocab: Vocabulary) => {
-    deleteVocabulary(db, vocab.id);
-    setVocabulary((prev) => prev.filter((v) => v.id !== vocab.id));
-  };
+  const handleDelete = useCallback(
+    (vocab: Vocabulary) => {
+      deleteVocabulary(db, vocab.id);
+      setVocabulary((prev) => prev.filter((v) => v.id !== vocab.id));
+    },
+    [db],
+  );
+
+  const handleEdit = useCallback((vocab: Vocabulary) => {
+    setEditingVocab(vocab);
+  }, []);
 
   const handleSaveEdit = (original: string, translation: string) => {
     if (!editingVocab) return;
@@ -106,6 +112,13 @@ export default function VocabularyScreen() {
     );
     setEditingVocab(null);
   };
+
+  const renderItem = useCallback(
+    ({ item }: { item: Vocabulary }) => (
+      <VocabRow item={item} onDelete={handleDelete} onEdit={handleEdit} />
+    ),
+    [handleDelete, handleEdit],
+  );
 
   // No vocabulary at all → unified empty state, flex-centred (no search/sort UI)
   if (vocabulary.length === 0) {
@@ -166,17 +179,7 @@ export default function VocabularyScreen() {
         data={filteredAndSorted}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingBottom: spacing.xl + 60 + insets.bottom }]}
-        renderItem={({ item }) => (
-          <SwipeToDelete onDelete={() => handleDelete(item)} onEdit={() => setEditingVocab(item)}>
-            <VocabCard
-              original={item.original}
-              translation={item.translation}
-              level={item.level}
-              wordType={item.word_type}
-              leitnerBox={item.leitner_box}
-            />
-          </SwipeToDelete>
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={
           <View style={styles.searchEmptyState}>
             <Ionicons name="list-outline" size={48} color={colors.textSecondary} />

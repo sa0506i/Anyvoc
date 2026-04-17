@@ -92,7 +92,16 @@ export async function callClaude(
         );
       }
       const errorBody = await response.text().catch(() => '');
-      throw new ClaudeAPIError(`API error (${status}): ${errorBody || 'Unknown error'}`, status);
+      let detail = 'Unknown error';
+      if (errorBody) {
+        try {
+          const parsed = JSON.parse(errorBody) as { error?: { message?: string } };
+          if (parsed?.error?.message) detail = parsed.error.message;
+        } catch {
+          detail = errorBody;
+        }
+      }
+      throw new ClaudeAPIError(`API error (${status}): ${detail}`, status);
     }
 
     const data: ClaudeResponse = await response.json();

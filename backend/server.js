@@ -11,14 +11,16 @@ if (!process.env.MISTRAL_API_KEY) {
 const app = express();
 
 // --- CORS: restrict to expected origins ---
-app.use(cors({
-  origin: [
-    /^exp\+anyvoc:\/\//,           // Expo dev client
-    /^https?:\/\/localhost(:\d+)?$/, // local development
-    /^https?:\/\/10\.0\.2\.2(:\d+)?$/, // Android emulator
-  ],
-  methods: ['POST'],
-}));
+app.use(
+  cors({
+    origin: [
+      /^exp\+anyvoc:\/\//, // Expo dev client
+      /^https?:\/\/localhost(:\d+)?$/, // local development
+      /^https?:\/\/10\.0\.2\.2(:\d+)?$/, // Android emulator
+    ],
+    methods: ['POST'],
+  }),
+);
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -34,6 +36,14 @@ const apiLimiter = rateLimit({
 const MISTRAL_API_URL = 'https://api.mistral.ai/v1/chat/completions';
 const MISTRAL_MODEL = 'mistral-small-2506';
 
+function safeErrorMessage(status) {
+  if (status === 401 || status === 403) return 'Authentication error. Please contact support.';
+  if (status === 429) return 'Rate limit exceeded. Please try again shortly.';
+  if (status >= 500) return 'Service temporarily unavailable. Please try again later.';
+  if (status >= 400) return 'Request rejected. Please try again.';
+  return `Upstream service error (${status}).`;
+}
+
 app.post('/api/chat', apiLimiter, async (req, res) => {
   try {
     const { messages, max_tokens, system, temperature, top_p } = req.body;
@@ -46,7 +56,10 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
       });
     }
 
-    if (max_tokens !== undefined && (typeof max_tokens !== 'number' || max_tokens < 1 || max_tokens > 32768)) {
+    if (
+      max_tokens !== undefined &&
+      (typeof max_tokens !== 'number' || max_tokens < 1 || max_tokens > 32768)
+    ) {
       return res.status(400).json({
         content: [],
         error: { message: 'Invalid request: max_tokens must be a number between 1 and 32768' },
@@ -74,7 +87,7 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
       },
       body: JSON.stringify(mistralBody),
     });
@@ -82,9 +95,13 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Mistral API error (${response.status}):`, errorText);
+      // Never forward upstream error text to the client. Mistral's 401/5xx
+      // bodies can include API key fragments, internal URLs, and other
+      // provider-side details. Map to generic English strings and keep
+      // the raw body only in server logs.
       return res.status(response.status).json({
         content: [],
-        error: { message: errorText },
+        error: { message: safeErrorMessage(response.status) },
       });
     }
 

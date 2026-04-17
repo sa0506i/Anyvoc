@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTheme } from '../hooks/useTheme';
 import { spacing, fontSize, borderRadius, type ThemeColors } from '../constants/theme';
@@ -14,7 +14,7 @@ interface VocabCardProps {
   onPress?: () => void;
 }
 
-export default function VocabCard({
+function VocabCardImpl({
   original,
   translation,
   level,
@@ -59,6 +59,14 @@ export default function VocabCard({
     </Pressable>
   );
 }
+
+// Memoized to stop row re-renders when the parent list renders for
+// unrelated reasons (edit-modal toggle, filter change with same item
+// identity, etc). All props are primitives except `onPress`, so the
+// default shallow comparator is correct as long as callers pass a
+// stable reference for `onPress`.
+const VocabCard = memo(VocabCardImpl);
+export default VocabCard;
 
 const createStyles = (c: ThemeColors) =>
   StyleSheet.create({

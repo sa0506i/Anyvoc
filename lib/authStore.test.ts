@@ -70,7 +70,9 @@ describe('useAuthStore initial state', () => {
 describe('restoreSession', () => {
   it('hydrates from SDK getSession and clears loading', async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: fakeSession } });
-    mockAuth.onAuthStateChange.mockReturnValue({ data: { subscription: {} } });
+    mockAuth.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    });
 
     await useAuthStore.getState().restoreSession();
 
@@ -83,7 +85,9 @@ describe('restoreSession', () => {
 
   it('handles null session (no prior login)', async () => {
     mockAuth.getSession.mockResolvedValue({ data: { session: null } });
-    mockAuth.onAuthStateChange.mockReturnValue({ data: { subscription: {} } });
+    mockAuth.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    });
 
     await useAuthStore.getState().restoreSession();
 
@@ -97,7 +101,7 @@ describe('restoreSession', () => {
     let captured: ((event: string, session: unknown) => void) | null = null;
     mockAuth.onAuthStateChange.mockImplementation((cb: (event: string, s: unknown) => void) => {
       captured = cb;
-      return { data: { subscription: {} } };
+      return { data: { subscription: { unsubscribe: jest.fn() } } };
     });
 
     await useAuthStore.getState().restoreSession();
@@ -108,6 +112,29 @@ describe('restoreSession', () => {
     const s = useAuthStore.getState();
     expect(s.session).toBe(fakeSession);
     expect(s.isAuthed).toBe(true);
+  });
+
+  it('tears down the existing subscription when the test-reset helper runs', async () => {
+    mockAuth.getSession.mockResolvedValue({ data: { session: null } });
+    const unsubscribe = jest.fn();
+    mockAuth.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe } },
+    });
+
+    await useAuthStore.getState().restoreSession();
+    expect(mockAuth.onAuthStateChange).toHaveBeenCalledTimes(1);
+
+    // A second restore while still subscribed must NOT open a second listener.
+    await useAuthStore.getState().restoreSession();
+    expect(mockAuth.onAuthStateChange).toHaveBeenCalledTimes(1);
+
+    // Reset helper unsubscribes the current listener so a fresh store
+    // instance (e.g. next test, Fast Refresh) can register cleanly.
+    __resetAuthSubscriptionForTests();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+
+    await useAuthStore.getState().restoreSession();
+    expect(mockAuth.onAuthStateChange).toHaveBeenCalledTimes(2);
   });
 });
 

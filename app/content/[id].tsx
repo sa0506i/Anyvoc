@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import {
   getContentById,
   getVocabularyByContentId,
@@ -28,8 +27,7 @@ import { useSettingsStore } from '../../hooks/useSettings';
 import { getLanguageEnglishName } from '../../constants/languages';
 import { generateUUID } from '../../lib/uuid';
 import HighlightedText from '../../components/HighlightedText';
-import VocabCard from '../../components/VocabCard';
-import SwipeToDelete from '../../components/SwipeToDelete';
+import VocabRow from '../../components/VocabRow';
 import EditVocabModal from '../../components/EditVocabModal';
 import {
   DEFAULT_SORT_DIRECTION,
@@ -43,7 +41,7 @@ import SortChips from '../../components/SortChips';
 import { useTheme } from '../../hooks/useTheme';
 import { useAlert } from '../../components/ConfirmDialog';
 import { isAtOrAboveLevel } from '../../constants/levels';
-import { spacing, fontSize, borderRadius, type ThemeColors } from '../../constants/theme';
+import { spacing, fontSize, type ThemeColors } from '../../constants/theme';
 
 type Tab = 'original' | 'translation' | 'vocabulary';
 
@@ -118,14 +116,23 @@ export default function ContentDetailScreen() {
 
   useFocusEffect(loadData);
 
-  // Build highlight ranges by finding vocab words in the original text
+  // Build highlight ranges by finding vocab words in the original text.
+  // Single-pass: union all search terms into one regex and walk the
+  // text once, then attribute each match to its vocab id via a lookup
+  // map. Previously this was O(vocab × forms) separate regex walks and
+  // an overlap check per hit — fine at a few entries, noticeable past
+  // ~100.
   const highlights = useMemo(() => {
     if (!content) return [];
-    const ranges: { start: number; end: number; vocabId: string }[] = [];
     const text = content.original_text;
 
+    // Lower-cased term → first vocab id that registered it. We keep
+    // the first registration so the display behaviour matches the old
+    // vocabulary-iteration order when two entries share a form.
+    const termToVocabId = new Map<string, string>();
+    const terms: string[] = [];
+
     for (const v of vocabulary) {
-      // Prefer source_forms (exact text forms) over derived search terms
       let searchWords: string[];
       if (v.source_forms) {
         try {
@@ -137,24 +144,35 @@ export default function ContentDetailScreen() {
       } else {
         searchWords = extractSearchTerms(v.original);
       }
-
-      for (const searchWord of searchWords) {
-        if (searchWord.length < 2) continue;
-        const escaped = escapeRegex(searchWord);
-        const regex = new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'giu');
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-          const overlaps = ranges.some(
-            (r) => match!.index < r.end && match!.index + match![0].length > r.start,
-          );
-          if (!overlaps) {
-            ranges.push({
-              start: match.index,
-              end: match.index + match[0].length,
-              vocabId: v.id,
-            });
-          }
+      for (const w of searchWords) {
+        if (w.length < 2) continue;
+        const key = w.toLowerCase();
+        if (!termToVocabId.has(key)) {
+          termToVocabId.set(key, v.id);
+          terms.push(w);
         }
+      }
+    }
+
+    if (terms.length === 0) return [];
+
+    // Longest-first so a shorter alternative that fails its right-edge
+    // lookahead doesn't shadow a longer one in the rare case where
+    // both start at the same offset.
+    terms.sort((a, b) => b.length - a.length);
+    const pattern = `(?<![\\p{L}\\p{N}])(?:${terms.map(escapeRegex).join('|')})(?![\\p{L}\\p{N}])`;
+    const regex = new RegExp(pattern, 'giu');
+
+    const ranges: { start: number; end: number; vocabId: string }[] = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const vocabId = termToVocabId.get(match[0].toLowerCase());
+      if (vocabId) {
+        ranges.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          vocabId,
+        });
       }
     }
 
@@ -233,9 +251,24 @@ export default function ContentDetailScreen() {
     }
   };
 
-  const handleDeleteVocab = (vocabId: string) => {
-    handleRemoveHighlight(vocabId);
-  };
+  const handleDeleteVocab = useCallback(
+    (vocab: Vocabulary) => {
+      deleteVocabulary(db, vocab.id);
+      setVocabulary((prev) => prev.filter((v) => v.id !== vocab.id));
+    },
+    [db],
+  );
+
+  const handleEditVocab = useCallback((vocab: Vocabulary) => {
+    setEditingVocab(vocab);
+  }, []);
+
+  const renderVocabRow = useCallback(
+    ({ item }: { item: Vocabulary }) => (
+      <VocabRow item={item} onDelete={handleDeleteVocab} onEdit={handleEditVocab} />
+    ),
+    [handleDeleteVocab, handleEditVocab],
+  );
 
   const handleSaveEdit = (original: string, translation: string) => {
     if (!editingVocab) return;
@@ -332,20 +365,7 @@ export default function ContentDetailScreen() {
             styles.listContent,
             { paddingBottom: spacing.xl + insets.bottom },
           ]}
-          renderItem={({ item }) => (
-            <SwipeToDelete
-              onDelete={() => handleDeleteVocab(item.id)}
-              onEdit={() => setEditingVocab(item)}
-            >
-              <VocabCard
-                original={item.original}
-                translation={item.translation}
-                level={item.level}
-                wordType={item.word_type}
-                leitnerBox={item.leitner_box}
-              />
-            </SwipeToDelete>
-          )}
+          renderItem={renderVocabRow}
           ListEmptyComponent={<Text style={styles.emptyText}>No vocabulary yet</Text>}
           ListFooterComponent={
             vocabulary.length > 0 ? (
