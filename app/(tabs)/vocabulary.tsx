@@ -176,7 +176,7 @@ export default function VocabularyScreen() {
                 : 'Learned today'}
             </Text>
             <Pressable onPress={clearFilter} hitSlop={8}>
-              <Ionicons name="close" size={14} color="#FFFFFF" />
+              <Ionicons name="close" size={14} color={colors.textOnColor} />
             </Pressable>
           </View>
         </View>
@@ -290,7 +290,7 @@ const createStyles = (c: ThemeColors) =>
     filterBadgeText: {
       fontSize: fontSize.xs,
       fontWeight: '600' as const,
-      color: '#FFFFFF',
+      color: c.textOnColor,
     },
     pressed: {
       transform: [{ scale: 0.97 }],

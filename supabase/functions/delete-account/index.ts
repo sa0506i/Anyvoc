@@ -33,6 +33,25 @@ const json = (body: unknown, status = 200) =>
     headers: { ...CORS, 'Content-Type': 'application/json' },
   });
 
+// Per-call deadline. Supabase auth can stall under load; without a
+// bound the client awaits forever and the UX hangs silently.
+const CALL_TIMEOUT_MS = 10_000;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: number | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${label} exceeded ${ms}ms timeout`)),
+      ms,
+    ) as unknown as number;
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 // @ts-expect-error Deno global exists in the Edge Function runtime.
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -61,28 +80,38 @@ Deno.serve(async (req: Request) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const {
-      data: { user },
-      error: userErr,
-    } = await anon.auth.getUser();
+    // Supabase SDK types come from an npm: specifier the local tsc
+    // treats as `unknown`; cast the racing promise result to the
+    // concrete shape the SDK actually returns at runtime.
+    const getUserRes = (await withTimeout(
+      anon.auth.getUser(),
+      CALL_TIMEOUT_MS,
+      'auth.getUser',
+    )) as { data: { user: { id: string } | null }; error: { message: string } | null };
 
-    if (userErr || !user) {
+    if (getUserRes.error || !getUserRes.data.user) {
       return json({ error: 'Unauthorized' }, 401);
     }
+    const user = getUserRes.data.user;
 
     // Admin client — bypasses RLS, can call auth.admin.*.
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    const { error: delErr } = await admin.auth.admin.deleteUser(user.id);
-    if (delErr) {
-      return json({ error: delErr.message }, 500);
+    const delRes = (await withTimeout(
+      admin.auth.admin.deleteUser(user.id),
+      CALL_TIMEOUT_MS,
+      'admin.deleteUser',
+    )) as { error: { message: string } | null };
+    if (delRes.error) {
+      return json({ error: delRes.error.message }, 500);
     }
 
     return json({ success: true, userId: user.id });
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unknown error';
-    return json({ error: message }, 500);
+    const isTimeout = message.includes('exceeded') && message.includes('timeout');
+    return json({ error: message }, isTimeout ? 504 : 500);
   }
 });

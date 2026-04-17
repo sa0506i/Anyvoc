@@ -1,8 +1,15 @@
+import Constants from 'expo-constants';
 import { classifyWord, type SupportedLanguage } from './classifier';
 import { postProcessExtractedVocab } from './vocabFilters';
 import { franc } from 'franc-min';
 
-const API_URL = 'https://anyvoc-backend.fly.dev/api/chat';
+// Read the backend URL from app.json.extra so it lives in one place
+// (config). Fallback to the Fly.dev URL so unit tests and anything
+// that imports this module outside the Expo runtime still work.
+const DEFAULT_API_URL = 'https://anyvoc-backend.fly.dev/api/chat';
+const API_URL =
+  (Constants?.expoConfig?.extra as { backendApiUrl?: string } | undefined)?.backendApiUrl ??
+  DEFAULT_API_URL;
 const MODEL = 'mistral-small-2506';
 const MAX_CHARS_PER_CHUNK = 5000;
 
