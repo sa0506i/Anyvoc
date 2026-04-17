@@ -47,10 +47,20 @@ export default function SettingsScreen() {
   const nativeFlag = getLanguageFlag(nativeLanguage);
   const learningFlag = getLanguageFlag(learningLanguage);
 
+  const [showLanguagePicker, setShowLanguagePicker] = useState<'native' | 'learning' | null>(null);
+
+  const handleBack = () => {
+    if (showLanguagePicker) {
+      setShowLanguagePicker(null);
+      return;
+    }
+    router.back();
+  };
+
   const Header = () => (
     <View style={[styles.header, { paddingTop: insets.top + spacing.xs }]}>
       <View style={styles.headerSideLeft}>
-        <Pressable testID="settings-close-btn" onPress={() => router.back()} hitSlop={8}>
+        <Pressable testID="settings-close-btn" onPress={handleBack} hitSlop={8}>
           <Text style={styles.backText}>{'\u2190 Back'}</Text>
         </Pressable>
       </View>
@@ -59,7 +69,6 @@ export default function SettingsScreen() {
     </View>
   );
 
-  const [showLanguagePicker, setShowLanguagePicker] = useState<'native' | 'learning' | null>(null);
   const quizModeOptions: { value: QuizMode; label: string }[] = [
     { value: 'flashcard', label: 'Flashcard' },
     { value: 'typing', label: 'Typing' },
@@ -72,7 +81,10 @@ export default function SettingsScreen() {
   ];
 
   const handleSignIn = () => {
-    router.push('/auth/login');
+    // `from: 'settings'` tells navigateAfterSignIn to pop the auth
+    // screens after success, leaving this Settings modal visible so
+    // the user resumes exactly where they left off.
+    router.push({ pathname: '/auth/login', params: { from: 'settings' } });
   };
 
   const handleReset = () => {
@@ -133,10 +145,7 @@ export default function SettingsScreen() {
     return (
       <View style={styles.container}>
         <Header />
-        <Pressable style={styles.pickerBack} onPress={() => setShowLanguagePicker(null)}>
-          <Text style={styles.pickerBackText}>← Back</Text>
-        </Pressable>
-        <Text style={styles.sectionTitle}>
+        <Text style={[styles.sectionTitle, styles.pickerTitle]}>
           {isNative ? 'Select Native Language' : 'Select Learning Language'}
         </Text>
         <ScrollView>
@@ -599,13 +608,8 @@ function createStyles(c: typeof import('../constants/theme').darkColors) {
       fontSize: fontSize.sm,
       fontWeight: '600',
     },
-    pickerBack: {
-      padding: spacing.md,
-    },
-    pickerBackText: {
-      fontSize: fontSize.md,
-      color: c.primary,
-      fontWeight: '600',
+    pickerTitle: {
+      paddingHorizontal: spacing.md,
     },
     pickerItem: {
       flexDirection: 'row',

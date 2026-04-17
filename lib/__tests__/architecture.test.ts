@@ -1196,3 +1196,153 @@ describe('Architecture: Rule 29 — Pro mode switch disabled for guests', () => 
     expect(src).toMatch(/!isAuthed\s*&&\s*styles\.disabledRow/);
   });
 });
+
+// ─── Rule 30: Settings screen has exactly one Back button ──────────
+// CLAUDE.md: Sub-menus inside app/settings.tsx must not render their
+// own Back affordance. The single header Back button handles both
+// "pop sub-menu" and "close settings" via state-aware logic, so the
+// user never sees two stacked Back controls.
+describe('Architecture: Rule 30 — app/settings.tsx renders Back exactly once', () => {
+  it('has exactly one Back label in source', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'app', 'settings.tsx'), 'utf8');
+    // Match any Back arrow literal: "\u2190 Back", "← Back", or "\\u2190 Back"
+    const matches = src.match(/(?:\\u2190|←)\s*Back/g) ?? [];
+    if (matches.length !== 1) {
+      throw new Error(
+        `app/settings.tsx contains ${matches.length} Back labels; expected exactly 1.\n` +
+          `Sub-menus (language picker, future sub-screens) must reuse the header Back\n` +
+          `button instead of rendering their own. The header's onPress handler should\n` +
+          `pop sub-menu state first, then fall back to router.back() on the main screen.\n` +
+          `See CLAUDE.md "Settings navigation" rule.`,
+      );
+    }
+    expect(matches.length).toBe(1);
+  });
+
+  it('header Back handler pops sub-menu state before router.back()', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'app', 'settings.tsx'), 'utf8');
+    // There must be a handler that clears showLanguagePicker before falling
+    // through to router.back(). This enforces the "go back one level" logic.
+    const hasStateAwareBack = /setShowLanguagePicker\(null\)[\s\S]{0,200}router\.back\(\)/.test(
+      src,
+    );
+    if (!hasStateAwareBack) {
+      throw new Error(
+        `app/settings.tsx header Back button must be state-aware:\n` +
+          `sub-menu state (e.g. showLanguagePicker) should be cleared before\n` +
+          `falling through to router.back(). Otherwise pressing Back in a sub-menu\n` +
+          `exits Settings instead of returning to the main screen.\n` +
+          `See CLAUDE.md "Settings navigation" rule.`,
+      );
+    }
+    expect(hasStateAwareBack).toBe(true);
+  });
+});
+
+// ─── Rule 31: Auth screens route home via navigateAfterSignIn ──────
+// CLAUDE.md: After a successful sign-in, the stack may contain a
+// Settings modal (/(tabs) → /settings → /auth/login → /auth/verify).
+// A plain router.replace('/(tabs)') only swaps the top, leaving the
+// modal mounted and visible on iOS. All post-sign-in navigation must
+// go through lib/authNavigation.navigateAfterSignIn which dismissAll's
+// first, then replaces.
+describe('Architecture: Rule 31 — auth screens use navigateAfterSignIn', () => {
+  const authFiles = [
+    path.join(ROOT, 'app', 'auth', 'login.tsx'),
+    path.join(ROOT, 'app', 'auth', 'verify.tsx'),
+  ];
+
+  for (const file of authFiles) {
+    const relPath = path.relative(ROOT, file);
+    it(`${relPath} does not call router.replace('/(tabs)') directly`, () => {
+      const src = fs.readFileSync(file, 'utf8');
+      const forbidden = /router\.replace\(\s*['"]\/\(tabs\)['"]\s*\)/.test(src);
+      if (forbidden) {
+        throw new Error(
+          `${relPath} calls router.replace('/(tabs)') directly.\n` +
+            `After a successful sign-in, the stack can still contain the\n` +
+            `Settings modal (from the /(tabs) → /settings → /auth/login flow).\n` +
+            `Plain replace leaves that modal mounted under the new tabs screen,\n` +
+            `causing an iOS-only ghost-layer bug. Use navigateAfterSignIn(router)\n` +
+            `from lib/authNavigation.ts instead — it dismissAll's first, then\n` +
+            `replaces. See CLAUDE.md "Authentication → Post-sign-in navigation".`,
+        );
+      }
+      expect(forbidden).toBe(false);
+    });
+
+    it(`${relPath} imports navigateAfterSignIn`, () => {
+      const src = fs.readFileSync(file, 'utf8');
+      // Only require the import if the file actually reaches a "success"
+      // branch (i.e. uses setSession). Defensive for future auth screens
+      // that don't complete a sign-in themselves.
+      if (!/setSession\s*\(/.test(src)) return;
+      const imports = /from\s+['"][^'"]*authNavigation['"]/.test(src);
+      if (!imports) {
+        throw new Error(
+          `${relPath} calls setSession() but does not import navigateAfterSignIn\n` +
+            `from lib/authNavigation.ts. All post-sign-in navigation must use\n` +
+            `that helper to avoid the iOS modal-ghost bug.\n` +
+            `See CLAUDE.md "Authentication → Post-sign-in navigation".`,
+        );
+      }
+      expect(imports).toBe(true);
+    });
+  }
+
+  it('lib/authNavigation.ts exists and calls dismissAll before replace', () => {
+    const file = path.join(ROOT, 'lib', 'authNavigation.ts');
+    expect(fs.existsSync(file)).toBe(true);
+    const raw = fs.readFileSync(file, 'utf8');
+    // Strip JSDoc/block comments and line comments so we don't match the
+    // word "replace" inside the documentation that explains why we dismiss.
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const dismissIdx = src.indexOf('dismissAll');
+    const replaceIdx = src.indexOf('replace(');
+    expect(dismissIdx).toBeGreaterThan(-1);
+    expect(replaceIdx).toBeGreaterThan(-1);
+    expect(dismissIdx).toBeLessThan(replaceIdx);
+  });
+
+  it('app/settings.tsx passes from: "settings" when pushing to /auth/login', () => {
+    // So navigateAfterSignIn knows to dismiss back to the still-open
+    // Settings modal instead of replacing to (tabs). Without this, a
+    // successful sign-in from the menu closes the menu, forcing the
+    // user to reopen it to toggle Pro Mode etc.
+    const src = fs.readFileSync(path.join(ROOT, 'app', 'settings.tsx'), 'utf8');
+    const pattern =
+      /router\.push\s*\(\s*\{[\s\S]{0,200}pathname\s*:\s*['"]\/auth\/login['"][\s\S]{0,200}from\s*:\s*['"]settings['"]/;
+    if (!pattern.test(src)) {
+      throw new Error(
+        `app/settings.tsx handleSignIn must push /auth/login with params { from: 'settings' }.\n` +
+          `The 'from' param tells navigateAfterSignIn to dismiss only the auth\n` +
+          `screens on success, leaving the Settings modal open so the user can\n` +
+          `continue where they left off (e.g. enable Pro Mode).\n` +
+          `See CLAUDE.md "Authentication" Hard rule 13.`,
+      );
+    }
+    expect(pattern.test(src)).toBe(true);
+  });
+
+  it('lib/authNavigation.ts guards dismissAll with Platform.OS === "ios"', () => {
+    // Android crashes Fabric with IllegalStateException when dismissAll() and
+    // replace() run in the same tick from the settings-flow stack. The helper
+    // must keep dismissAll behind a Platform.OS === 'ios' check so Android
+    // stays on the plain-replace path that was working pre-fix.
+    const file = path.join(ROOT, 'lib', 'authNavigation.ts');
+    const raw = fs.readFileSync(file, 'utf8');
+    const src = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const hasIosGuard = /Platform\.OS\s*===\s*['"]ios['"][\s\S]{0,200}dismissAll/.test(src);
+    if (!hasIosGuard) {
+      throw new Error(
+        `lib/authNavigation.ts must gate dismissAll() behind Platform.OS === 'ios'.\n` +
+          `Running dismissAll + replace in the same tick crashes Fabric on Android\n` +
+          `with "IllegalStateException: addViewAt: failed to insert view" when the\n` +
+          `user signs in from the Settings modal. Android keeps the plain-replace\n` +
+          `path that worked before the iOS ghost-modal fix.\n` +
+          `See CLAUDE.md "Authentication" Hard rule 13.`,
+      );
+    }
+    expect(hasIosGuard).toBe(true);
+  });
+});

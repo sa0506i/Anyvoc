@@ -179,7 +179,7 @@ See `BENCHMARK-REPORT.md` context in conversation history for details.
 After the LLM extracts vocabulary, every entry passes through
 `postProcessExtractedVocab(items, learningLangCode, nativeLangCode)` in
 `lib/vocabFilters.ts` before classification + insertion. The module is
-pure (no I/O, no DB, no expo-*, no fetch) so unit tests stay fast and
+pure (no I/O, no DB, no expo-\*, no fetch) so unit tests stay fast and
 the batch-classification scripts can reuse it.
 
 Three responsibilities:
@@ -237,6 +237,26 @@ invariants computationally.
   from `constants/theme.ts` — never hardcode color values
 - Glass cards: use `GlassCard` component or spread `glassStyle` from theme
 
+## Settings navigation
+
+`app/settings.tsx` and any future multi-level settings screen renders **exactly
+one** Back affordance: the header Back button. Sub-menus (language picker, and
+any future sub-screen) must not render their own `← Back` control. The header's
+`onPress` handler is state-aware — it pops sub-menu state first (e.g.
+`setShowLanguagePicker(null)`) and only falls through to `router.back()` when
+already on the root of the Settings screen.
+
+**Why:** two stacked Back controls are ambiguous and noisy. The user's mental
+model is "Back goes up one level", which works uniformly across nesting depth
+when there is a single entry point. New sub-screens get this behavior for free
+by adding their state branch to the same handler.
+
+**How to apply:** when adding a new sub-screen inside Settings, (a) gate it on a
+piece of state, (b) extend the `handleBack` handler to clear that state first,
+and (c) do not add any inline `← Back` button to the sub-screen body.
+Architecture test **Rule 30** enforces both the single-label invariant and the
+state-aware handler structure.
+
 ## Settings Keys (SQLite settings table)
 
 - `nativeLanguage`, `learningLanguage` → language codes
@@ -281,6 +301,13 @@ Anyvoc uses Supabase Auth (EU/Frankfurt region) for optional sign-in. The app fo
 10. **`.easignore` lists `/ios`** — forces EAS to prebuild the iOS folder from scratch every build, guaranteeing `app.json` plugin changes reach the iOS Podfile. Without this, expo-doctor flags the project as mixed-CNG and plugin sync becomes unreliable. Architecture test **Rule 17** enforces this.
 11. **`package.json` has `expo.autolinking.ios.exclude` containing `@react-native-google-signin/google-signin`** — the package ships an Expo module adapter (`ExpoAdapterGoogleSignIn.podspec`) that Expo autolinking bundles independently of RN autolinking. This is the second half of the iOS exclusion (first half: react-native.config.js, Rule 16). Without both, pod resolution fails on iOS. Architecture test **Rule 18** enforces this.
 12. **`lib/googleSignIn.ios.ts` is a google-signin-free stub** that Metro substitutes for `lib/googleSignIn.android.ts` on iOS via platform-suffix module resolution. It mirrors the Android implementation's public surface but has zero imports from `@react-native-google-signin/google-signin`. Necessary because the library calls `TurboModuleRegistry.getEnforcing('RNGoogleSignin')` at module load — runtime Platform guards inside the wrapper are too late. Architecture test **Rule 19** enforces the file's existence and the absence of the forbidden import. **This is not a temporary state — see the "Google Sign-In is Android-only" ADR below.**
+13. **Post-sign-in navigation goes through `lib/authNavigation.ts`'s `navigateAfterSignIn(router, ctx)` helper.** Both `app/auth/login.tsx` (Apple + Google) and `app/auth/verify.tsx` (email OTP) must use it instead of calling `router.replace('/(tabs)')` directly. Two flows are supported:
+
+    **Settings flow** — user tapped "Sign in" inside the Settings modal. `app/settings.tsx` pushes `/auth/login` with `params: { from: 'settings' }`; `login.tsx` forwards the `from` param when pushing `/auth/verify`. On success the helper receives `ctx.from === 'settings'` and calls `router.dismiss(ctx.authDepth)` — one native op that pops just the auth screens off the top of the stack. The Settings modal remains mounted beneath, so the user resumes exactly where they left off (e.g. to toggle Pro Mode). `authDepth` is 1 for `login.tsx` (pop login) and 2 for `verify.tsx` (pop verify + login).
+
+    **Welcome / fresh-install flow** — user arrived via `/auth/welcome`. `ctx.from` is undefined, so the helper lands on the main tabs. On iOS it calls `router.dismissAll()` before `router.replace('/(tabs)')` — a plain `replace` alone only swaps the top screen, so any lingering modal in the stack would show on top of the new tabs (the ghost-modal bug). On Android it skips `dismissAll()` and uses `replace` only: `dismissAll()` + `replace()` in the same tick from the settings-flow stack crashes Fabric with `java.lang.IllegalStateException: addViewAt: failed to insert view` / `child already has a parent` — two stack mutations confuse the view recycler. The single `dismiss(n)` in the Settings flow is one op and is safe on both platforms.
+
+    Architecture test **Rule 31** enforces: (a) both auth screens import the helper and never call `router.replace('/(tabs)')` directly, (b) `app/settings.tsx` passes `from: 'settings'` when pushing `/auth/login`, (c) `authNavigation.ts` still guards its `dismissAll` with `Platform.OS === 'ios'`, and (d) `dismissAll` still precedes `replace` inside the helper.
 
 ### ADR: Google Sign-In is Android-only — permanent
 
@@ -309,6 +336,7 @@ Two workarounds were evaluated and **both rejected**:
 ### When adding a new auth provider or auth operation
 
 Follow the steering-loop (see "Harness" below):
+
 1. Document the new provider/flow in this section.
 2. Add a computational sensor if the change introduces a new token or credential path (e.g. extend Rule 11/12/13 or add a Rule 14).
 3. Run `npm test` locally to confirm the sensor would catch a violation.

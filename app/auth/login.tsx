@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   signInWithEmailOtp,
@@ -32,6 +32,7 @@ import {
   GOOGLE_SIGN_IN_CANCELLED,
 } from '../../lib/googleSignIn';
 import { signInWithApple, AppleSignInError, APPLE_SIGN_IN_CANCELLED } from '../../lib/appleSignIn';
+import { navigateAfterSignIn } from '../../lib/authNavigation';
 import { useSQLiteContext } from 'expo-sqlite';
 import { setSetting } from '../../lib/database';
 import { useTheme } from '../../hooks/useTheme';
@@ -42,6 +43,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ from?: string }>();
+  const from = params.from;
   const db = useSQLiteContext();
   const setSession = useAuthStore((s) => s.setSession);
   const { colors } = useTheme();
@@ -61,7 +64,7 @@ export default function LoginScreen() {
     setSubmitting(true);
     try {
       await signInWithEmailOtp(trimmed);
-      router.push({ pathname: '/auth/verify', params: { email: trimmed } });
+      router.push({ pathname: '/auth/verify', params: { email: trimmed, from } });
     } catch (err) {
       console.warn('signInWithEmailOtp failed', err);
       const message =
@@ -85,7 +88,7 @@ export default function LoginScreen() {
       if (session.user?.id) {
         setSetting(db, 'auth_user_id', session.user.id);
       }
-      router.replace('/(tabs)');
+      navigateAfterSignIn(router, { from, authDepth: 1 });
     } catch (err) {
       if (err instanceof GoogleSignInError && err.code === GOOGLE_SIGN_IN_CANCELLED) {
         // User backed out — silent, no toast, per project UX convention.
@@ -113,7 +116,7 @@ export default function LoginScreen() {
       if (session.user?.id) {
         setSetting(db, 'auth_user_id', session.user.id);
       }
-      router.replace('/(tabs)');
+      navigateAfterSignIn(router, { from, authDepth: 1 });
     } catch (err) {
       if (err instanceof AppleSignInError && err.code === APPLE_SIGN_IN_CANCELLED) {
         // User backed out — silent.

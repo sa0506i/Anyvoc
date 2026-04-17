@@ -22,6 +22,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { verifyEmailOtp, signInWithEmailOtp, AuthError } from '../../lib/auth';
 import { useAuthStore } from '../../lib/authStore';
+import { navigateAfterSignIn } from '../../lib/authNavigation';
 import { setSetting } from '../../lib/database';
 import { useTheme } from '../../hooks/useTheme';
 import { useAlert } from '../../components/ConfirmDialog';
@@ -32,8 +33,9 @@ const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function VerifyScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ email?: string }>();
+  const params = useLocalSearchParams<{ email?: string; from?: string }>();
   const email = (params.email ?? '').toLowerCase();
+  const from = params.from;
   const db = useSQLiteContext();
   const setSession = useAuthStore((s) => s.setSession);
   const { colors } = useTheme();
@@ -75,7 +77,7 @@ export default function VerifyScreen() {
       if (session.user?.id) {
         setSetting(db, 'auth_user_id', session.user.id);
       }
-      router.replace('/(tabs)');
+      navigateAfterSignIn(router, { from, authDepth: 2 });
     } catch (err) {
       console.warn('verifyEmailOtp failed', err);
       const message =
