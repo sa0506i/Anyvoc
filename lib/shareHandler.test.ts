@@ -67,4 +67,28 @@ describe('parseShareIntent', () => {
     const result = parseShareIntent({ text: 'http://example.com' });
     expect(result).toEqual({ type: 'link', url: 'http://example.com' });
   });
+
+  it('rejects non-http(s) schemes as plain text (not a link)', () => {
+    // javascript:, file:, data:, etc. must never be treated as a link
+    // the URL extractor would then try to fetch.
+    for (const hostile of [
+      'javascript:alert(1)',
+      'file:///etc/passwd',
+      'data:text/html,<script>',
+      'ftp://example.com/x',
+    ]) {
+      const result = parseShareIntent({ text: hostile });
+      expect(result).toEqual({ type: 'text', text: hostile });
+    }
+  });
+
+  it('rejects malformed URLs as plain text', () => {
+    // The old regex check accepted any string starting with http:// or
+    // https://. The URL constructor rejects these before they reach
+    // fetch/Readability.
+    for (const bad of ['https://', 'http:///', 'http://not a host']) {
+      const result = parseShareIntent({ text: bad });
+      expect(result).toEqual({ type: 'text', text: bad });
+    }
+  });
 });

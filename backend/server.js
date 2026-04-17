@@ -11,18 +11,68 @@ if (!process.env.MISTRAL_API_KEY) {
 const app = express();
 
 // --- CORS: restrict to expected origins ---
+// React Native fetch doesn't send an Origin header, so CORS mainly
+// gates browser clients (Expo web in dev). In production we accept
+// only the native app's URL scheme; in dev we additionally allow
+// Metro's default port on localhost and the Android emulator bridge.
+const isProduction = process.env.NODE_ENV === 'production';
 app.use(
   cors({
-    origin: [
-      /^exp\+anyvoc:\/\//, // Expo dev client
-      /^https?:\/\/localhost(:\d+)?$/, // local development
-      /^https?:\/\/10\.0\.2\.2(:\d+)?$/, // Android emulator
-    ],
+    origin: isProduction
+      ? [/^exp\+anyvoc:\/\//]
+      : [
+          /^exp\+anyvoc:\/\//,
+          /^https?:\/\/localhost:8081$/,
+          /^https?:\/\/10\.0\.2\.2:8081$/,
+        ],
     methods: ['POST'],
   }),
 );
 
 app.use(express.json({ limit: '10mb' }));
+
+// --- Per-message content size cap ---
+// The 10 MB JSON limit stops binary bloat, but a client can still
+// send many valid-shaped messages with pathologically long text and
+// burn tokens. Cap each text content at 50 KB (~50k chars of UTF-8);
+// images are base64 and bounded by the overall JSON limit.
+const MAX_MESSAGE_CONTENT_BYTES = 50 * 1024;
+
+function validateMessage(msg) {
+  if (!msg || typeof msg !== 'object') return 'message must be an object';
+  if (msg.role !== 'user' && msg.role !== 'assistant') {
+    return 'message role must be "user" or "assistant"';
+  }
+  if (typeof msg.content === 'string') {
+    if (Buffer.byteLength(msg.content, 'utf8') > MAX_MESSAGE_CONTENT_BYTES) {
+      return `message content exceeds ${MAX_MESSAGE_CONTENT_BYTES} bytes`;
+    }
+    return null;
+  }
+  if (Array.isArray(msg.content)) {
+    for (const block of msg.content) {
+      if (!block || typeof block !== 'object') return 'content block must be an object';
+      if (block.type === 'text') {
+        if (typeof block.text !== 'string') return 'text block missing text';
+        if (Buffer.byteLength(block.text, 'utf8') > MAX_MESSAGE_CONTENT_BYTES) {
+          return `text block exceeds ${MAX_MESSAGE_CONTENT_BYTES} bytes`;
+        }
+      } else if (block.type === 'image') {
+        if (
+          !block.source ||
+          block.source.type !== 'base64' ||
+          typeof block.source.data !== 'string'
+        ) {
+          return 'image block malformed';
+        }
+      } else {
+        return `unknown content block type: ${block.type}`;
+      }
+    }
+    return null;
+  }
+  return 'message content must be string or array';
+}
 
 // --- Rate limiting: 60 requests per minute per IP ---
 const apiLimiter = rateLimit({
@@ -54,6 +104,16 @@ app.post('/api/chat', apiLimiter, async (req, res) => {
         content: [],
         error: { message: 'Invalid request: messages must be a non-empty array' },
       });
+    }
+
+    for (const msg of messages) {
+      const err = validateMessage(msg);
+      if (err) {
+        return res.status(400).json({
+          content: [],
+          error: { message: `Invalid request: ${err}` },
+        });
+      }
     }
 
     if (

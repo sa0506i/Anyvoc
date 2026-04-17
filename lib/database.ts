@@ -71,6 +71,7 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
 
     CREATE INDEX IF NOT EXISTS idx_vocabulary_content_id ON vocabulary(content_id);
     CREATE INDEX IF NOT EXISTS idx_vocabulary_leitner_box ON vocabulary(leitner_box);
+    CREATE INDEX IF NOT EXISTS idx_vocabulary_created_at ON vocabulary(created_at DESC);
 
     CREATE TABLE IF NOT EXISTS review_days (
       day TEXT PRIMARY KEY

@@ -34,13 +34,25 @@ export function parseShareIntent(shareIntent: {
 
   // Check for text
   if (shareIntent.text) {
-    // Check if it looks like a URL
-    const urlPattern = /^https?:\/\//i;
-    if (urlPattern.test(shareIntent.text.trim())) {
-      return { type: 'link', url: shareIntent.text.trim() };
+    const trimmed = shareIntent.text.trim();
+    // A regex-only `/^https?:\/\//i` check accepts malformed URLs that
+    // later trip up fetch + HTML parsing. Use the URL constructor so
+    // only syntactically valid http(s) URLs are treated as links; the
+    // rest fall through to plain text.
+    if (isValidHttpUrl(trimmed)) {
+      return { type: 'link', url: trimmed };
     }
     return { type: 'text', text: shareIntent.text };
   }
 
   return null;
+}
+
+function isValidHttpUrl(candidate: string): boolean {
+  try {
+    const u = new URL(candidate);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
