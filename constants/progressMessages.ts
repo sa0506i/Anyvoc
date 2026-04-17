@@ -33,12 +33,38 @@ export const FETCH = {
 
 export const FETCH_ROTATION = [FETCH.fast, FETCH.slow, FETCH.verySlow] as const;
 
-export const OCR = {
-  fast: 'Reading text from the image…',
-  slow: 'Still reading (big image)…',
-} as const;
-
-export const OCR_ROTATION = [OCR.fast, OCR.slow] as const;
+/**
+ * OCR-phase message pools. Matches the LLM pool shape so the overlay
+ * behavior (random pick per phase, no-repeat until exhausted,
+ * stay-on-last) is consistent across the two long-running operations
+ * the user watches. Cadence is the same `ROTATION_INTERVAL_MS` (4 s).
+ *
+ * OCR typically finishes in Phase 1 (~500 ms–2 s on-device ML Kit);
+ * Phase 2 only appears for large/dense images and picks up the
+ * flattering-thoroughness tone from LLM phases 7+.
+ */
+export const OCR_PHASES = [
+  // Phase 1 — 0–4 s — Reading the image
+  [
+    'Reading text from the image…',
+    'Looking at your page…',
+    'Scanning the picture…',
+    'The AI is reading your image…',
+    'Picking the words off the image…',
+    'Running OCR on your picture…',
+    'Making out the text…',
+    'Eyes on your image…',
+  ],
+  // Phase 2 — 4 s+ — Big image (dense / high-resolution)
+  [
+    'Dense image — taking the time it needs…',
+    'Lots of text on this one…',
+    'Working through a large page…',
+    'This is a substantial image…',
+    'Tracing every character carefully…',
+    'Rich image — still reading…',
+  ],
+] as const;
 
 /**
  * LLM-phase message pools. Each inner array is a "phase" tied to an

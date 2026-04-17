@@ -29,7 +29,7 @@ import { useAlert } from '../../components/ConfirmDialog';
 import {
   INTRO,
   FETCH_ROTATION,
-  OCR_ROTATION,
+  OCR_PHASES,
   LLM_PHASES_PRO,
   LLM_PHASES_BASIC,
   SAVING,
@@ -183,7 +183,7 @@ export default function ContentsScreen() {
       const asset = result.assets[0];
 
       shareStore.start(INTRO.image);
-      shareStore.setRotating(OCR_ROTATION);
+      shareStore.setRotatingPools(OCR_PHASES);
 
       // Resize large images to stay within backend payload limits
       const MAX_DIMENSION = 1024;
