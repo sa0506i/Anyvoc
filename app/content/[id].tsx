@@ -366,6 +366,10 @@ export default function ContentDetailScreen() {
             { paddingBottom: spacing.xl + insets.bottom },
           ]}
           renderItem={renderVocabRow}
+          removeClippedSubviews
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={7}
           ListEmptyComponent={<Text style={styles.emptyText}>No vocabulary yet</Text>}
           ListFooterComponent={
             vocabulary.length > 0 ? (

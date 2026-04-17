@@ -55,10 +55,54 @@ export class ClaudeAPIError extends Error {
   }
 }
 
+// Retry policy for transient upstream failures (5xx + generic network
+// errors). 4xx status codes and AbortError (timeout) are NOT retried —
+// they're caller/config problems or user-visible timeouts. Backoff is
+// jittered exponentially. Zeroed in tests so the existing suite stays
+// fast without needing fake timers.
+const MAX_RETRIES = 2; // 3 total attempts
+const RETRY_BASE_MS = process.env.NODE_ENV === 'test' ? 0 : 400;
+
+function isRetryable(err: unknown): boolean {
+  if (err instanceof ClaudeAPIError) {
+    return err.statusCode !== undefined && err.statusCode >= 500;
+  }
+  // Non-ClaudeAPIError errors reach us only as network failures —
+  // AbortError is wrapped into a ClaudeAPIError above, so anything
+  // else is a transient fetch/DNS/TLS hiccup worth retrying.
+  return err instanceof Error;
+}
+
+function retryDelayMs(attempt: number): number {
+  if (RETRY_BASE_MS === 0) return 0;
+  const base = RETRY_BASE_MS * Math.pow(2, attempt);
+  const jitter = Math.floor(Math.random() * 100);
+  return base + jitter;
+}
+
 export async function callClaude(
   messages: ClaudeMessage[],
   systemPrompt: string,
   maxTokens: number = 4096,
+  options?: CallClaudeOptions,
+): Promise<string> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await callClaudeOnce(messages, systemPrompt, maxTokens, options);
+    } catch (err) {
+      lastErr = err;
+      if (attempt === MAX_RETRIES || !isRetryable(err)) throw err;
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt)));
+    }
+  }
+  throw lastErr;
+}
+
+async function callClaudeOnce(
+  messages: ClaudeMessage[],
+  systemPrompt: string,
+  maxTokens: number,
   options?: CallClaudeOptions,
 ): Promise<string> {
   const controller = new AbortController();

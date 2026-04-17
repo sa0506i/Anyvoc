@@ -62,14 +62,23 @@ export default function VocabularyScreen() {
     router.setParams({ box: undefined, filter: undefined });
   }, [router]);
 
+  // Hide vocab below the user's CEFR minimum. Storage is untouched —
+  // lowering the level reveals these rows again. Architecture rule 20.
+  // Exception: user_added=1 rows (Pro long-press single-word adds)
+  // bypass the filter — the user's explicit intent wins.
+  //
+  // Split from `filteredAndSorted` so that changing ONLY `minLevel`
+  // (settings round-trip) doesn't rebuild the sort on top — the
+  // level pass is the expensive one at ~1000 rows because every item
+  // is tested, while the search + activeFilter + sort pass only walks
+  // what survives this first filter.
+  const levelFiltered = useMemo(
+    () => vocabulary.filter((v) => v.user_added === 1 || isAtOrAboveLevel(v.level, minLevel)),
+    [vocabulary, minLevel],
+  );
+
   const filteredAndSorted = useMemo(() => {
-    // Hide vocab below the user's CEFR minimum. Storage is untouched —
-    // lowering the level reveals these rows again. Architecture rule 20.
-    // Exception: user_added=1 rows (Pro long-press single-word adds)
-    // bypass the filter — the user's explicit intent wins.
-    let result = vocabulary.filter(
-      (v) => v.user_added === 1 || isAtOrAboveLevel(v.level, minLevel),
-    );
+    let result = levelFiltered;
 
     // Active filter (from URL params)
     if (activeFilter?.type === 'box') {
@@ -81,7 +90,7 @@ export default function VocabularyScreen() {
       result = result.filter((v) => v.last_reviewed != null && v.last_reviewed >= startMs);
     }
 
-    // Filter
+    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -90,7 +99,7 @@ export default function VocabularyScreen() {
     }
 
     return sortVocabulary(result, sortBy, sortDirection);
-  }, [vocabulary, searchQuery, sortBy, sortDirection, activeFilter, minLevel]);
+  }, [levelFiltered, searchQuery, sortBy, sortDirection, activeFilter]);
 
   const handleDelete = useCallback(
     (vocab: Vocabulary) => {
@@ -174,12 +183,20 @@ export default function VocabularyScreen() {
       )}
 
       {/* List */}
+      {/* Virtualization tuning: rows have variable height (translations can */}
+      {/* wrap) so `getItemLayout` is not safe, but narrowing windowSize +    */}
+      {/* removeClippedSubviews keeps memory and main-thread work bounded    */}
+      {/* past ~1000 rows. Values chosen to keep ~4 screens in memory.       */}
       <FlatList
         testID="vocab-list"
         data={filteredAndSorted}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.list, { paddingBottom: spacing.xl + 60 + insets.bottom }]}
         renderItem={renderItem}
+        removeClippedSubviews
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={7}
         ListEmptyComponent={
           <View style={styles.searchEmptyState}>
             <Ionicons name="list-outline" size={48} color={colors.textSecondary} />
