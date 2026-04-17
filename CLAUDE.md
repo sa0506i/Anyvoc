@@ -212,6 +212,20 @@ Architecture rule 20 (level filter), rule 21 (post-processor wired in
 both LLM paths), and rule 22 (vocabFilters stays pure) enforce these
 invariants computationally.
 
+**`user_added` bypass.** Words added via the Pro long-press flow in
+`app/content/[id].tsx` (`addWordToVocabulary`) set `user_added = 1` on
+the inserted row. Every level-filter site in the three view files —
+`app/(tabs)/vocabulary.tsx`, `app/(tabs)/index.tsx` (both
+`refreshStats` and `handleStartRound`), and `app/content/[id].tsx`
+(`sortedVocabulary`) — uses the shape
+`v.user_added === 1 || isAtOrAboveLevel(v.level, minLevel)` so the
+user's explicit single-word add beats the configured level minimum in
+every view _and_ in the trainer round pool. Bulk-extracted rows stay
+`user_added = 0` and remain subject to the normal filter. SQLite
+migration is idempotent (`ALTER TABLE … DEFAULT 0` in try/catch, same
+shape as `source_forms`). Rule 20 enforces both the filter and the
+bypass.
+
 ## Vocabulary Formatting Rules (system prompt)
 
 - **Nouns:** direct article + singular; feminine form after comma if exists

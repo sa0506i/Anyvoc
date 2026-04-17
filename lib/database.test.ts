@@ -73,7 +73,8 @@ function createMockDb(): SQLiteDatabase {
       last_reviewed INTEGER,
       correct_count INTEGER NOT NULL DEFAULT 0,
       incorrect_count INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      user_added INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_vocabulary_content_id ON vocabulary(content_id);
     CREATE INDEX IF NOT EXISTS idx_vocabulary_leitner_box ON vocabulary(leitner_box);
@@ -133,6 +134,7 @@ function makeVocab(overrides: Partial<Vocabulary> = {}): Vocabulary {
     correct_count: 0,
     incorrect_count: 0,
     created_at: Date.now(),
+    user_added: 0,
     ...overrides,
   };
 }
@@ -285,6 +287,86 @@ describe('Vocabulary', () => {
     insertVocabulary(db, makeVocab({ id: 'v2', original: 'die Katze' }));
     deleteVocabularyByContentId(db, 'c1');
     expect(getAllVocabulary(db)).toHaveLength(0);
+  });
+
+  // user_added flag (CLAUDE.md "Vocabulary post-processing" → user_added bypass)
+  it('insertVocabulary preserves user_added=1 through round-trip', () => {
+    insertVocabulary(db, makeVocab({ id: 'v1', original: 'der Hund', user_added: 1 }));
+    const all = getAllVocabulary(db);
+    expect(all).toHaveLength(1);
+    expect(all[0].user_added).toBe(1);
+  });
+
+  it('insertVocabulary preserves user_added=0 through round-trip', () => {
+    insertVocabulary(db, makeVocab({ id: 'v1', original: 'der Hund', user_added: 0 }));
+    const all = getAllVocabulary(db);
+    expect(all[0].user_added).toBe(0);
+  });
+
+  it('insertVocabulary stores both user-added and bulk-extracted rows side by side', () => {
+    insertVocabulary(db, makeVocab({ id: 'v1', original: 'der Hund', user_added: 0 }));
+    insertVocabulary(db, makeVocab({ id: 'v2', original: 'die Katze', user_added: 1 }));
+    const flags = Object.fromEntries(getAllVocabulary(db).map((v) => [v.original, v.user_added]));
+    expect(flags['der Hund']).toBe(0);
+    expect(flags['die Katze']).toBe(1);
+  });
+});
+
+// Migration: user_added column is added to legacy installs. Simulates an
+// install that created the vocabulary table before the column existed,
+// then verifies the ALTER TABLE pattern (same shape used in initDatabase)
+// backfills every existing row with user_added=0.
+describe('Vocabulary migration: user_added column', () => {
+  it('ALTER TABLE ADD COLUMN defaults legacy rows to 0', () => {
+    // Build a legacy in-memory DB without user_added
+    const raw = new Database(':memory:');
+    raw.exec(`
+      CREATE TABLE contents (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        original_text TEXT NOT NULL,
+        translated_text TEXT,
+        source_type TEXT NOT NULL,
+        source_url TEXT,
+        created_at INTEGER NOT NULL
+      );
+      CREATE TABLE vocabulary (
+        id TEXT PRIMARY KEY,
+        content_id TEXT NOT NULL REFERENCES contents(id) ON DELETE CASCADE,
+        original TEXT NOT NULL,
+        translation TEXT NOT NULL,
+        level TEXT NOT NULL,
+        word_type TEXT NOT NULL,
+        source_forms TEXT,
+        leitner_box INTEGER NOT NULL DEFAULT 1,
+        last_reviewed INTEGER,
+        correct_count INTEGER NOT NULL DEFAULT 0,
+        incorrect_count INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL
+      );
+    `);
+    raw
+      .prepare('INSERT INTO contents VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run('c1', 't', 'x', null, 'text', null, Date.now());
+    raw
+      .prepare(
+        'INSERT INTO vocabulary (id, content_id, original, translation, level, word_type, source_forms, leitner_box, last_reviewed, correct_count, incorrect_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run('v1', 'c1', 'der Hund', 'the dog', 'A1', 'noun', null, 1, null, 0, 0, Date.now());
+
+    // Apply the same migration as initDatabase
+    raw.exec('ALTER TABLE vocabulary ADD COLUMN user_added INTEGER NOT NULL DEFAULT 0');
+
+    // Legacy row must have been backfilled to 0
+    const row = raw.prepare('SELECT user_added FROM vocabulary WHERE id = ?').get('v1') as {
+      user_added: number;
+    };
+    expect(row.user_added).toBe(0);
+
+    // Re-running the ALTER must throw (idempotent migration: try/catch swallows it)
+    expect(() =>
+      raw.exec('ALTER TABLE vocabulary ADD COLUMN user_added INTEGER NOT NULL DEFAULT 0'),
+    ).toThrow();
   });
 });
 

@@ -773,6 +773,12 @@ describe('Architecture: .easignore forces CNG prebuild for iOS', () => {
 // the level brings them back. The sensor enforces that each enumerated
 // view file references the helper — adding a new vocab view without
 // the filter is the regression we want to catch.
+//
+// Each view must ALSO bypass the filter for user_added=1 rows (Pro
+// long-press single-word adds) — the user's explicit intent beats the
+// level minimum. Missing the bypass re-hides words the user deliberately
+// picked, which is the exact regression the bypass was introduced to
+// fix. See CLAUDE.md "Vocabulary post-processing" → user_added bypass.
 describe('Architecture: Rule 20 — vocab views apply level filter', () => {
   const REQUIRED_FILES = [
     'app/(tabs)/vocabulary.tsx',
@@ -795,6 +801,22 @@ describe('Architecture: Rule 20 — vocab views apply level filter', () => {
         );
       }
       expect(src).toContain('isAtOrAboveLevel');
+    });
+
+    it(`${rel} bypasses level filter for user_added=1 rows`, () => {
+      const full = path.join(ROOT, rel);
+      const src = fs.readFileSync(full, 'utf8');
+      if (!src.includes('user_added')) {
+        throw new Error(
+          `LEVEL-FILTER BYPASS MISSING in ${rel}\n` +
+            `Vocab views must bypass the CEFR filter for user-added entries:\n` +
+            `  v.user_added === 1 || isAtOrAboveLevel(v.level, minLevel)\n` +
+            `Words the user explicitly added via Pro long-press must stay\n` +
+            `visible regardless of the level setting. See CLAUDE.md\n` +
+            `"Vocabulary post-processing" → user_added bypass.`,
+        );
+      }
+      expect(src).toContain('user_added');
     });
   }
 });

@@ -25,6 +25,10 @@ export interface Vocabulary {
   correct_count: number;
   incorrect_count: number;
   created_at: number;
+  // 1 when the user explicitly added this word (Pro long-press flow); 0 for
+  // bulk-extracted rows. Vocab views bypass the CEFR level filter for
+  // user_added=1 rows — the user's explicit intent beats the level setting.
+  user_added: number;
 }
 
 // --- Init ---
@@ -61,7 +65,8 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
       last_reviewed INTEGER,
       correct_count INTEGER NOT NULL DEFAULT 0,
       incorrect_count INTEGER NOT NULL DEFAULT 0,
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      user_added INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE INDEX IF NOT EXISTS idx_vocabulary_content_id ON vocabulary(content_id);
@@ -91,6 +96,14 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   // Migration: add source_forms column if missing (existing installs)
   try {
     db.runSync('ALTER TABLE vocabulary ADD COLUMN source_forms TEXT');
+  } catch {
+    // Column already exists — ignore
+  }
+
+  // Migration: add user_added column for single-word adds (Pro long-press).
+  // Legacy rows default to 0 (all prior vocab came from bulk extraction).
+  try {
+    db.runSync('ALTER TABLE vocabulary ADD COLUMN user_added INTEGER NOT NULL DEFAULT 0');
   } catch {
     // Column already exists — ignore
   }
@@ -247,7 +260,7 @@ export function vocabularyExists(db: SQLiteDatabase, original: string): boolean 
 
 export function insertVocabulary(db: SQLiteDatabase, vocab: Vocabulary): void {
   db.runSync(
-    'INSERT OR IGNORE INTO vocabulary (id, content_id, original, translation, level, word_type, source_forms, leitner_box, last_reviewed, correct_count, incorrect_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT OR IGNORE INTO vocabulary (id, content_id, original, translation, level, word_type, source_forms, leitner_box, last_reviewed, correct_count, incorrect_count, created_at, user_added) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       vocab.id,
       vocab.content_id,
@@ -261,6 +274,7 @@ export function insertVocabulary(db: SQLiteDatabase, vocab: Vocabulary): void {
       vocab.correct_count,
       vocab.incorrect_count,
       vocab.created_at,
+      vocab.user_added,
     ],
   );
 }

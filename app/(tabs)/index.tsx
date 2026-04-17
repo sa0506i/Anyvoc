@@ -77,8 +77,11 @@ export default function TrainerScreen() {
   const refreshStats = useCallback(() => {
     // Hide vocab below the user's CEFR minimum from the trainer view.
     // Storage is untouched — lowering the level brings them back.
-    // Architecture rule 20.
-    const allVocab = getAllVocabulary(db).filter((v) => isAtOrAboveLevel(v.level, minLevel));
+    // Architecture rule 20. Exception: user_added=1 rows (Pro long-press
+    // single-word adds) bypass the filter — the user's intent wins.
+    const allVocab = getAllVocabulary(db).filter(
+      (v) => v.user_added === 1 || isAtOrAboveLevel(v.level, minLevel),
+    );
     const rawStats = getVocabularyStats(db);
     // Recompute box counts + total from the filtered list so the
     // maturity bars match what the user can actually see / train on.
@@ -103,7 +106,10 @@ export default function TrainerScreen() {
   const handleStartRound = (practice = false) => {
     // Same level filter as refreshStats — keeps the round pool consistent
     // with what the trainer summary advertises. Architecture rule 20.
-    const allVocab = getAllVocabulary(db).filter((v) => isAtOrAboveLevel(v.level, minLevel));
+    // user_added=1 bypass matches the trainer summary above.
+    const allVocab = getAllVocabulary(db).filter(
+      (v) => v.user_added === 1 || isAtOrAboveLevel(v.level, minLevel),
+    );
     let pool;
     if (practice) {
       // Continue-Mode: random selection from entire vocabulary

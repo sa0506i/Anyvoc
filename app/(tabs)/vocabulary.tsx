@@ -66,7 +66,11 @@ export default function VocabularyScreen() {
   const filteredAndSorted = useMemo(() => {
     // Hide vocab below the user's CEFR minimum. Storage is untouched —
     // lowering the level reveals these rows again. Architecture rule 20.
-    let result = vocabulary.filter((v) => isAtOrAboveLevel(v.level, minLevel));
+    // Exception: user_added=1 rows (Pro long-press single-word adds)
+    // bypass the filter — the user's explicit intent wins.
+    let result = vocabulary.filter(
+      (v) => v.user_added === 1 || isAtOrAboveLevel(v.level, minLevel),
+    );
 
     // Active filter (from URL params)
     if (activeFilter?.type === 'box') {

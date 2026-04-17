@@ -101,7 +101,12 @@ export default function ContentDetailScreen() {
   const sortedVocabulary = useMemo(() => {
     // Hide vocab below the user's CEFR minimum. Storage is untouched —
     // lowering the level brings them back. Architecture rule 20.
-    const filtered = vocabulary.filter((v) => isAtOrAboveLevel(v.level, minLevel));
+    // Exception: words the user explicitly added via long-press
+    // (user_added=1) bypass this filter — their intent beats the level
+    // setting.
+    const filtered = vocabulary.filter(
+      (v) => v.user_added === 1 || isAtOrAboveLevel(v.level, minLevel),
+    );
     return sortVocabulary(filtered, sortBy, sortDirection);
   }, [vocabulary, sortBy, sortDirection, minLevel]);
 
@@ -207,6 +212,10 @@ export default function ContentDetailScreen() {
         last_reviewed: null,
         correct_count: 0,
         incorrect_count: 0,
+        // User explicitly picked this word via long-press — bypass the
+        // CEFR level filter in vocab views (CLAUDE.md "Vocabulary
+        // post-processing" → user_added bypass, Rule 20).
+        user_added: 1,
         created_at: Date.now(),
       };
 

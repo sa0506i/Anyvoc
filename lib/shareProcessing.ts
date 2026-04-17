@@ -138,6 +138,7 @@ export async function processSharedText(
     correct_count: 0,
     incorrect_count: 0,
     created_at: now,
+    user_added: 0,
   }));
 
   const actuallyInserted = insertVocabularyBatch(db, vocabEntries);
