@@ -48,6 +48,11 @@ export const LLM_ROTATION = [
   'Still extracting — looks like a juicy one…',
   'Filtering out abbreviations and names…',
   'Almost there — thanks for your patience…',
+  'Okay, this one is taking a while…',
+  'The AI is being extra thorough today…',
+  'Still crunching through your text…',
+  'Tidying up the word list…',
+  'Almost ready to hand it over…',
   'Just a moment more…',
 ] as const;
 
