@@ -30,7 +30,7 @@ import {
   INTRO,
   FETCH_ROTATION,
   OCR_ROTATION,
-  LLM_ROTATION,
+  LLM_PHASES,
   SAVING,
 } from '../../constants/progressMessages';
 import {
@@ -70,7 +70,7 @@ export default function ContentsScreen() {
   // All loading UI goes through the global overlay. No local loading state.
   const shareStore = useShareProcessingStore();
   const handleProgressEvent = (event: ShareProgressEvent) => {
-    if (event === 'llm-start') shareStore.setRotating(LLM_ROTATION);
+    if (event === 'llm-start') shareStore.setRotatingPools(LLM_PHASES);
     else if (event === 'saving') shareStore.setMessage(SAVING);
   };
 

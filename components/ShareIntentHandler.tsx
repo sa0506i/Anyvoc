@@ -10,7 +10,7 @@ import { useSettingsStore } from '../hooks/useSettings';
 import { useShareProcessingStore } from '../hooks/useShareProcessingStore';
 import { useUIStore } from '../hooks/useUIStore';
 import { useAlert } from './ConfirmDialog';
-import { INTRO, FETCH_ROTATION, LLM_ROTATION, SAVING } from '../constants/progressMessages';
+import { INTRO, FETCH_ROTATION, LLM_PHASES, SAVING } from '../constants/progressMessages';
 
 /**
  * Invisible root-level component that handles incoming system share intents.
@@ -64,7 +64,7 @@ export default function ShareIntentHandler() {
       router.navigate('/(tabs)/content');
 
       const handleProgressEvent = (event: ShareProgressEvent) => {
-        if (event === 'llm-start') shareStore.setRotating(LLM_ROTATION);
+        if (event === 'llm-start') shareStore.setRotatingPools(LLM_PHASES);
         else if (event === 'saving') shareStore.setMessage(SAVING);
       };
 

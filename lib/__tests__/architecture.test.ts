@@ -1371,6 +1371,7 @@ describe('Architecture: Rule 32 — progress messages only from constants/progre
     { op: 'start', re: /\.start\s*\(\s*['"`]/ },
     { op: 'setMessage', re: /\.setMessage\s*\(\s*['"`]/ },
     { op: 'setRotating', re: /\.setRotating\s*\(\s*\[/ },
+    { op: 'setRotatingPools', re: /\.setRotatingPools\s*\(\s*\[/ },
   ];
 
   for (const file of storeConsumers) {
@@ -1385,7 +1386,7 @@ describe('Architecture: Rule 32 — progress messages only from constants/progre
               `shareStore.${op} must take a constant from constants/progressMessages.ts,\n` +
               `not an inline literal. Inline strings drift across the four share flows\n` +
               `and can silently exceed the 5 s on-screen cap. Import INTRO / FETCH_ROTATION /\n` +
-              `OCR_ROTATION / LLM_ROTATION / SAVING and pass the identifier.\n` +
+              `OCR_ROTATION / LLM_PHASES / SAVING and pass the identifier.\n` +
               `See CLAUDE.md "Share-processing progress messages" section.`,
           );
         }
