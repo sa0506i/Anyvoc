@@ -20,11 +20,7 @@ app.use(
   cors({
     origin: isProduction
       ? [/^exp\+anyvoc:\/\//]
-      : [
-          /^exp\+anyvoc:\/\//,
-          /^https?:\/\/localhost:8081$/,
-          /^https?:\/\/10\.0\.2\.2:8081$/,
-        ],
+      : [/^exp\+anyvoc:\/\//, /^https?:\/\/localhost:8081$/, /^https?:\/\/10\.0\.2\.2:8081$/],
     methods: ['POST'],
   }),
 );

@@ -23,8 +23,8 @@
     "validate:gold-all": "tsx scripts/validate-gold-all.ts",
     "lint": "eslint lib/ app/ components/ hooks/ constants/",
     "lint:fix": "eslint --fix lib/ app/ components/ hooks/ constants/",
-    "format": "prettier --write \"lib/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"hooks/**/*.{ts,tsx}\" \"constants/**/*.{ts,tsx}\"",
-    "format:check": "prettier --check \"lib/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"hooks/**/*.{ts,tsx}\" \"constants/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"lib/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"hooks/**/*.{ts,tsx}\" \"constants/**/*.{ts,tsx}\" \"backend/**/*.js\"",
+    "format:check": "prettier --check \"lib/**/*.{ts,tsx}\" \"app/**/*.{ts,tsx}\" \"components/**/*.{ts,tsx}\" \"hooks/**/*.{ts,tsx}\" \"constants/**/*.{ts,tsx}\" \"backend/**/*.js\"",
     "prepare": "husky",
     "test:coverage": "jest --coverage",
     "check:dead-code": "knip --no-config-hints",
@@ -97,6 +97,9 @@
   "lint-staged": {
     "*.{ts,tsx}": [
       "eslint --max-warnings 50",
+      "prettier --check"
+    ],
+    "backend/**/*.js": [
       "prettier --check"
     ]
   },

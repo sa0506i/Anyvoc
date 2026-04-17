@@ -1417,3 +1417,36 @@ describe('Architecture: Rule 32 — progress messages only from constants/progre
     });
   }
 });
+
+describe('Architecture: Rule 33 — classifier fallback enforces a per-window rate limit', () => {
+  // CLAUDE.md documents the CEFR classifier as rate-limited to 10 calls
+  // per rolling 60 s window. That invariant lives entirely in
+  // lib/classifier/fallback.ts — if a future refactor silently removes
+  // the check, nothing else would catch it. Unit tests already exercise
+  // the mocked behaviour; this is the structural sensor on the source.
+  it('lib/classifier/fallback.ts declares RATE_LIMIT / RATE_WINDOW_MS and consumes the budget before each call', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'classifier', 'fallback.ts'), 'utf8');
+
+    // Constants must exist verbatim. We don't pin the exact numbers
+    // here (those are product decisions that may legitimately move),
+    // but the *shape* is fixed.
+    expect(src).toMatch(/const\s+RATE_LIMIT\s*=\s*\d+/);
+    expect(src).toMatch(/const\s+RATE_WINDOW_MS\s*=\s*[\d_]+/);
+
+    // There must be a budget-consuming gate and `classifyViaClaude`
+    // must call it before issuing the network request.
+    expect(src).toMatch(/function\s+tryConsumeRateBudget\s*\(/);
+    const guardIdx = src.search(/if\s*\(\s*!tryConsumeRateBudget\s*\(\s*\)\s*\)/);
+    const fetchIdx = src.indexOf('await claudeFn(');
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(fetchIdx).toBeGreaterThan(-1);
+    if (!(guardIdx < fetchIdx)) {
+      throw new Error(
+        `CLASSIFIER RATE LIMIT BYPASSED: tryConsumeRateBudget() must be\n` +
+          `checked *before* the Claude fallback fetch in classifyViaClaude.\n` +
+          `Otherwise a misbehaving caller can run the LLM unbounded and\n` +
+          `inflate cost. See CLAUDE.md "CEFR Classifier" → Fallback path.`,
+      );
+    }
+  });
+});
