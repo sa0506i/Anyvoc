@@ -10,7 +10,13 @@ import { useSettingsStore } from '../hooks/useSettings';
 import { useShareProcessingStore } from '../hooks/useShareProcessingStore';
 import { useUIStore } from '../hooks/useUIStore';
 import { useAlert } from './ConfirmDialog';
-import { INTRO, FETCH_ROTATION, LLM_PHASES, SAVING } from '../constants/progressMessages';
+import {
+  INTRO,
+  FETCH_ROTATION,
+  LLM_PHASES_PRO,
+  LLM_PHASES_BASIC,
+  SAVING,
+} from '../constants/progressMessages';
 
 /**
  * Invisible root-level component that handles incoming system share intents.
@@ -64,8 +70,12 @@ export default function ShareIntentHandler() {
       router.navigate('/(tabs)/content');
 
       const handleProgressEvent = (event: ShareProgressEvent) => {
-        if (event === 'llm-start') shareStore.setRotatingPools(LLM_PHASES);
-        else if (event === 'saving') shareStore.setMessage(SAVING);
+        if (event === 'llm-start') {
+          // Phase 4 is translation-specific; Basic mode doesn't translate
+          // (see lib/shareProcessing.ts Promise.all gate), so swap in the
+          // Basic variant where Phase 4 stays on extraction.
+          shareStore.setRotatingPools(proMode ? LLM_PHASES_PRO : LLM_PHASES_BASIC);
+        } else if (event === 'saving') shareStore.setMessage(SAVING);
       };
 
       try {

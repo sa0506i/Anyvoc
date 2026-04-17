@@ -30,7 +30,8 @@ import {
   INTRO,
   FETCH_ROTATION,
   OCR_ROTATION,
-  LLM_PHASES,
+  LLM_PHASES_PRO,
+  LLM_PHASES_BASIC,
   SAVING,
 } from '../../constants/progressMessages';
 import {
@@ -70,8 +71,13 @@ export default function ContentsScreen() {
   // All loading UI goes through the global overlay. No local loading state.
   const shareStore = useShareProcessingStore();
   const handleProgressEvent = (event: ShareProgressEvent) => {
-    if (event === 'llm-start') shareStore.setRotatingPools(LLM_PHASES);
-    else if (event === 'saving') shareStore.setMessage(SAVING);
+    if (event === 'llm-start') {
+      // Phase 4 of the LLM rotation differs by tier: Pro runs translateText
+      // in parallel with extraction, Basic does not. Showing Pro's
+      // "translation in parallel" messages to a Basic user would be a
+      // UX lie — see lib/shareProcessing.ts ~line 89 for the gate.
+      shareStore.setRotatingPools(proMode ? LLM_PHASES_PRO : LLM_PHASES_BASIC);
+    } else if (event === 'saving') shareStore.setMessage(SAVING);
   };
 
   const loadContents = useCallback(() => {
