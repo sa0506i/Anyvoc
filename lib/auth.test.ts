@@ -108,18 +108,86 @@ describe('supabase client construction', () => {
 // --------- secureStorageAdapter ---------
 
 describe('secureStorageAdapter', () => {
-  it('round-trips set/get/remove via expo-secure-store', async () => {
+  beforeEach(() => {
+    // Reset the in-memory store between tests so state doesn't leak.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = (SecureStore as any).__store as Record<string, string>;
+    for (const k of Object.keys(store)) delete store[k];
+  });
+
+  it('round-trips short values (single chunk) via expo-secure-store', async () => {
     await secureStorageAdapter.setItem('k', 'v');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('k', 'v');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('k.chunk.0', 'v');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('k.chunks', '1');
 
     const got = await secureStorageAdapter.getItem('k');
     expect(got).toBe('v');
 
     await secureStorageAdapter.removeItem('k');
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('k');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('k.chunk.0');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('k.chunks');
 
     const afterRemove = await secureStorageAdapter.getItem('k');
     expect(afterRemove).toBeNull();
+  });
+
+  it('chunks values larger than the SecureStore 2 KB cap and reassembles them', async () => {
+    // 5 KB of ASCII → at 1800-byte chunks that's 3 chunks.
+    const bigValue = 'x'.repeat(5000);
+    await secureStorageAdapter.setItem('session', bigValue);
+
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('session.chunk.0', expect.any(String));
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('session.chunk.1', expect.any(String));
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('session.chunk.2', expect.any(String));
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('session.chunks', '3');
+
+    // No single chunk may exceed the 2 KB cap.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = (SecureStore as any).__store as Record<string, string>;
+    for (let i = 0; i < 3; i++) {
+      expect(store[`session.chunk.${i}`].length).toBeLessThanOrEqual(2048);
+    }
+
+    const got = await secureStorageAdapter.getItem('session');
+    expect(got).toBe(bigValue);
+  });
+
+  it('clears stale chunks when a shorter value overwrites a longer one', async () => {
+    await secureStorageAdapter.setItem('session', 'x'.repeat(5000));
+    await secureStorageAdapter.setItem('session', 'tiny');
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = (SecureStore as any).__store as Record<string, string>;
+    expect(store['session.chunk.0']).toBe('tiny');
+    expect(store['session.chunk.1']).toBeUndefined();
+    expect(store['session.chunk.2']).toBeUndefined();
+    expect(store['session.chunks']).toBe('1');
+
+    expect(await secureStorageAdapter.getItem('session')).toBe('tiny');
+  });
+
+  it('falls back to legacy single-value reads for pre-chunking installs', async () => {
+    // Simulate an install that persisted its session before the
+    // chunking adapter shipped: a direct setItemAsync under the key
+    // itself, with no `.chunks` manifest.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = (SecureStore as any).__store as Record<string, string>;
+    store['legacy-key'] = 'legacy-session-blob';
+
+    const got = await secureStorageAdapter.getItem('legacy-key');
+    expect(got).toBe('legacy-session-blob');
+  });
+
+  it('removeItem clears both chunked and any legacy single-value entry', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const store = (SecureStore as any).__store as Record<string, string>;
+    store['k'] = 'legacy';
+    await secureStorageAdapter.setItem('k', 'fresh');
+    await secureStorageAdapter.removeItem('k');
+
+    expect(store['k']).toBeUndefined();
+    expect(store['k.chunk.0']).toBeUndefined();
+    expect(store['k.chunks']).toBeUndefined();
   });
 });
 

@@ -42,11 +42,71 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 // returning promises. We wrap expo-secure-store so refresh tokens land in
 // the platform's hardware-backed keystore instead of AsyncStorage (which
 // is unencrypted on Android and readable on rooted devices).
+//
+// Chunking: expo-secure-store warns that values larger than 2048 bytes
+// may not persist and will throw in a future SDK. Supabase writes the
+// whole session (access_token JWT + refresh_token + user object) as one
+// JSON blob, which routinely exceeds that limit. We split the value
+// across numbered child keys with a manifest key recording the count;
+// getItem reassembles them, removeItem tears them all down. Legacy
+// installs that wrote a single value pre-chunking fall through the
+// `${key}.chunks` absence and are read via the classic single-key path
+// on their next boot — Supabase then refreshes, we write chunked, done.
+
+const SECURE_STORE_CHUNK_SIZE = 1800; // leave headroom under the 2 KB cap
+const CHUNK_COUNT_SUFFIX = '.chunks';
+const chunkKey = (key: string, index: number): string => `${key}.chunk.${index}`;
+
+async function setItemChunked(key: string, value: string): Promise<void> {
+  // Tear down any previous chunked write first so a shorter new value
+  // doesn't leave stale chunks behind.
+  await removeItemChunked(key);
+
+  const chunks = Math.max(1, Math.ceil(value.length / SECURE_STORE_CHUNK_SIZE));
+  for (let i = 0; i < chunks; i++) {
+    const slice = value.slice(i * SECURE_STORE_CHUNK_SIZE, (i + 1) * SECURE_STORE_CHUNK_SIZE);
+    await SecureStore.setItemAsync(chunkKey(key, i), slice);
+  }
+  await SecureStore.setItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`, String(chunks));
+}
+
+async function getItemChunked(key: string): Promise<string | null> {
+  const countStr = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`);
+  if (countStr === null) {
+    // Legacy single-value read: installs that wrote before this
+    // adapter grew chunking still have their session at `key` itself.
+    return SecureStore.getItemAsync(key);
+  }
+  const count = Number.parseInt(countStr, 10);
+  if (!Number.isFinite(count) || count <= 0) return null;
+  const parts: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const part = await SecureStore.getItemAsync(chunkKey(key, i));
+    if (part === null) return null; // partial / corrupted write — fail safe
+    parts.push(part);
+  }
+  return parts.join('');
+}
+
+async function removeItemChunked(key: string): Promise<void> {
+  const countStr = await SecureStore.getItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`);
+  if (countStr !== null) {
+    const count = Number.parseInt(countStr, 10);
+    if (Number.isFinite(count) && count > 0) {
+      for (let i = 0; i < count; i++) {
+        await SecureStore.deleteItemAsync(chunkKey(key, i));
+      }
+    }
+    await SecureStore.deleteItemAsync(`${key}${CHUNK_COUNT_SUFFIX}`);
+  }
+  // Clear any legacy single-value entry too (no-op if absent).
+  await SecureStore.deleteItemAsync(key);
+}
 
 export const secureStorageAdapter = {
-  getItem: (key: string): Promise<string | null> => SecureStore.getItemAsync(key),
-  setItem: (key: string, value: string): Promise<void> => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string): Promise<void> => SecureStore.deleteItemAsync(key),
+  getItem: (key: string): Promise<string | null> => getItemChunked(key),
+  setItem: (key: string, value: string): Promise<void> => setItemChunked(key, value),
+  removeItem: (key: string): Promise<void> => removeItemChunked(key),
 };
 
 // --- Client ---

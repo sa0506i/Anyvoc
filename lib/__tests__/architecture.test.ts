@@ -1611,3 +1611,59 @@ describe('Architecture: Rule 38 — callClaude retries transient failures', () =
     expect(hasIsRetryableCheck).toBe(true);
   });
 });
+
+describe('Architecture: Rule 39 — SecureStore adapter chunks values over the 2 KB cap', () => {
+  // expo-secure-store persists at most ~2 KB per value on the native
+  // keystore; larger values trigger a warning today and will throw in
+  // a future SDK. Supabase session blobs (JWT + refresh token + user)
+  // routinely exceed that. The adapter in lib/auth.ts must split
+  // values across numbered child keys with a manifest, so a future
+  // refactor that collapses back to a single setItemAsync is caught.
+  it('lib/auth.ts secureStorageAdapter wraps the raw SecureStore API with chunking helpers', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'auth.ts'), 'utf8');
+
+    // Chunking helpers must exist.
+    expect(src).toMatch(/SECURE_STORE_CHUNK_SIZE\s*=\s*\d+/);
+    expect(src).toMatch(/async\s+function\s+setItemChunked\s*\(/);
+    expect(src).toMatch(/async\s+function\s+getItemChunked\s*\(/);
+    expect(src).toMatch(/async\s+function\s+removeItemChunked\s*\(/);
+
+    // Chunk size must be strictly under the 2048-byte SecureStore cap.
+    const sizeMatch = src.match(/SECURE_STORE_CHUNK_SIZE\s*=\s*(\d+)/);
+    expect(sizeMatch).not.toBeNull();
+    const size = Number(sizeMatch![1]);
+    if (size >= 2048) {
+      throw new Error(
+        `SECURE_STORE_CHUNK_SIZE = ${size} is >= the 2048-byte SecureStore\n` +
+          `cap. Leave headroom (recommended: 1800). See CLAUDE.md Security\n` +
+          `+ arch-review-2 Phase 2.G.`,
+      );
+    }
+
+    // The adapter must route through the helpers. A direct binding
+    // to SecureStore.getItemAsync / setItemAsync inside the adapter
+    // literal reintroduces the 2 KB bug.
+    const adapterMatch = src.match(/export\s+const\s+secureStorageAdapter\s*=\s*\{[\s\S]*?\}\s*;/);
+    expect(adapterMatch).not.toBeNull();
+    const adapterBody = adapterMatch![0];
+
+    const BANNED_DIRECT_WRAP = [
+      /setItem:.*SecureStore\.setItemAsync\s*\(/,
+      /getItem:.*SecureStore\.getItemAsync\s*\(/,
+      /removeItem:.*SecureStore\.deleteItemAsync\s*\(/,
+    ];
+    for (const pattern of BANNED_DIRECT_WRAP) {
+      const match = adapterBody.match(pattern);
+      if (match) {
+        throw new Error(
+          `SECURESTORE ADAPTER BYPASS in lib/auth.ts: "${match[0]}"\n` +
+            `The adapter must delegate to setItemChunked / getItemChunked /\n` +
+            `removeItemChunked, NOT to SecureStore.*Async directly. Supabase\n` +
+            `session blobs exceed the 2 KB cap; direct wrapping regresses\n` +
+            `the arch-review-2 Phase 2.G hardening.`,
+        );
+      }
+      expect(match).toBeNull();
+    }
+  });
+});
