@@ -1450,3 +1450,164 @@ describe('Architecture: Rule 33 — classifier fallback enforces a per-window ra
     }
   });
 });
+
+describe('Architecture: Rule 34 — backend must never forward upstream error bodies', () => {
+  // Mistral's 401/5xx response bodies can include API key fragments,
+  // internal URLs, and other provider-side details. The proxy MUST
+  // map upstream status codes to generic English strings via
+  // safeErrorMessage() and keep the raw body only in server logs.
+  // Forwarding errorText was the H4 finding in the arch review.
+  it('backend/server.js routes upstream errors through safeErrorMessage(), not raw text', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'backend', 'server.js'), 'utf8');
+
+    // Must declare and use the sanitizer.
+    expect(src).toMatch(/function\s+safeErrorMessage\s*\(/);
+    expect(src).toMatch(/error:\s*\{\s*message:\s*safeErrorMessage\s*\(/);
+
+    // Must NOT pass the raw upstream body through. Any of the
+    // equivalent shapes would reintroduce the leak.
+    const BANNED_PASSTHROUGH_SHAPES = [
+      /error:\s*\{\s*message:\s*errorText\s*\}/,
+      /error:\s*\{\s*message:\s*response\.statusText\s*\}/,
+      /error:\s*\{\s*message:\s*await\s+response\.text\s*\(/,
+    ];
+    for (const pattern of BANNED_PASSTHROUGH_SHAPES) {
+      const match = src.match(pattern);
+      if (match) {
+        throw new Error(
+          `UPSTREAM ERROR LEAK in backend/server.js: "${match[0]}"\n` +
+            `Mistral error bodies may contain API key fragments or internal\n` +
+            `URLs. Route the response through safeErrorMessage(response.status)\n` +
+            `and keep the raw text in a console.error call only.\n` +
+            `See CLAUDE.md H4 fix + arch-review-2 Phase 1.`,
+        );
+      }
+      expect(match).toBeNull();
+    }
+  });
+});
+
+describe('Architecture: Rule 35 — share-intent link gate uses the URL constructor', () => {
+  // A regex-only check accepted javascript:, file:, data:, ftp: and
+  // malformed URLs as "links", which then reached fetch + linkedom.
+  // The hardening requires the URL constructor and an http(s) protocol
+  // assertion. This sensor prevents silent reversion to regex.
+  it('lib/shareHandler.ts validates link candidates via new URL() + protocol check', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'shareHandler.ts'), 'utf8');
+
+    // Required: a URL constructor + protocol guard path.
+    expect(src).toMatch(/new\s+URL\s*\(/);
+    expect(src).toMatch(/protocol\s*===\s*['"]https?:['"]/);
+
+    // Banned: regex-only link gate in parseShareIntent (the shape that
+    // used to ship). We check the specific anti-pattern, not all
+    // regex usage — this file may have unrelated regex in the future.
+    const BANNED = [
+      /urlPattern\.test\s*\(\s*shareIntent\.text/,
+      /\/\^https\?:\\\/\\\/\/i\.test\s*\(/,
+    ];
+    for (const pattern of BANNED) {
+      const match = src.match(pattern);
+      if (match) {
+        throw new Error(
+          `REGEX LINK GATE in lib/shareHandler.ts: "${match[0]}"\n` +
+            `Link detection must use new URL() + protocol check, not a\n` +
+            `\\^https?:\\\\\/\\\\\/ regex. A regex lets javascript:, file:,\n` +
+            `data: URIs and malformed strings through to fetch/Readability.\n` +
+            `See arch-review-2 Phase 2.A F10.4 + CLAUDE.md Security.`,
+        );
+      }
+      expect(match).toBeNull();
+    }
+  });
+});
+
+describe('Architecture: Rule 36 — backend validates each incoming message before fetching Mistral', () => {
+  // CLAUDE.md "backend proxy" requires per-message shape + size checks
+  // so a client cannot send many valid-shaped messages with
+  // pathologically long text and burn tokens. validateMessage() must
+  // be called for every message before the upstream fetch.
+  it('backend/server.js loops messages through validateMessage() before fetch(MISTRAL_API_URL)', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'backend', 'server.js'), 'utf8');
+
+    // The helper must exist.
+    expect(src).toMatch(/function\s+validateMessage\s*\(/);
+
+    // It must be invoked in a loop over `messages`.
+    expect(src).toMatch(/for\s*\(\s*const\s+\w+\s+of\s+messages\s*\)/);
+    expect(src).toMatch(/validateMessage\s*\(/);
+
+    // The validation loop must run BEFORE the Mistral fetch call,
+    // not after. If ordering is reversed, size-cap violations slip
+    // through to upstream and cost money anyway.
+    const validateIdx = src.search(/validateMessage\s*\(/);
+    const fetchIdx = src.search(/fetch\s*\(\s*MISTRAL_API_URL/);
+    expect(validateIdx).toBeGreaterThan(-1);
+    expect(fetchIdx).toBeGreaterThan(-1);
+    if (!(validateIdx < fetchIdx)) {
+      throw new Error(
+        `MESSAGE VALIDATION BYPASSED: validateMessage() must run BEFORE\n` +
+          `fetch(MISTRAL_API_URL) in backend/server.js. Otherwise invalid\n` +
+          `messages still hit Mistral and the per-message size cap is\n` +
+          `bypassed. See arch-review-2 Phase 2.A F10.1.`,
+      );
+    }
+  });
+});
+
+describe('Architecture: Rule 37 — vocabulary.created_at index is present', () => {
+  // The vocabulary tab defaults to "recent first" sort. At ~1000 rows
+  // (the app's target scale) a full table scan on every tab focus is
+  // a measurable main-thread cost. The index must stay in the
+  // initDatabase() CREATE INDEX block.
+  it('lib/database.ts creates idx_vocabulary_created_at in initDatabase', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'database.ts'), 'utf8');
+
+    const match = src.match(
+      /CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+idx_vocabulary_created_at\s+ON\s+vocabulary\s*\(\s*created_at/i,
+    );
+    if (!match) {
+      throw new Error(
+        `MISSING INDEX: lib/database.ts must declare\n` +
+          `  CREATE INDEX IF NOT EXISTS idx_vocabulary_created_at ON vocabulary(created_at DESC)\n` +
+          `inside initDatabase(). Without it the default vocabulary sort\n` +
+          `at ~1000 rows becomes a full table scan on every tab focus.\n` +
+          `See arch-review-2 Phase 2.A F10.5.`,
+      );
+    }
+    expect(match).not.toBeNull();
+  });
+});
+
+describe('Architecture: Rule 38 — callClaude retries transient failures', () => {
+  // Flaky networks + upstream 5xx used to fail the whole extraction
+  // with no retry. The refactor split the fetch into callClaudeOnce()
+  // and wrapped it in a retry loop. Silent removal of the wrapper
+  // would undo this hardening without any test catching it.
+  it('lib/claude.ts exposes a retry loop around callClaudeOnce with an isRetryable() gate', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+
+    // Shape constants + helpers.
+    expect(src).toMatch(/const\s+MAX_RETRIES\s*=\s*\d+/);
+    expect(src).toMatch(/function\s+isRetryable\s*\(/);
+    expect(src).toMatch(/async\s+function\s+callClaudeOnce\s*\(/);
+
+    // callClaude must delegate to callClaudeOnce inside a loop
+    // guarded by attempt count + isRetryable.
+    const hasLoop = /for\s*\(\s*let\s+attempt\s*=\s*0\s*;\s*attempt\s*<=?\s*MAX_RETRIES/.test(src);
+    const hasDelegate = /callClaudeOnce\s*\(/.test(src);
+    const hasIsRetryableCheck = /!isRetryable\s*\(/.test(src);
+
+    if (!hasLoop || !hasDelegate || !hasIsRetryableCheck) {
+      throw new Error(
+        `RETRY WRAPPER MISSING: lib/claude.ts's callClaude must wrap\n` +
+          `callClaudeOnce in a retry loop (for attempt <= MAX_RETRIES) and\n` +
+          `rethrow when !isRetryable(err). Non-retryable: 4xx + AbortError.\n` +
+          `Retryable: 5xx + network failures. See arch-review-2 Phase 2.C F5.1.`,
+      );
+    }
+    expect(hasLoop).toBe(true);
+    expect(hasDelegate).toBe(true);
+    expect(hasIsRetryableCheck).toBe(true);
+  });
+});
