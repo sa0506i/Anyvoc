@@ -1667,3 +1667,38 @@ describe('Architecture: Rule 39 — SecureStore adapter chunks values over the 2
     }
   });
 });
+
+describe('Architecture: Rule 40 — extractVocabulary prompt shows every non-other type', () => {
+  // Small LLMs (mistral-small-2506) are strongly biased by few-shot
+  // examples at temperature 0. A single-example JSON schema ("type":
+  // "noun") caused every extracted entry — nouns, verbs, adjectives,
+  // phrases — to come back labelled "noun" deterministically, which
+  // then made capitaliseGermanNouns fire on verbs for German users.
+  // Pin the prompt to show each non-"other" type so the model has
+  // canonical anchors for all of them.
+  it('buildVocabSystemPrompt includes noun/verb/adjective/phrase examples AND the type enum', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+
+    const fnMatch = src.match(/function\s+buildVocabSystemPrompt[\s\S]*?^}/m);
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+
+    const REQUIRED_TYPE_LABELS = ['noun', 'verb', 'adjective', 'phrase'];
+    const missing = REQUIRED_TYPE_LABELS.filter((t) => !body.includes(`"type": "${t}"`));
+    if (missing.length > 0) {
+      throw new Error(
+        `EXTRACTION PROMPT BIAS in lib/claude.ts: buildVocabSystemPrompt\n` +
+          `must include one "type": "${REQUIRED_TYPE_LABELS.join('" / "type": "')}" example.\n` +
+          `Missing: ${missing.map((t) => `"type": "${t}"`).join(', ')}.\n` +
+          `Temperature-0 small models cargo-cult single-example prompts —\n` +
+          `without all four anchors, every entry comes back as "noun".\n` +
+          `See arch-review-2 Phase 2.H.`,
+      );
+    }
+    expect(missing).toEqual([]);
+
+    // The prompt must also carry an enum-shaped listing so the model
+    // treats the field as a choice, not a cargo-culted constant.
+    expect(body).toMatch(/"noun".*"verb".*"adjective".*"phrase"/s);
+  });
+});

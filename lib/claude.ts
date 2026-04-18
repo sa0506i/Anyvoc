@@ -252,15 +252,17 @@ Rules:
 ${VOCAB_FORMATTING_RULES}
 - List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms". Example: source contains "rivais", base form is "o rival" → source_forms: ["rivais"].
 
-Respond exclusively as a JSON array, no additional text. Leave "level" as "":
+"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
+Pick the type that matches each extracted word — DO NOT label every entry "noun".
+Examples: verbs are infinitives ("correr", "sich erinnern"); adjectives give the m/f forms if they differ ("bonito, bonita"); phrases are multi-word fixed expressions ("de repente").
+
+Respond exclusively as a JSON array, no additional text. Leave "level" as "".
+The example below is shape only — the actual types in your output depend on what is in the source text:
 [
-  {
-    "original": "o passaporte",
-    "translation": "the passport",
-    "level": "",
-    "type": "noun",
-    "source_forms": ["passaportes"]
-  }
+  { "original": "o passaporte", "translation": "the passport", "level": "", "type": "noun", "source_forms": ["passaportes"] },
+  { "original": "correr", "translation": "to run", "level": "", "type": "verb", "source_forms": ["corre", "corremos"] },
+  { "original": "bonito, bonita", "translation": "beautiful", "level": "", "type": "adjective", "source_forms": ["bonitos"] },
+  { "original": "de repente", "translation": "suddenly", "level": "", "type": "phrase", "source_forms": ["de repente"] }
 ]`;
 }
 
