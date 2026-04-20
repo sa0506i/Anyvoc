@@ -182,7 +182,7 @@ After the LLM extracts vocabulary, every entry passes through
 pure (no I/O, no DB, no expo-\*, no fetch) so unit tests stay fast and
 the batch-classification scripts can reuse it.
 
-Three responsibilities:
+Six responsibilities (all pure, deterministic, offline):
 
 1. **`isAbbreviation(original)`** — drops all-uppercase tokens of 2+
    characters (`GNR`, `DLRG`, `IRS`, `EU`, `B2B`). Acronyms slip past
@@ -193,11 +193,59 @@ Three responsibilities:
    learning languages. German is excluded because every common noun is
    capitalised; for German we rely on the LLM prompt's "ignore proper
    nouns" rule.
-3. **`capitaliseGermanNouns(translation, type)`** — when the user's
+3. **`isMultiWordNounLeak(original, type)`** — drops `type: 'noun'` AND
+   `type: 'other'` entries where the `original` field has ≥2 content
+   tokens after the article (`le Real Madrid`, `la British Broadcasting
+   Corporation`, `die öffentliche Gewalt`, `den offentliga makten`).
+   The prompt asks for `article + singular noun`; anything longer is
+   either an attribute-adjective leak or a multi-word proper noun.
+   `'other'` is included because the 2026-04-20 sweep's remaining 9
+   leaks were all club names (`le Real Madrid`) that the LLM labelled
+   `'other'` to slip past the narrower noun-only filter. Comma-separated
+   m/f pairs (`der Arzt, die Ärztin`) are checked per-part so legitimate
+   multi-form entries pass. Enforced by Rules 33 + 37.
+4. **`collapseIdenticalFormPair(s)`** — collapses comma-separated pairs
+   where both parts normalise to the same base string after stripping
+   whitespace and apostrophe articles (`grande, grande` → `grande`,
+   `igual, igual` → `igual`, `fagfællebedømte, fagfællebedømte` →
+   `fagfællebedømte`). The CLAUDE.md rule is "m + f forms if they
+   differ" — so same-form pairs are the LLM wrongly applying the rule
+   to genderless target languages. Legitimate differing pairs
+   (`haut, haute`, `clair, claire`, `bonito, bonita`) stay untouched
+   because their normalised bases differ. Applied to both `original`
+   and `translation` fields. Added after the 2026-04-20 sweep surfaced
+   ~50 such collapse candidates (see `Rule 33`).
+5. **Within-batch dedup on `(original.toLowerCase(), type)`** — catches
+   both 2× copies (~11 % of extracted entries pre-fix) and full
+   repetition loops where the LLM emits the same word 30+ times in a
+   row (`être` × 37, `la perfetta` × 39, `at være` × 54 in the
+   2026-04-20 sweep). Implemented as a `Set` seen-key guard inside
+   `postProcessExtractedVocab`. Keyed on the **post-collapse** original
+   so the dedup interacts correctly with `collapseIdenticalFormPair`.
+6. **`capitaliseGermanNouns(translation, type)`** — when the user's
    native language is German and the entry is a noun, capitalises the
    noun part of the translation while preserving the article
    (`"der hund" → "der Hund"`, `"die ärztin" → "die Ärztin"`,
-   multi-form supported).
+   multi-form supported). For attribute-noun phrases **only the noun
+   itself** is capitalised; attributive adjectives keep their German
+   lowercase form (`"die öffentliche gewalt" → "die öffentliche Gewalt"`,
+   not `"die Öffentliche Gewalt"`). Internally the function walks the
+   token list after the article in reverse and capitalises the first
+   non-whitespace hit — the noun. Correcting this was a late 2026-04-20
+   fix after the sweep surfaced ~24 "capitalised adjective" errors in
+   DE-native translations.
+
+Malformed entries with missing `original` (happens when the LLM returns
+a truncated JSON object the parser accepts as `{}`) are silently dropped.
+
+**Classifier apostrophe handling (Rule 36).** The Romance elision
+articles `l'`, `d'`, `s'`, `c'`, `j'`, `n'`, `qu'` attach without
+whitespace and therefore slip past the classifier's whitespace-based
+article strip. `lib/classifier/features.ts`'s `normaliseLookupKey`
+performs an apostrophe strip AFTER the whitespace-article strip so
+`l'uovo` looks up against `uovo` in `lib/data/freq_it.json`. Without
+this, elision nouns in IT/FR/PT fall through to the zero-zipf default
+and get mis-classified C2. Surfaced by the 2026-04-20 sweep (fix I.9).
 
 The single integration point `postProcessExtractedVocab` is called from
 both `extractVocabulary()` and `translateSingleWord()` in `lib/claude.ts`.
@@ -208,9 +256,19 @@ untouched — lowering the level immediately brings hidden rows back.
 Applied in `app/(tabs)/vocabulary.tsx`, `app/(tabs)/index.tsx`, and
 `app/content/[id].tsx`.
 
-Architecture rule 20 (level filter), rule 21 (post-processor wired in
-both LLM paths), and rule 22 (vocabFilters stays pure) enforce these
-invariants computationally.
+Architecture rules 20 (level filter), 21 (post-processor wired in both
+LLM paths), 22 (vocabFilters stays pure), and **33 (full filter chain +
+Set-based dedup lives inside `postProcessExtractedVocab`)** enforce
+these invariants computationally. The extraction prompt itself is
+locked by **Rule 34**, which verifies: (a) `buildVocabSystemPrompt`
+accepts `learningLanguageCode`, (b) the prompt contains the
+Scandinavian indefinite-article rule (`en` / `ett` / `ei` for da/sv/no,
+since those languages mark definiteness by suffix), (c) an `AT MOST
+ONCE` anti-repetition clause is present, and (d) `extractVocabulary`
+emits `console.warn("...repetition loop detected...")` when ≥3
+consecutive identical `(original, type)` entries are parsed — this
+diagnostic log lets loop-pattern drift show up in on-call signal even
+though the dedup silently collapses the output.
 
 **`user_added` bypass.** Words added via the Pro long-press flow in
 `app/content/[id].tsx` (`addWordToVocabulary`) set `user_added = 1` on

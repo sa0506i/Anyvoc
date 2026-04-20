@@ -67,6 +67,23 @@ describe('classifyWord — local classification', () => {
     expect(mockedCallClaude).not.toHaveBeenCalled();
   });
 
+  // Regression: apostrophe-attached elision articles (l', d', s', c', j')
+  // weren't stripped by ARTICLE_PREFIXES (which requires whitespace). The
+  // 2026-04-20 sweep surfaced l'uovo mis-classified C2 because "l'uovo"
+  // never hit the "uovo" entry in freq_it.json. I.9 adds an apostrophe-
+  // strip pass after the whitespace-article strip.
+  it("l'uovo (it) — apostrophe article is stripped, matches basic noun level", async () => {
+    const lvl = await classifyWord("l'uovo", 'it');
+    expect(['A1', 'A2', 'B1', 'B2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
+  it("l'amour (fr) — same treatment for French elision", async () => {
+    const lvl = await classifyWord("l'amour", 'fr');
+    expect(['A1', 'A2', 'B1', 'B2']).toContain(lvl);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
   it('the button (en) — article "the" is stripped, A1', async () => {
     expect(await classifyWord('the button', 'en')).toBe('A1');
   });

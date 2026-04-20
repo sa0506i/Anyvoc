@@ -1,6 +1,8 @@
 import {
   isAbbreviation,
   isLikelyProperNoun,
+  isMultiWordNounLeak,
+  collapseIdenticalFormPair,
   capitaliseGermanNouns,
   postProcessExtractedVocab,
 } from './vocabFilters';
@@ -92,6 +94,101 @@ describe('capitaliseGermanNouns', () => {
   it('handles bare nouns (no article)', () => {
     expect(capitaliseGermanNouns('hund', 'noun')).toBe('Hund');
   });
+
+  it('keeps attributive adjectives lowercase, only capitalises the noun', () => {
+    expect(capitaliseGermanNouns('die öffentliche gewalt', 'noun')).toBe('die öffentliche Gewalt');
+    expect(capitaliseGermanNouns('die schlechte laune', 'noun')).toBe('die schlechte Laune');
+    expect(capitaliseGermanNouns('die wissenschaftliche autorität', 'noun')).toBe(
+      'die wissenschaftliche Autorität',
+    );
+  });
+
+  it('does not re-capitalise an already-correct attribute-noun phrase', () => {
+    expect(capitaliseGermanNouns('die öffentliche Gewalt', 'noun')).toBe('die öffentliche Gewalt');
+  });
+});
+
+describe('isMultiWordNounLeak', () => {
+  it.each([
+    ['le Real Madrid', 'noun', true],
+    ['la British Broadcasting Corporation', 'noun', true],
+    ['die öffentliche Gewalt', 'noun', true],
+    ['den offentliga makten', 'noun', true],
+    ['los medios de comunicación', 'noun', true],
+    ['der Truppendurchzug', 'noun', false], // single-word compound
+    ['der Hund', 'noun', false],
+    ['o passaporte', 'noun', false],
+    ['der Arzt, die Ärztin', 'noun', false], // m/f split by comma
+    ['de koning, de koningin', 'noun', false], // same, NL
+    ['New York City', 'noun', true], // 3 tokens no article
+  ])('%s (type=%s) → leak=%s', (s, t, expected) => {
+    expect(isMultiWordNounLeak(s, t)).toBe(expected);
+  });
+
+  it('also catches multi-word proper-noun leaks typed "other" (sports clubs etc.)', () => {
+    // The 2026-04-20 sweep's remaining 9 leaks were all in fr→{es,sv,da}
+    // and labelled 'other' rather than 'noun' — multi-word club names.
+    expect(isMultiWordNounLeak('le Real Madrid', 'other')).toBe(true);
+    expect(isMultiWordNounLeak('le Bayern Munich', 'other')).toBe(true);
+    expect(isMultiWordNounLeak('le FC Barcelone', 'other')).toBe(true);
+  });
+
+  it('does not flag single-word "other" entries', () => {
+    // Single-word 'other' is a legitimate catch-all (interjections, particles)
+    // and must stay untouched.
+    expect(isMultiWordNounLeak('selbst', 'other')).toBe(false);
+    expect(isMultiWordNounLeak('quoi', 'other')).toBe(false);
+  });
+
+  it('never flags phrase or verb types (phrases are multi-word by design)', () => {
+    expect(isMultiWordNounLeak('de repente', 'phrase')).toBe(false);
+    expect(isMultiWordNounLeak('sich erinnern', 'verb')).toBe(false);
+  });
+});
+
+describe('collapseIdenticalFormPair', () => {
+  it.each([
+    ['grande, grande', 'grande'],
+    ['igual, igual', 'igual'],
+    ['fagfællebedømte, fagfællebedømte', 'fagfællebedømte'],
+    ['social, social', 'social'],
+    ['revisionato dai pari, revisionato dai pari', 'revisionato dai pari'],
+  ])('collapses identical pair %s → %s', (input, expected) => {
+    expect(collapseIdenticalFormPair(input)).toBe(expected);
+  });
+
+  it.each([
+    ['haut, haute', 'haut, haute'], // legit FR m/f
+    ['clair, claire', 'clair, claire'], // legit FR m/f
+    ['bonito, bonita', 'bonito, bonita'], // legit ES/IT m/f
+    ['der Arzt, die Ärztin', 'der Arzt, die Ärztin'], // legit DE m/f
+    ['bueno, buena', 'bueno, buena'], // legit ES m/f
+    ['le médecin, la médecin', 'le médecin, la médecin'], // legit FR m/f same base, different articles
+    ["l'ami, l'amie", "l'ami, l'amie"], // legit FR elision m/f
+  ])('keeps legitimate differing pair %s', (input) => {
+    expect(collapseIdenticalFormPair(input)).toBe(input);
+  });
+
+  it('collapses case-identical pairs (case-insensitive comparison)', () => {
+    // The LLM occasionally emits "Grande, grande" or "der Hund, der Hund"
+    // with varying case; we collapse by case-insensitive match.
+    expect(collapseIdenticalFormPair('der Hund, der Hund')).toBe('der Hund');
+    expect(collapseIdenticalFormPair('Grande, grande')).toBe('Grande');
+  });
+
+  it('returns single-form inputs unchanged (no comma)', () => {
+    expect(collapseIdenticalFormPair('grande')).toBe('grande');
+    expect(collapseIdenticalFormPair('der Hund')).toBe('der Hund');
+  });
+
+  it('returns inputs with 3+ comma parts unchanged (not an m/f pair)', () => {
+    expect(collapseIdenticalFormPair('a, b, c')).toBe('a, b, c');
+  });
+
+  it('handles undefined / empty input', () => {
+    expect(collapseIdenticalFormPair(undefined)).toBe('');
+    expect(collapseIdenticalFormPair('')).toBe('');
+  });
 });
 
 describe('postProcessExtractedVocab', () => {
@@ -147,5 +244,62 @@ describe('postProcessExtractedVocab', () => {
     const snapshot = JSON.stringify(items);
     postProcessExtractedVocab(items, 'de', 'en');
     expect(JSON.stringify(items)).toBe(snapshot);
+  });
+
+  it('drops multi-word noun leaks (attribute-adj + noun or multi-word proper nouns)', () => {
+    const items = [
+      make({ original: 'le Real Madrid', translation: 'Real Madrid', type: 'noun' }),
+      make({ original: 'la British Broadcasting Corporation', translation: 'BBC', type: 'noun' }),
+      make({ original: 'die öffentliche Gewalt', translation: 'public authority', type: 'noun' }),
+      make({ original: 'der Hund', translation: 'the dog', type: 'noun' }), // legit
+    ];
+    const out = postProcessExtractedVocab(items, 'fr', 'en');
+    expect(out.map((i) => i.original)).toEqual(['der Hund']);
+  });
+
+  it('deduplicates within a single batch on (original, type)', () => {
+    const items = [
+      make({ original: 'der Hund', type: 'noun' }),
+      make({ original: 'der Hund', type: 'noun' }), // exact dup
+      make({ original: 'Der Hund', type: 'noun' }), // case-insensitive dup
+      make({ original: 'der Hund', type: 'verb' }), // different type — kept
+    ];
+    const out = postProcessExtractedVocab(items, 'de', 'en');
+    expect(out).toHaveLength(2);
+    expect(out.map((i) => i.type)).toEqual(['noun', 'verb']);
+  });
+
+  it('collapses repetition-loops to a single entry', () => {
+    const loop = Array.from({ length: 40 }, () =>
+      make({ original: 'être', translation: 'sein', type: 'verb' }),
+    );
+    const out = postProcessExtractedVocab(loop, 'fr', 'de');
+    expect(out).toHaveLength(1);
+    expect(out[0].original).toBe('être');
+  });
+
+  it('collapses same-form m/f pairs in both original and translation', () => {
+    const items = [
+      make({ original: 'grande, grande', translation: 'grande, grande', type: 'adjective' }),
+      make({ original: 'haut, haute', translation: 'alto, alta', type: 'adjective' }),
+    ];
+    const out = postProcessExtractedVocab(items, 'fr', 'en');
+    expect(out).toHaveLength(2);
+    // Spurious pair collapsed.
+    expect(out[0].original).toBe('grande');
+    expect(out[0].translation).toBe('grande');
+    // Legitimate pair untouched.
+    expect(out[1].original).toBe('haut, haute');
+    expect(out[1].translation).toBe('alto, alta');
+  });
+
+  it('drops "other"-typed multi-word proper-noun leaks', () => {
+    const items = [
+      make({ original: 'le Real Madrid', translation: 'Real Madrid', type: 'other' }),
+      make({ original: 'le Bayern Munich', translation: 'Bayern Munich', type: 'other' }),
+      make({ original: 'selbst', translation: 'self', type: 'other' }), // single-word 'other' kept
+    ];
+    const out = postProcessExtractedVocab(items, 'fr', 'en');
+    expect(out.map((i) => i.original)).toEqual(['selbst']);
   });
 });

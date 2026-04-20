@@ -2,50 +2,58 @@
  * build-aoa-llm.ts
  *
  * Generates LLM-estimated Age-of-Acquisition (AoA) ratings for the top-N
- * words of a non-English language, using the Claude API. Writes the output
- * to lib/data/aoa_{lang}.json in the same shape as the Kuperman EN file.
+ * words of a non-English language, using the Mistral chat completions API.
+ * Writes the output to lib/data/aoa_{lang}.json in the same shape as the
+ * Kuperman EN file.
  *
  * This is the "TODO #3" build step — see lib/classifier/TODO.md. It is
  * dev-machine only, NEVER wired into eas-build hooks. The generated JSON
  * is committed to the repo so EAS Build sees it as a static asset.
  *
  * Run:
- *   ANTHROPIC_API_KEY=sk-... npm run build:aoa-llm -- --lang=de [--top=5000] [--batch=50] [--resume]
+ *   MISTRAL_API_KEY=... npm run build:aoa-llm -- --lang=de [--top=5000] [--batch=50] [--resume]
  *
  * Behaviour:
  *  - Reads top-N words from lib/data/freq_{lang}.json (sorted by Zipf desc).
  *  - Skips tokens that don't look like content words (punctuation, numbers,
  *    function words of length <= 1, etc.).
- *  - Calls the Anthropic Messages API directly (axios) with temperature: 0
- *    and a system prompt asking for a JSON mapping word → AoA (scale 2-18).
+ *  - Calls the Mistral chat completions API directly (axios) with
+ *    temperature: 0 and a system prompt asking for a JSON mapping word →
+ *    AoA (scale 2-18).
  *  - Writes the file incrementally every BATCH so a crash mid-run can be
  *    resumed with --resume (skips words already in the existing output).
  *
- * Cost estimate (claude-haiku-4-5-20251001): ~$0.30 / language for 5000
- * words, ~$3.30 for the remaining 11 non-EN languages.
+ * Cost estimate (mistral-small-2506): small-model pricing, inexpensive for
+ * the full 11-language sweep at top=5000.
  *
- * Model is Haiku by default. The EN Kuperman norms remain the gold standard —
- * these estimates are a pragmatic stand-in so the classifier doesn't have to
- * fall back to (1 - zipfNorm) for 11 of 12 supported languages.
+ * The EN Kuperman norms remain the gold standard — these estimates are a
+ * pragmatic stand-in so the classifier doesn't have to fall back to
+ * (1 - zipfNorm) for 11 of 12 supported languages.
  */
 
 import axios from 'axios';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+const DEFAULT_MODEL = 'mistral-small-2506';
 const DEFAULT_TOP = 5000;
 const DEFAULT_BATCH = 50;
-const ANTHROPIC_VERSION = '2023-06-01';
 
-const SUPPORTED = new Set([
-  'de', 'fr', 'es', 'it', 'pt', 'nl', 'sv', 'no', 'da', 'pl', 'cs',
-]);
+const SUPPORTED = new Set(['de', 'fr', 'es', 'it', 'pt', 'nl', 'sv', 'no', 'da', 'pl', 'cs']);
 
 const LANG_NAME: Record<string, string> = {
-  de: 'German', fr: 'French', es: 'Spanish', it: 'Italian', pt: 'Portuguese',
-  nl: 'Dutch', sv: 'Swedish', no: 'Norwegian', da: 'Danish', pl: 'Polish', cs: 'Czech',
+  de: 'German',
+  fr: 'French',
+  es: 'Spanish',
+  it: 'Italian',
+  pt: 'Portuguese',
+  nl: 'Dutch',
+  sv: 'Swedish',
+  no: 'Norwegian',
+  da: 'Danish',
+  pl: 'Polish',
+  cs: 'Czech',
 };
 
 // Freq files are stored as parallel arrays { keys, values } — see
@@ -121,7 +129,7 @@ function loadExisting(outPath: string): Record<string, number> {
 function writeOut(outPath: string, lang: string, model: string, words: Record<string, number>) {
   const doc: AoaFile = {
     __attribution:
-      'LLM-estimated AoA ratings via Anthropic Claude API. Calibrated against ' +
+      'LLM-estimated AoA ratings via Mistral chat completions API. Calibrated against ' +
       'Kuperman et al. (2012) English norms. Scale 2-18 (years).',
     __scale: '2-18',
     __lang: lang,
@@ -157,39 +165,39 @@ Rules:
 Example output: {"hund":4.2,"philosophie":12.5}`;
 }
 
-interface AnthropicResponse {
-  content: Array<{ type: string; text?: string }>;
+interface MistralResponse {
+  choices?: Array<{ message?: { content?: string } }>;
   error?: { message: string };
 }
 
-async function callAnthropic(
+async function callMistral(
   apiKey: string,
   model: string,
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
 ): Promise<string> {
-  const res = await axios.post<AnthropicResponse>(
-    ANTHROPIC_URL,
+  const res = await axios.post<MistralResponse>(
+    MISTRAL_URL,
     {
       model,
       max_tokens: 4096,
       temperature: 0,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
     },
     {
       headers: {
         'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
+        authorization: `Bearer ${apiKey}`,
       },
       timeout: 120_000,
-    }
+    },
   );
 
   if (res.data.error) throw new Error(res.data.error.message);
-  const textBlock = res.data.content.find((b) => b.type === 'text');
-  return textBlock?.text ?? '';
+  return res.data.choices?.[0]?.message?.content ?? '';
 }
 
 function parseRatings(text: string): Record<string, number> {
@@ -211,7 +219,7 @@ async function main() {
   const lang = getArg('lang');
   if (!lang || !SUPPORTED.has(lang)) {
     console.error(
-      `Usage: npm run build:aoa-llm -- --lang=<${Array.from(SUPPORTED).join('|')}> [--top=5000] [--batch=50] [--model=...] [--resume]`
+      `Usage: npm run build:aoa-llm -- --lang=<${Array.from(SUPPORTED).join('|')}> [--top=5000] [--batch=50] [--model=...] [--resume]`,
     );
     process.exit(1);
   }
@@ -220,9 +228,9 @@ async function main() {
   const model = getArg('model', DEFAULT_MODEL)!;
   const resume = getArg('resume') === 'true';
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) {
-    console.error('ANTHROPIC_API_KEY environment variable is required.');
+    console.error('MISTRAL_API_KEY environment variable is required.');
     process.exit(1);
   }
 
@@ -243,10 +251,10 @@ async function main() {
   const ratings: Record<string, number> = { ...existing };
 
   console.log(
-    `[build:aoa-llm] lang=${lang} (${LANG_NAME[lang]}) top=${top} batch=${batch} model=${model}`
+    `[build:aoa-llm] lang=${lang} (${LANG_NAME[lang]}) top=${top} batch=${batch} model=${model}`,
   );
   console.log(
-    `[build:aoa-llm] ${all.length} candidate words; ${Object.keys(existing).length} already rated; ${pending.length} to process.`
+    `[build:aoa-llm] ${all.length} candidate words; ${Object.keys(existing).length} already rated; ${pending.length} to process.`,
   );
 
   const languageName = LANG_NAME[lang];
@@ -259,16 +267,15 @@ async function main() {
   for (let i = 0; i < pending.length; i += batch) {
     const chunk = pending.slice(i, i + batch);
     const userMessage =
-      `Rate the AoA for these ${languageName} words. Return JSON only.\n\n` +
-      JSON.stringify(chunk);
+      `Rate the AoA for these ${languageName} words. Return JSON only.\n\n` + JSON.stringify(chunk);
 
     let text: string;
     try {
-      text = await callAnthropic(apiKey, model, systemPrompt, userMessage);
+      text = await callMistral(apiKey, model, systemPrompt, userMessage);
       apiCalls++;
     } catch (err) {
       console.warn(
-        `[build:aoa-llm] batch ${i}/${pending.length} failed: ${(err as Error).message}. Writing checkpoint and exiting.`
+        `[build:aoa-llm] batch ${i}/${pending.length} failed: ${(err as Error).message}. Writing checkpoint and exiting.`,
       );
       writeOut(outPath, lang, model, ratings);
       process.exit(2);
@@ -279,7 +286,7 @@ async function main() {
       parsed = parseRatings(text);
     } catch (err) {
       console.warn(
-        `[build:aoa-llm] parse failure for batch ${i}: ${(err as Error).message}. Skipping batch.`
+        `[build:aoa-llm] parse failure for batch ${i}: ${(err as Error).message}. Skipping batch.`,
       );
       parsed = {};
     }
@@ -296,7 +303,7 @@ async function main() {
       writeOut(outPath, lang, model, ratings);
       const elapsedS = ((Date.now() - startedAt) / 1000).toFixed(1);
       console.log(
-        `[build:aoa-llm] checkpoint: ${processed}/${pending.length} processed (${Object.keys(ratings).length} total, ${elapsedS}s)`
+        `[build:aoa-llm] checkpoint: ${processed}/${pending.length} processed (${Object.keys(ratings).length} total, ${elapsedS}s)`,
       );
     }
   }
@@ -304,7 +311,7 @@ async function main() {
   writeOut(outPath, lang, model, ratings);
   const elapsedS = ((Date.now() - startedAt) / 1000).toFixed(1);
   console.log(
-    `[build:aoa-llm] done: ${Object.keys(ratings).length} words → ${outPath} (${apiCalls} API calls, ${elapsedS}s)`
+    `[build:aoa-llm] done: ${Object.keys(ratings).length} words → ${outPath} (${apiCalls} API calls, ${elapsedS}s)`,
   );
 }
 

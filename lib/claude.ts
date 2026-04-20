@@ -233,10 +233,34 @@ export function chunkText(text: string, maxChars: number = MAX_CHARS_PER_CHUNK):
   return chunks;
 }
 
-function buildVocabSystemPrompt(nativeLanguageName: string, learningLanguageName: string): string {
+/** Scandinavian languages mark definiteness with a noun suffix rather than
+ *  a prepositive article, so the generic "direct article" rule breaks down.
+ *  For da/sv/no we instruct the model to prepend the INDEFINITE article
+ *  based on grammatical gender (en/ett/ei), making the output cross-
+ *  linguistically comparable. */
+const SCANDINAVIAN_NOUN_RULE = `- IMPORTANT — for Swedish (sv), Norwegian (no), and Danish (da), these languages mark definiteness as a noun SUFFIX, not a prepositive article. In the "original" field, ALWAYS prepend the INDEFINITE article based on grammatical gender: "en" (common gender, sv/no/da), "ett" (neuter, sv), "ei" (feminine, no). Examples: "en artikel", "ett språk" (sv), "ei bok" (no), "en bog" (da). Never emit a bare noun in these languages.`;
+
+const CRITICAL_NOUN_RULE_BY_LANG: Record<string, string> = {
+  sv: SCANDINAVIAN_NOUN_RULE,
+  no: SCANDINAVIAN_NOUN_RULE,
+  da: SCANDINAVIAN_NOUN_RULE,
+};
+
+/** Avoid the two classes of multi-word noun leak we see most often: the
+ *  LLM bundling an attributive adjective with the noun ("die öffentliche
+ *  Gewalt") and the LLM labelling multi-word named entities as common
+ *  nouns ("le Real Madrid"). */
+const NOUN_SHAPE_RULE = `- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. Never bundle an attributive adjective with the noun (write "die Gewalt" not "die öffentliche Gewalt"; if the adjective is relevant, list it as a separate adjective entry). Multi-word proper nouns ("le Real Madrid", "la British Broadcasting Corporation") are proper nouns and MUST be omitted entirely.`;
+
+function buildVocabSystemPrompt(
+  nativeLanguageName: string,
+  learningLanguageName: string,
+  learningLanguageCode: string,
+): string {
   // CEFR classification is no longer the LLM's job — it is handled
   // deterministically by lib/classifier after extraction. The LLM only
   // needs to extract and format the words.
+  const scandiRule = CRITICAL_NOUN_RULE_BY_LANG[learningLanguageCode] ?? '';
   return `You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article.
@@ -246,9 +270,12 @@ The learning language is ${learningLanguageName}; the native language is ${nativ
 
 Rules:
 - Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
-- Proper nouns to ignore include: people's names (Maria, João, Anna), cities (Berlin, Lisboa, Paris), countries (Portugal, Deutschland), brand or product names (Google, iPhone), and titles of works. Never include any of these in the output.
+- Proper nouns to ignore include: people's names (Maria, João, Anna), cities (Berlin, Lisboa, Paris), countries (Portugal, Deutschland), brand or product names (Google, iPhone), titles of works, sports clubs (Real Madrid, FC Barcelona, Bayern Munich), and broadcaster names (BBC, HBO Max). Never include any of these in the output.
 - Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters such as "GNR", "DLRG", "IRS", "EU", "USA". Never include these in the output.
+- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
 - "original" field: the word in ${learningLanguageName}. "translation" field: the translation in ${nativeLanguageName}.
+${NOUN_SHAPE_RULE}
+${scandiRule}
 ${VOCAB_FORMATTING_RULES}
 - List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms". Example: source contains "rivais", base form is "o rival" → source_forms: ["rivais"].
 
@@ -277,7 +304,11 @@ export async function extractVocabulary(
   const allVocabs: ExtractedVocab[] = [];
 
   for (const chunk of chunks) {
-    const systemPrompt = buildVocabSystemPrompt(nativeLanguageName, learningLanguageName);
+    const systemPrompt = buildVocabSystemPrompt(
+      nativeLanguageName,
+      learningLanguageName,
+      learningLanguageCode,
+    );
     const responseText = await callClaude([{ role: 'user', content: chunk }], systemPrompt, 8192, {
       temperature: 0,
     });
@@ -339,13 +370,34 @@ export async function extractVocabulary(
     }
 
     if (parsed && Array.isArray(parsed)) {
+      // Diagnostic: warn when the parsed array contains ≥3 consecutive
+      // identical (original, type) entries — the hallmark of the repetition
+      // loop failure mode observed in the 2026-04-20 sweep (être × 37,
+      // la perfetta × 39). postProcessExtractedVocab collapses them to one
+      // entry; the log surfaces prompt drift in production.
+      let run = 0;
+      let runKey = '';
+      for (const v of parsed) {
+        const key = (v as { original?: string }).original + '|' + (v as { type?: string }).type;
+        if (key === runKey) {
+          run++;
+          if (run === 3) {
+            console.warn(
+              `[extractVocabulary] repetition loop detected for "${(v as { original?: string }).original}" (${learningLanguageCode} → ${nativeLanguageCode ?? '?'}); dedup will collapse it to one entry`,
+            );
+          }
+        } else {
+          run = 1;
+          runKey = key;
+        }
+      }
       allVocabs.push(...parsed);
     }
   }
 
-  // Post-processing: drop abbreviations + likely proper nouns the LLM let
-  // through, and capitalise German noun translations. Pure, offline.
-  // Architecture rule 21 enforces this call site.
+  // Post-processing: drop abbreviations, likely proper nouns, multi-word
+  // noun leaks; deduplicate on (original, type); capitalise German noun
+  // translations. Pure, offline. Architecture rule 21 enforces this call site.
   const filtered = postProcessExtractedVocab(
     allVocabs,
     learningLanguageCode,

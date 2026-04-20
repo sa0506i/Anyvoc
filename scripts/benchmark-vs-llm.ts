@@ -1,8 +1,8 @@
 /**
  * benchmark-vs-llm.ts
  *
- * Head-to-head: our deployed local CEFR classifier vs. "just ask Claude
- * Haiku 4.5". Samples a balanced test set from tmp/gold/features.csv
+ * Head-to-head: our deployed local CEFR classifier vs. "just ask a
+ * Mistral chat model". Samples a balanced test set from tmp/gold/features.csv
  * (N words per language × CEFR level, seeded random), classifies each
  * word with BOTH models, and reports per-language and aggregated
  * exact / ±1 / MAE plus a local-vs-LLM agreement matrix.
@@ -12,16 +12,16 @@
  * maps to CEFR via the same θ cut points. No cache, no LLM fallback —
  * this is the pure "what does our ordinal model say" signal.
  *
- * LLM path: batches N words per Anthropic call with the same
+ * LLM path: batches N words per Mistral call with the same
  * language-specific system prompt shape used by build-gold-llm.ts
  * (detailed CEFR rubric + explicit JSON output). Temperature 0,
- * claude-haiku-4-5-20251001 to mirror the in-app fallback model.
+ * mistral-small-2506 to mirror the production extraction model.
  *
- * Cost: ~1440 words at batch=50 ≈ 30 API calls ≈ $0.10–0.20.
+ * Cost: cheap small-model pricing; ~1440 words at batch=50 ≈ 30 API calls.
  *
  * Run:
- *   ANTHROPIC_API_KEY=sk-ant-... npx tsx scripts/benchmark-vs-llm.ts
- *     [--per-cell=20] [--batch=50] [--model=claude-haiku-4-5-20251001]
+ *   MISTRAL_API_KEY=... npx tsx scripts/benchmark-vs-llm.ts
+ *     [--per-cell=20] [--batch=50] [--model=mistral-small-2506]
  *     [--langs=en,de,fr]
  *
  * Output: prints tables to stdout and writes tmp/gold/benchmark-vs-llm.json
@@ -37,17 +37,21 @@ import * as path from 'node:path';
 // ---- Deployed model constants — must mirror lib/classifier/score.ts ----
 const W_ZIPF = -1.9267;
 const W_AOA = 4.7804;
-const THETA = [-0.1559, 0.6753, 1.5918, 2.0130, 2.6026];
+const THETA = [-0.1559, 0.6753, 1.5918, 2.013, 2.6026];
 
 const CEFR_LABELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] as const;
 type CEFR = (typeof CEFR_LABELS)[number];
 const CEFR_IDX: Record<string, number> = {
-  A1: 0, A2: 1, B1: 2, B2: 3, C1: 4, C2: 5,
+  A1: 0,
+  A2: 1,
+  B1: 2,
+  B2: 3,
+  C1: 4,
+  C2: 5,
 };
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_VERSION = '2023-06-01';
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+const DEFAULT_MODEL = 'mistral-small-2506';
 
 const LANG_NAME: Record<string, string> = {
   en: 'English',
@@ -135,14 +139,19 @@ function sampleBalanced(
   rows: Row[],
   langs: string[],
   perCell: number,
-  seed: number
+  seed: number,
 ): Record<string, Row[]> {
   const rand = mulberry32(seed);
   const sample: Record<string, Row[]> = {};
   for (const lang of langs) {
     const langRows = rows.filter((r) => r.language === lang);
     const byLevel: Record<CEFR, Row[]> = {
-      A1: [], A2: [], B1: [], B2: [], C1: [], C2: [],
+      A1: [],
+      A2: [],
+      B1: [],
+      B2: [],
+      C1: [],
+      C2: [],
     };
     for (const r of langRows) {
       if (CEFR_IDX[r.cefr] !== undefined) byLevel[r.cefr].push(r);
@@ -198,41 +207,42 @@ Rules:
 Example: {"casa":"A1","sociedade":"B1","epistemologia":"C2"}`;
 }
 
-interface AnthropicResponse {
-  content: Array<{ type: string; text?: string }>;
+interface MistralResponse {
+  choices?: Array<{ message?: { content?: string } }>;
   error?: { message: string };
-  usage?: { input_tokens: number; output_tokens: number };
+  usage?: { prompt_tokens: number; completion_tokens: number };
 }
 
-async function callAnthropic(
+async function callMistral(
   apiKey: string,
   model: string,
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
 ): Promise<{ text: string; usage: { input: number; output: number } }> {
-  const res = await axios.post<AnthropicResponse>(
-    ANTHROPIC_URL,
+  const res = await axios.post<MistralResponse>(
+    MISTRAL_URL,
     {
       model,
       max_tokens: 4096,
       temperature: 0,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
     },
     {
       headers: {
         'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
+        authorization: `Bearer ${apiKey}`,
       },
       timeout: 120_000,
-    }
+    },
   );
   if (res.data.error) throw new Error(res.data.error.message);
-  const text = res.data.content.find((b) => b.type === 'text')?.text ?? '';
+  const text = res.data.choices?.[0]?.message?.content ?? '';
   const usage = {
-    input: res.data.usage?.input_tokens ?? 0,
-    output: res.data.usage?.output_tokens ?? 0,
+    input: res.data.usage?.prompt_tokens ?? 0,
+    output: res.data.usage?.completion_tokens ?? 0,
   };
   return { text, usage };
 }
@@ -315,9 +325,9 @@ async function main(): Promise<void> {
   const langsArg = getArg('langs');
   const seed = parseInt(getArg('seed', '42')!, 10);
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) {
-    console.error('ANTHROPIC_API_KEY environment variable is required.');
+    console.error('MISTRAL_API_KEY environment variable is required.');
     process.exit(1);
   }
 
@@ -341,7 +351,7 @@ async function main(): Promise<void> {
     for (const r of s) byLevel[r.cefr] = (byLevel[r.cefr] ?? 0) + 1;
     console.log(
       `  ${lang}: ${s.length} words  ` +
-        CEFR_LABELS.map((l) => `${l}=${byLevel[l] ?? 0}`).join(' ')
+        CEFR_LABELS.map((l) => `${l}=${byLevel[l] ?? 0}`).join(' '),
     );
   }
 
@@ -363,29 +373,27 @@ async function main(): Promise<void> {
         `Label the CEFR level of each ${LANG_NAME[lang]} word. Return JSON only.\n\n` +
         JSON.stringify(chunk);
       try {
-        const { text, usage } = await callAnthropic(apiKey, model, systemPrompt, userMessage);
+        const { text, usage } = await callMistral(apiKey, model, systemPrompt, userMessage);
         totalCalls++;
         totalInTok += usage.input;
         totalOutTok += usage.output;
         const parsed = parseLabels(text);
         for (const [k, v] of Object.entries(parsed)) labels.set(k, v);
       } catch (err) {
-        console.warn(
-          `  [${lang}] batch ${i}/${words.length} failed: ${(err as Error).message}`
-        );
+        console.warn(`  [${lang}] batch ${i}/${words.length} failed: ${(err as Error).message}`);
       }
     }
     llmResults[lang] = labels;
     console.log(
       `  ${lang}: labelled ${labels.size}/${words.length}  ` +
-        `(cumulative calls=${totalCalls} in=${totalInTok} out=${totalOutTok})`
+        `(cumulative calls=${totalCalls} in=${totalInTok} out=${totalOutTok})`,
     );
   }
 
-  // Rough Haiku 4.5 pricing: $1/MTok input, $5/MTok output.
-  const dollars = (totalInTok * 1) / 1e6 + (totalOutTok * 5) / 1e6;
+  // Rough mistral-small-2506 pricing: $0.10/MTok input, $0.30/MTok output.
+  const dollars = (totalInTok * 0.1) / 1e6 + (totalOutTok * 0.3) / 1e6;
   console.log(
-    `\n[benchmark] total API: calls=${totalCalls} in=${totalInTok} out=${totalOutTok} ≈ $${dollars.toFixed(4)}`
+    `\n[benchmark] total API: calls=${totalCalls} in=${totalInTok} out=${totalOutTok} ≈ $${dollars.toFixed(4)}`,
   );
 
   // --- Evaluate per language ---
@@ -451,7 +459,7 @@ async function main(): Promise<void> {
       padL('L-±1', 8) +
       padL('X-±1', 8) +
       padL('L-MAE', 8) +
-      padL('X-MAE', 8)
+      padL('X-MAE', 8),
   );
   console.log('-'.repeat(62));
   for (const r of results) {
@@ -463,7 +471,7 @@ async function main(): Promise<void> {
         padL((r.local.within1 * 100).toFixed(1) + '%', 8) +
         padL((r.llm.within1 * 100).toFixed(1) + '%', 8) +
         padL(r.local.mae.toFixed(3), 8) +
-        padL(r.llm.mae.toFixed(3), 8)
+        padL(r.llm.mae.toFixed(3), 8),
     );
   }
   // Unweighted mean across languages.
@@ -478,7 +486,7 @@ async function main(): Promise<void> {
       padL((mean((r) => r.local.within1) * 100).toFixed(1) + '%', 8) +
       padL((mean((r) => r.llm.within1) * 100).toFixed(1) + '%', 8) +
       padL(mean((r) => r.local.mae).toFixed(3), 8) +
-      padL(mean((r) => r.llm.mae).toFixed(3), 8)
+      padL(mean((r) => r.llm.mae).toFixed(3), 8),
   );
 
   console.log('\n' + '='.repeat(78));
@@ -490,7 +498,7 @@ async function main(): Promise<void> {
       padL('bothOK', 8) +
       padL('bothX', 8) +
       padL('L>X', 8) +
-      padL('X>L', 8)
+      padL('X>L', 8),
   );
   console.log('-'.repeat(45));
   for (const r of results) {
@@ -500,7 +508,7 @@ async function main(): Promise<void> {
         padL(String(r.agreeBothRight), 8) +
         padL(String(r.agreeBothWrong), 8) +
         padL(String(r.localRightLlmWrong), 8) +
-        padL(String(r.llmRightLocalWrong), 8)
+        padL(String(r.llmRightLocalWrong), 8),
     );
   }
 
@@ -514,13 +522,18 @@ async function main(): Promise<void> {
         perCell,
         seed,
         deployedConstants: { W_ZIPF, W_AOA, THETA },
-        apiUsage: { calls: totalCalls, inputTokens: totalInTok, outputTokens: totalOutTok, dollars },
+        apiUsage: {
+          calls: totalCalls,
+          inputTokens: totalInTok,
+          outputTokens: totalOutTok,
+          dollars,
+        },
         perLanguage: results,
         perWord,
       },
       null,
-      2
-    )
+      2,
+    ),
   );
   console.log(`\n[benchmark] wrote ${outPath}`);
 }

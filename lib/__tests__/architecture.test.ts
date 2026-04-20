@@ -1702,3 +1702,263 @@ describe('Architecture: Rule 40 — extractVocabulary prompt shows every non-oth
     expect(body).toMatch(/"noun".*"verb".*"adjective".*"phrase"/s);
   });
 });
+
+// ─── Rule 33: postProcessExtractedVocab applies full filter chain ────
+// CLAUDE.md "Vocabulary post-processing": the single integration point
+// must drop abbreviations + likely proper nouns + multi-word noun leaks
+// AND deduplicate within a batch on (original, type). Each of these is
+// a quality fix anchored by the 2026-04-20 sweep analysis. Silently
+// removing any one would let the same class of regression back in.
+describe('Architecture: Rule 33 — postProcessExtractedVocab applies full filter chain', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
+  const fnMatch = src.match(/export function postProcessExtractedVocab[\s\S]*?\n\}/);
+  it('postProcessExtractedVocab exists', () => {
+    expect(fnMatch).not.toBeNull();
+  });
+
+  const body = fnMatch?.[0] ?? '';
+
+  it.each([
+    ['isAbbreviation', /isAbbreviation\s*\(/],
+    ['isLikelyProperNoun', /isLikelyProperNoun\s*\(/],
+    ['isMultiWordNounLeak', /isMultiWordNounLeak\s*\(/],
+    ['collapseIdenticalFormPair', /collapseIdenticalFormPair\s*\(/],
+  ])('calls %s in its filter chain', (_name, pattern) => {
+    if (!pattern.test(body)) {
+      throw new Error(
+        `Missing filter call in postProcessExtractedVocab:\n  ${_name}\n\n` +
+          `All filters (abbreviation, proper noun, multi-word leak, same-\n` +
+          `form pair collapse, dedup set) must run on every batch — see\n` +
+          `CLAUDE.md "Vocabulary post-processing" and the 2026-04-20 sweep\n` +
+          `analysis. Removing any one reintroduces an observed regression:\n` +
+          `  - abbreviation → GNR-style noise\n` +
+          `  - proper noun → Maria / Real Madrid leaks\n` +
+          `  - multi-word noun → "die öffentliche Gewalt" entries\n` +
+          `  - same-form collapse → "grande, grande" / "igual, igual" pairs\n` +
+          `  - dedup → repetition-loop inflation (être × 37).`,
+      );
+    }
+    expect(body).toMatch(pattern);
+  });
+
+  it('deduplicates within a batch via a Set-based seen-key pattern', () => {
+    // The dedup catches both 2× copies AND full repetition loops where the
+    // LLM emits the same word 30+ times. The only shape we check is
+    // "there is a Set collecting (original, type) keys and we bail on dup".
+    const hasSet = /new Set<[^>]+>\s*\(\s*\)/.test(body);
+    const hasSeenAdd = /seen\.add\s*\(/.test(body);
+    const hasSeenHas = /seen\.has\s*\(/.test(body);
+    if (!(hasSet && hasSeenAdd && hasSeenHas)) {
+      throw new Error(
+        `Missing batch-level dedup in postProcessExtractedVocab.\n` +
+          `Required shape: a Set collecting (original, type) keys, guarded\n` +
+          `by seen.has(...) and advanced by seen.add(...). See CLAUDE.md\n` +
+          `"Vocabulary post-processing" and lib/vocabFilters.test.ts\n` +
+          `"collapses repetition-loops to a single entry".`,
+      );
+    }
+    expect(hasSet && hasSeenAdd && hasSeenHas).toBe(true);
+  });
+});
+
+// ─── Rule 34: Extraction prompt carries native-specific + anti-dup rules ─
+// CLAUDE.md "Vocabulary Formatting Rules": the extraction system prompt
+// must be aware of the learning-language code so Scandinavian languages
+// (da/sv/no) receive the indefinite-article rule (since they mark
+// definiteness by suffix, not prefix). It must also instruct the LLM to
+// emit each distinct word at most once — the primary defence against
+// the repetition-loop failure mode observed in the 2026-04-20 sweep.
+// extractVocabulary must additionally log a warning when ≥3 consecutive
+// identical entries are parsed (post-hoc loop detection).
+describe('Architecture: Rule 34 — extraction prompt has Scandi + anti-dup rules', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const fnMatch = src.match(/function buildVocabSystemPrompt\b[\s\S]*?\n\}/);
+
+  it('buildVocabSystemPrompt exists and accepts learningLanguageCode', () => {
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    if (!/\blearningLanguageCode\b/.test(body)) {
+      throw new Error(
+        `buildVocabSystemPrompt must accept learningLanguageCode so it can\n` +
+          `specialise the noun rule for Scandinavian languages (da/sv/no).\n` +
+          `See CLAUDE.md "Vocabulary Formatting Rules".`,
+      );
+    }
+    expect(body).toMatch(/\blearningLanguageCode\b/);
+  });
+
+  it('prompt carries a Scandinavian indefinite-article rule', () => {
+    // The rule lives outside the function (as a const) in current code; allow either.
+    if (!/(sv|no|da)/i.test(src) || !/\b(indefinite|en\b|ett\b|ei\b)/i.test(src)) {
+      throw new Error(
+        `Missing Scandinavian noun rule in lib/claude.ts. The extraction\n` +
+          `prompt must tell the model to prepend "en"/"ett"/"ei" for\n` +
+          `Swedish/Norwegian/Danish nouns, since definiteness is suffixed\n` +
+          `in those languages. See CLAUDE.md "Vocabulary Formatting Rules".`,
+      );
+    }
+    expect(/(sv|no|da)/i.test(src)).toBe(true);
+    expect(/\b(indefinite|en\b|ett\b|ei\b)/i.test(src)).toBe(true);
+  });
+
+  it('prompt instructs AT MOST ONCE per distinct word', () => {
+    if (!/AT MOST ONCE/i.test(src)) {
+      throw new Error(
+        `Missing "AT MOST ONCE" rule in extraction prompt. This is the\n` +
+          `primary prompt-side defence against the repetition-loop failure\n` +
+          `(être × 37, la perfetta × 39). Removing it reintroduces loops\n` +
+          `even if the batch-dedup in postProcessExtractedVocab still\n` +
+          `collapses them — loops inflate LLM output tokens and latency.\n` +
+          `See 2026-04-20 sweep analysis + CLAUDE.md.`,
+      );
+    }
+    expect(src).toMatch(/AT MOST ONCE/i);
+  });
+
+  it('extractVocabulary logs a repetition-loop warning after JSON parse', () => {
+    const extractMatch = src.match(/export async function extractVocabulary\b[\s\S]*?^}/m);
+    expect(extractMatch).not.toBeNull();
+    const body = extractMatch![0];
+    if (!/repetition loop detected/i.test(body) || !/console\.warn\s*\(/.test(body)) {
+      throw new Error(
+        `extractVocabulary must log "repetition loop detected" via\n` +
+          `console.warn when ≥3 consecutive identical (original, type)\n` +
+          `entries are parsed. This is the diagnostic counterpart to the\n` +
+          `batch-dedup in postProcessExtractedVocab — silently collapsing\n` +
+          `loops hides prompt drift from the on-call signal. See 2026-04-20\n` +
+          `sweep analysis.`,
+      );
+    }
+    expect(body).toMatch(/repetition loop detected/i);
+    expect(body).toMatch(/console\.warn\s*\(/);
+  });
+});
+
+// ─── Rule 35: Two-phase extraction tool stays out of the production bundle ─
+// The two-phase extraction harness (scripts/extraction/) is a dev-only
+// validation tool, not production code. It must never be reachable from
+// the app bundle — no import from app/, components/, hooks/, constants/,
+// or lib/ may point into scripts/extraction/. Any such import would pull
+// the validation harness into Metro and silently turn a sweep-only
+// experiment into live user-affecting code.
+describe('Architecture: Rule 35 — two-phase extraction stays dev-only', () => {
+  const PRODUCTION_DIRS = ['app', 'components', 'hooks', 'constants', 'lib'];
+
+  function walkForImports(dir: string, acc: string[]): string[] {
+    if (!fs.existsSync(dir)) return acc;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+        walkForImports(full, acc);
+      } else if (/\.(ts|tsx|js|jsx)$/.test(entry.name) && !/\.test\.(ts|tsx)$/.test(entry.name)) {
+        acc.push(full);
+      }
+    }
+    return acc;
+  }
+
+  it('no production-dir file imports from scripts/extraction/', () => {
+    const offenders: { file: string; snippet: string }[] = [];
+    for (const dir of PRODUCTION_DIRS) {
+      const files = walkForImports(path.join(ROOT, dir), []);
+      for (const f of files) {
+        const src = fs.readFileSync(f, 'utf8');
+        const m = src.match(/from\s+['"][^'"]*scripts\/extraction[^'"]*['"]/);
+        if (m) offenders.push({ file: path.relative(ROOT, f), snippet: m[0] });
+      }
+    }
+    if (offenders.length > 0) {
+      throw new Error(
+        `Production code imported the dev-only two-phase extraction harness:\n` +
+          offenders.map((o) => `  ${o.file}: ${o.snippet}`).join('\n') +
+          `\n\nscripts/extraction/ is a validation tool for the sweep script only.\n` +
+          `It is NOT wired into the production LLM path and has not gone\n` +
+          `through rollout plumbing (feature flag, SQLite cache, telemetry).\n` +
+          `Importing it from app-side code turns a dev experiment into\n` +
+          `live user-affecting code silently.\n\n` +
+          `If you intend to productise two-phase extraction: see the spike\n` +
+          `design doc, build the Ship-A rollout plumbing (Settings flag +\n` +
+          `SQLite cache + composer wiring in lib/claude.ts), add a dedicated\n` +
+          `architecture rule for the production path, then decide whether\n` +
+          `this harness stays or gets deleted.`,
+      );
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('scripts/extraction/ exists (guard against the rule passing by accident if the harness is deleted)', () => {
+    expect(fs.existsSync(path.join(ROOT, 'scripts', 'extraction'))).toBe(true);
+  });
+});
+
+// ─── Rule 36: Classifier lookup strips apostrophe-attached elision articles ─
+// lib/classifier/features.ts must strip apostrophe-prefix elision
+// articles (l', d', s', c', j', n', qu') after the whitespace-article
+// strip, so "l'uovo" looks up against "uovo" in the Leipzig frequency
+// table. Without this strip, elision nouns in French/Italian/Portuguese
+// fall through to the zero-zipf default and get mis-classified C2. See
+// 2026-04-20 sweep analysis I.9.
+describe('Architecture: Rule 36 — classifier strips apostrophe articles', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'classifier', 'features.ts'), 'utf8');
+  const fnMatch = src.match(/function normaliseLookupKey\b[\s\S]*?\n\}/);
+
+  it('normaliseLookupKey exists', () => {
+    expect(fnMatch).not.toBeNull();
+  });
+
+  it('normaliseLookupKey strips leading apostrophe-letter prefixes', () => {
+    const body = fnMatch?.[0] ?? '';
+    // Accept either a regex replace or a manual slice that clearly
+    // handles the elision pattern. Pattern must include an apostrophe
+    // character inside the matcher.
+    const hasApostropheStrip =
+      /replace\s*\(\s*\/\^\[[^\]]*\]'/i.test(body) || /\.startsWith\("[a-z]'"\)/i.test(body);
+    if (!hasApostropheStrip) {
+      throw new Error(
+        `normaliseLookupKey must strip apostrophe-attached elision\n` +
+          `articles (l', d', s', c' …) after the whitespace-article pass.\n` +
+          `Without this, Italian/French/Portuguese elision nouns like\n` +
+          `"l'uovo", "l'amour", "l'acqua" never hit the Leipzig entry and\n` +
+          `mis-classify C2. See 2026-04-20 sweep analysis section I.9 and\n` +
+          `the regression test "l'uovo (it) — apostrophe article is\n` +
+          `stripped" in lib/classifier/classifier.test.ts.`,
+      );
+    }
+    expect(hasApostropheStrip).toBe(true);
+  });
+});
+
+// ─── Rule 37: isMultiWordNounLeak also catches type='other' leaks ────
+// The 2026-04-20 sweep's remaining 9 proper-noun leaks were all multi-
+// word club names the LLM typed 'other' rather than 'noun' (fr→{es,sv,da}
+// × "le Real Madrid" / "le Bayern Munich" / "le FC Barcelone"). The
+// filter must therefore treat 'noun' AND 'other' as candidate types.
+// Other types (phrase, verb, adjective) are exempt: phrases are multi-
+// word by design, verbs rarely produce this shape, adjectives use the
+// m/f-pair shape handled by collapseIdenticalFormPair.
+describe('Architecture: Rule 37 — isMultiWordNounLeak covers "other" type too', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
+  const fnMatch = src.match(/export function isMultiWordNounLeak[\s\S]*?\n\}/);
+
+  it('isMultiWordNounLeak guards on noun OR other', () => {
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    // Allow either a direct conjunction or a set membership check — the
+    // invariant is that 'noun' AND 'other' both pass the guard.
+    const guardsNoun =
+      /type\s*!==\s*['"]noun['"]/.test(body) || /type\s*===\s*['"]noun['"]/.test(body);
+    const guardsOther =
+      /type\s*!==\s*['"]other['"]/.test(body) || /type\s*===\s*['"]other['"]/.test(body);
+    if (!guardsNoun || !guardsOther) {
+      throw new Error(
+        `isMultiWordNounLeak must accept type === 'noun' OR 'other' as\n` +
+          `candidates. 'other' catches proper-noun leaks the LLM fell back\n` +
+          `to when it couldn't commit to 'noun' (e.g. "le Real Madrid"\n` +
+          `typed 'other' in fr→{es,sv,da} in the 2026-04-20 sweep).\n` +
+          `Current guard handles noun=${guardsNoun}, other=${guardsOther}.`,
+      );
+    }
+    expect(guardsNoun && guardsOther).toBe(true);
+  });
+});

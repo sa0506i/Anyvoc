@@ -4,33 +4,32 @@
  * LLM-oracle CEFR labelling for the 5 languages where no usable open
  * CEFR vocabulary list exists (Portuguese, Danish, Czech, Norwegian,
  * Polish — Norwegian's KELLY file has no CEFR column). Reads the top-N
- * words from lib/data/freq_{lang}.json, asks Claude for one CEFR label
- * per word, appends the rows to tmp/gold/gold-cefr.jsonl in the same
- * shape as build-gold.ts emits:
+ * words from lib/data/freq_{lang}.json, asks a Mistral chat model for
+ * one CEFR label per word, appends the rows to tmp/gold/gold-cefr.jsonl
+ * in the same shape as build-gold.ts emits:
  *
  *   { "word": "casa", "language": "pt", "cefr": "A1", "source": "LLM-oracle" }
  *
  * NEVER wired into eas-build hooks. Dev-machine only.
  *
  * Usage:
- *   ANTHROPIC_API_KEY=sk-ant-... npm run build:gold-llm -- --lang=pt [--top=2000] [--batch=50] [--resume]
- *   ANTHROPIC_API_KEY=sk-ant-... npm run build:gold-llm -- --lang=da
- *   ANTHROPIC_API_KEY=sk-ant-... npm run build:gold-llm -- --lang=cs
- *   ANTHROPIC_API_KEY=sk-ant-... npm run build:gold-llm -- --lang=no
- *   ANTHROPIC_API_KEY=sk-ant-... npm run build:gold-llm -- --lang=pl
+ *   MISTRAL_API_KEY=... npm run build:gold-llm -- --lang=pt [--top=2000] [--batch=50] [--resume]
+ *   MISTRAL_API_KEY=... npm run build:gold-llm -- --lang=da
+ *   MISTRAL_API_KEY=... npm run build:gold-llm -- --lang=cs
+ *   MISTRAL_API_KEY=... npm run build:gold-llm -- --lang=no
+ *   MISTRAL_API_KEY=... npm run build:gold-llm -- --lang=pl
  *
- * Cost: ~$0.07/lang at top=2000, ~$0.35 for all five.
+ * Cost: small-model pricing (mistral-small-2506); cheap at top=2000 batch=50.
  */
 
 import axios from 'axios';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+const DEFAULT_MODEL = 'mistral-small-2506';
 const DEFAULT_TOP = 2000;
 const DEFAULT_BATCH = 50;
-const ANTHROPIC_VERSION = '2023-06-01';
 const SOURCE_TAG = 'LLM-oracle';
 
 const SUPPORTED = new Set(['pt', 'da', 'cs', 'no', 'pl']);
@@ -139,37 +138,38 @@ Rules:
 Example: {"casa":"A1","sociedade":"B1","epistemologia":"C2"}`;
 }
 
-interface AnthropicResponse {
-  content: Array<{ type: string; text?: string }>;
+interface MistralResponse {
+  choices?: Array<{ message?: { content?: string } }>;
   error?: { message: string };
 }
 
-async function callAnthropic(
+async function callMistral(
   apiKey: string,
   model: string,
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
 ): Promise<string> {
-  const res = await axios.post<AnthropicResponse>(
-    ANTHROPIC_URL,
+  const res = await axios.post<MistralResponse>(
+    MISTRAL_URL,
     {
       model,
       max_tokens: 4096,
       temperature: 0,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userMessage }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
     },
     {
       headers: {
         'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
+        authorization: `Bearer ${apiKey}`,
       },
       timeout: 120_000,
-    }
+    },
   );
   if (res.data.error) throw new Error(res.data.error.message);
-  return res.data.content.find((b) => b.type === 'text')?.text ?? '';
+  return res.data.choices?.[0]?.message?.content ?? '';
 }
 
 function parseLabels(text: string): Record<string, CEFR> {
@@ -188,7 +188,7 @@ async function main() {
   const lang = getArg('lang');
   if (!lang || !SUPPORTED.has(lang)) {
     console.error(
-      `Usage: npm run build:gold-llm -- --lang=<${Array.from(SUPPORTED).join('|')}> [--top=2000] [--batch=50] [--resume]`
+      `Usage: npm run build:gold-llm -- --lang=<${Array.from(SUPPORTED).join('|')}> [--top=2000] [--batch=50] [--resume]`,
     );
     process.exit(1);
   }
@@ -197,9 +197,9 @@ async function main() {
   const model = getArg('model', DEFAULT_MODEL)!;
   const resume = getArg('resume') === 'true';
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) {
-    console.error('ANTHROPIC_API_KEY environment variable is required.');
+    console.error('MISTRAL_API_KEY environment variable is required.');
     process.exit(1);
   }
 
@@ -220,10 +220,10 @@ async function main() {
   const pending = all.filter((w) => !existing.has(w.toLowerCase()));
 
   console.log(
-    `[build:gold-llm] lang=${lang} (${LANG_NAME[lang]}) top=${top} batch=${batch} model=${model}`
+    `[build:gold-llm] lang=${lang} (${LANG_NAME[lang]}) top=${top} batch=${batch} model=${model}`,
   );
   console.log(
-    `[build:gold-llm] ${all.length} candidates; ${existing.size} already labelled; ${pending.length} to process.`
+    `[build:gold-llm] ${all.length} candidates; ${existing.size} already labelled; ${pending.length} to process.`,
   );
 
   const languageName = LANG_NAME[lang];
@@ -242,11 +242,11 @@ async function main() {
 
     let text: string;
     try {
-      text = await callAnthropic(apiKey, model, systemPrompt, userMessage);
+      text = await callMistral(apiKey, model, systemPrompt, userMessage);
       apiCalls++;
     } catch (err) {
       console.warn(
-        `[build:gold-llm] batch ${i}/${pending.length} failed: ${(err as Error).message}. Stopping (run again with --resume).`
+        `[build:gold-llm] batch ${i}/${pending.length} failed: ${(err as Error).message}. Stopping (run again with --resume).`,
       );
       process.exit(2);
     }
@@ -255,7 +255,9 @@ async function main() {
     try {
       labels = parseLabels(text);
     } catch (err) {
-      console.warn(`[build:gold-llm] parse failure for batch ${i}: ${(err as Error).message}. Skipping.`);
+      console.warn(
+        `[build:gold-llm] parse failure for batch ${i}: ${(err as Error).message}. Skipping.`,
+      );
       labels = {};
     }
 
@@ -272,14 +274,14 @@ async function main() {
     if (apiCalls % 5 === 0) {
       const elapsedS = ((Date.now() - startedAt) / 1000).toFixed(1);
       console.log(
-        `[build:gold-llm] checkpoint: ${processed}/${pending.length} processed, ${labelled} labelled (${elapsedS}s)`
+        `[build:gold-llm] checkpoint: ${processed}/${pending.length} processed, ${labelled} labelled (${elapsedS}s)`,
       );
     }
   }
 
   const elapsedS = ((Date.now() - startedAt) / 1000).toFixed(1);
   console.log(
-    `[build:gold-llm] done: ${labelled} new ${lang} rows appended → ${outPath} (${apiCalls} API calls, ${elapsedS}s)`
+    `[build:gold-llm] done: ${labelled} new ${lang} rows appended → ${outPath} (${apiCalls} API calls, ${elapsedS}s)`,
   );
 }
 
