@@ -290,7 +290,7 @@ bypass.
   - **de / fr / es / it / pt / nl:** direct article + singular; feminine form after comma if exists (`"le médecin, la médecin"` / `"der Arzt, die Ärztin"`).
   - **sv / no / da** (Scandinavian — see `SCANDINAVIAN_NOUN_RULE`): prepend the **indefinite** article by grammatical gender (`en` / `ett` / `ei`). These languages mark definiteness as a noun suffix, so a bare form is ambiguous.
   - **pl / cs** (Slavic — `SLAVIC_NOUN_RULE`): no articles exist; emit the bare singular nominative (`tekst`, `vedení`). Never prepend a determiner.
-  - **en** (`ENGLISH_NOUN_RULE`): bare singular form, no `the` / `a` / `an`. Dictionary convention + the classifier strips those anyway.
+  - **en** (`ENGLISH_NOUN_RULE`): definite article + singular (`"the house"`, `"the child"`, `"the book"`). Follows the Germanic/Romance pattern so vocab cards look consistent across languages; never bare, never `a` / `an`.
   - Across all languages: proper nouns (Eigennamen) are ignored; nouns are lowercase in every language except German (even if capitalised in source text); hyphens from line breaks are removed (e.g. `"Wort-\ntrennung"` → `"Worttrennung"`).
 - **Verbs:** always the infinitive form — **never conjugated, never a past participle**.
   Reflexive verbs carry the pronoun: `"se souvenir"`, `"sich erinnern"`, `"acordar-se"`.

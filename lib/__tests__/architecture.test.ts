@@ -2122,14 +2122,18 @@ describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
     expect(/no articles|bare|NEVER prepend/i.test(body)).toBe(true);
   });
 
-  it('ENGLISH_NOUN_RULE constant exists and forbids the/a/an prefix', () => {
+  it('ENGLISH_NOUN_RULE constant exists and requires "the" + singular', () => {
     const match = src.match(/const ENGLISH_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
     expect(match).not.toBeNull();
     const body = match![0];
     expect(/\benglish\b/i.test(body)).toBe(true);
-    expect(/bare|NEVER prepend|without any article/i.test(body)).toBe(true);
-    // Must name the three EN determiners so small models can't wiggle
-    expect(/the/i.test(body) && /\ba\b/i.test(body) && /\ban\b/i.test(body)).toBe(true);
+    // Must require "the" as the article (matches the Germanic/Romance
+    // pattern so vocab cards look consistent across languages).
+    expect(/prepend.*"the"|ALWAYS.*"the"/i.test(body)).toBe(true);
+    // Must forbid indef articles a / an on the lemma
+    expect(/never.*\b"?a"?\b|never.*\b"?an"?\b/i.test(body)).toBe(true);
+    // Concrete example present
+    expect(/the house|the book|the child/i.test(body)).toBe(true);
   });
 
   it('CRITICAL_NOUN_RULE_BY_LANG maps pl, cs, en to the new rules', () => {

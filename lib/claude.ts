@@ -269,11 +269,15 @@ const SCANDINAVIAN_NOUN_RULE = `- IMPORTANT — for Swedish (sv), Norwegian (no)
  *  German article). See CLAUDE.md Rule 41. */
 const SLAVIC_NOUN_RULE = `- IMPORTANT — for Polish (pl) and Czech (cs), these languages have NO articles at all. In the "original" field, emit nouns in the BARE singular nominative form — NEVER prepend any article or determiner. Examples: "tekst" (pl, not "ten tekst"), "vedení" (cs, not "to vedení"). This OVERRIDES the generic "include article" rule above for these two languages.`;
 
-/** English nouns carry optional determiners (the / a / an) that are not
- *  part of the lexical entry. Dictionary convention is the bare form, and
- *  the classifier strips "the"/"a"/"an" before lookup anyway — mirroring
- *  that convention on the extraction side keeps the data consistent. */
-const ENGLISH_NOUN_RULE = `- IMPORTANT — for English (en), emit nouns in the BARE singular form without any article. NEVER prepend "the", "a", or "an" in the "original" field. Examples: "house", "child", "book". This OVERRIDES the generic "include article" rule above.`;
+/** English is treated like the Germanic/Romance group: always prepend the
+ *  definite article "the" to the singular noun. This keeps the extraction
+ *  output shape consistent across languages in the app (every de/fr/es/it/
+ *  pt/nl/en noun carries a prefix) and matches user expectation — a
+ *  vocabulary card shows "the house" / "der Hund" / "le chat", not a mix
+ *  of bare and article forms. The classifier's ARTICLE_PREFIXES already
+ *  handles "the"/"a"/"an" stripping during lookup, so consistency on the
+ *  output side is free. */
+const ENGLISH_NOUN_RULE = `- IMPORTANT — for English (en), ALWAYS prepend the definite article "the" to the noun in singular form. Examples: "the house", "the child", "the book". Never emit a bare noun; never use the indefinite articles "a" or "an" in the "original" field (the lemma always takes "the").`;
 
 const CRITICAL_NOUN_RULE_BY_LANG: Record<string, string> = {
   sv: SCANDINAVIAN_NOUN_RULE,
