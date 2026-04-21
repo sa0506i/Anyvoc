@@ -358,6 +358,27 @@ or suffix-marking), write a dedicated `{LANG}_NOUN_RULE` constant with a
 concrete example and add the code to `CRITICAL_NOUN_RULE_BY_LANG`. Rule
 41's architecture test then proves the mapping exists.
 
+**Regression history — prompt sensitivity observed in validation B
+(2026-04-21):** adding the SLAVIC / ENGLISH blocks to the prompt
+diluted three neighbouring rules measurably in the B sweep:
+(i) IT nouns drifted from 0 → 10 indefinite-article entries
+(`un anno` instead of `l'anno`) — fixed by making
+`NOUN_VERB_FORMATTING_RULES` say "DEFINITE direct article" with a
+negative indef example per lang;
+(ii) PL m/f pairs gained a Portuguese "o" prefix 0 → 9 times
+(`o Europejczyk, Europejka` instead of bare `Europejczyk, Europejka`)
+— fixed in `SLAVIC_NOUN_RULE` with an explicit m/f-pair example AND a
+"never borrow an article from another language" clause;
+(iii) Scandi bare-noun leaks climbed 6 → 29 across recipe/health
+corpora (`salt`, `pepper`, `mjölk` instead of `ett salt`, `en mjölk`)
+— fixed in `SCANDINAVIAN_NOUN_RULE` with mass-noun examples and an
+explicit "regardless of text genre" clause.
+**How to apply this lesson:** whenever a new per-language rule is
+added to `CRITICAL_NOUN_RULE_BY_LANG`, re-read the surrounding rules
+AND add a negative example for each adjacent language family to
+anchor them back. Prompt length dilutes emphasis; each new rule must
+pay for itself with reinforcement elsewhere.
+
 ## Leitner System
 
 - 5 boxes; new vocab → Box 1; correct → box+1 (max 5); incorrect → Box 1

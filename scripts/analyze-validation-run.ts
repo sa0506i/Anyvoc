@@ -252,7 +252,20 @@ function isInfinitive(lang: string, original: string): boolean {
 }
 
 function isMultiWordNoun(original: string): boolean {
-  return /^\S+\s\S+\s\S+/.test(original.trim());
+  // Split on comma first so legitimate m/f pairs ("o visinho, a visinha",
+  // "der Arzt, die Ärztin", "Europejczyk, Europejka") aren't false-flagged
+  // on whitespace count. Mirrors lib/vocabFilters.ts isMultiWordNounLeak
+  // which also checks parts individually. A part with ≥2 content tokens
+  // AFTER the article is suspect.
+  const ARTICLES_REGEX =
+    /^(der|die|das|le|la|les|l'|l\u2019|el|los|las|il|lo|gli|i|o|a|os|as|de|het|en|ett|den|det|ei|et)\s+/i;
+  for (const rawPart of original.split(',')) {
+    const part = rawPart.trim();
+    if (!part) continue;
+    const afterArticle = part.replace(ARTICLES_REGEX, '');
+    if (/\S\s\S\s\S/.test(afterArticle)) return true;
+  }
+  return false;
 }
 
 function looksLikeProperNoun(lang: string, original: string): boolean {

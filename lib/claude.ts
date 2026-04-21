@@ -37,7 +37,7 @@ function adjRuleForLang(learningLanguageCode: string): string {
 }
 
 /** Shared non-adjective formatting rules. */
-const NOUN_VERB_FORMATTING_RULES = `- Nouns: ALWAYS include the direct article before the noun in singular form (e.g. "der Hund", "le chat", "o passaporte", "el libro", "il cane", "de hond"). This is mandatory — never omit the article. If a distinct feminine form exists, add it after a comma (e.g. "le médecin, la médecin" / "der Arzt, die Ärztin"). Ignore proper nouns.
+const NOUN_VERB_FORMATTING_RULES = `- Nouns: ALWAYS include the DEFINITE article before the noun in singular form — never the indefinite. German "der Hund" (not "ein Hund"), French "le chat" (not "un chat"), Portuguese "o passaporte" (not "um passaporte"), Spanish "el libro" (not "un libro"), Italian "il cane" (not "un cane"), Dutch "de hond" (not "een hond"). This is mandatory — never omit the article, never substitute the indefinite form. If a distinct feminine form exists, add it after a comma (e.g. "le médecin, la médecin" / "der Arzt, die Ärztin"). Ignore proper nouns.
 - In every language except German, write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
 - Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
 - Verbs: always in the infinitive form — never conjugated, never a past participle. Portuguese "morrer" (not "morreu" / "morrido"), German "installieren" (not "installiert" / "zahlt"), Italian "rendere" (not "render" / "distingue"), French "constituer" (not "constitué"). Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").`;
@@ -260,14 +260,16 @@ export function chunkText(text: string, maxChars: number = MAX_CHARS_PER_CHUNK):
  *  For da/sv/no we instruct the model to prepend the INDEFINITE article
  *  based on grammatical gender (en/ett/ei), making the output cross-
  *  linguistically comparable. */
-const SCANDINAVIAN_NOUN_RULE = `- IMPORTANT — for Swedish (sv), Norwegian (no), and Danish (da), these languages mark definiteness as a noun SUFFIX, not a prepositive article. In the "original" field, ALWAYS prepend the INDEFINITE article based on grammatical gender: "en" (common gender, sv/no/da), "ett" (neuter, sv), "ei" (feminine, no). Examples: "en artikel", "ett språk" (sv), "ei bok" (no), "en bog" (da). Never emit a bare noun in these languages.`;
+const SCANDINAVIAN_NOUN_RULE = `- IMPORTANT — for Swedish (sv), Norwegian (no), and Danish (da), these languages mark definiteness as a noun SUFFIX, not a prepositive article. In the "original" field, ALWAYS prepend the INDEFINITE article based on grammatical gender: "en" (common gender, sv/no/da), "ett" (neuter, sv), "ei" (feminine, no). Examples: "en artikel", "ett språk" (sv), "ei bok" (no), "en bog" (da). This applies to EVERY Scandi noun without exception, including MASS NOUNS and INGREDIENT NOUNS that often appear bare in recipes or health texts: write "ett salt" (not "salt"), "en mjölk" (not "mjölk"), "ett socker" (not "socker"), "en pepper" (not "pepper"), "ett smør" (not "smør"), "en information" (not "information"). A bare Scandi noun in the output is ALWAYS wrong, regardless of text genre or how the noun appears in the source.`;
 
 /** Polish and Czech have no articles at all. The generic "ALWAYS include
  *  the direct article" line is vacuous for them — there is no article to
  *  include. We make it explicit so small models don't try to prepend a
- *  non-existent article or switch languages (e.g. slipping a Russian or
- *  German article). See CLAUDE.md Rule 41. */
-const SLAVIC_NOUN_RULE = `- IMPORTANT — for Polish (pl) and Czech (cs), these languages have NO articles at all. In the "original" field, emit nouns in the BARE singular nominative form — NEVER prepend any article or determiner. Examples: "tekst" (pl, not "ten tekst"), "vedení" (cs, not "to vedení"). This OVERRIDES the generic "include article" rule above for these two languages.`;
+ *  non-existent article or switch languages (e.g. slipping a Russian,
+ *  German, or — observed in the 2026-04-21 validation-B run — a
+ *  Portuguese "o" / "a" article in front of Polish m/f pairs like
+ *  "o Europejczyk, Europejka". See CLAUDE.md Rule 41. */
+const SLAVIC_NOUN_RULE = `- IMPORTANT — for Polish (pl) and Czech (cs), these languages have NO articles at all. In the "original" field, emit nouns in the BARE singular nominative form — NEVER prepend any article or determiner. This applies to SINGLE entries AND to m/f pairs: write "Europejczyk, Europejka" (not "o Europejczyk, Europejka"), "mieszkaniec, mieszkanka" (not "o mieszkaniec, mieszkanka"), "tekst" (not "ten tekst"), "vedení" (not "to vedení"). Never borrow an article from another language (no Portuguese "o"/"a", no German "der"/"die", no English "the"). This OVERRIDES the generic "include article" rule above for these two languages.`;
 
 /** English is treated like the Germanic/Romance group: always prepend the
  *  definite article "the" to the singular noun. This keeps the extraction
