@@ -2150,60 +2150,51 @@ describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
   });
 });
 
-// ─── Rule 42: Translation field carries native-language noun convention ─
-// Without a dedicated instruction, the LLM mirrors the source-language
-// register in the translation field — bare in Polish/Czech recipe
-// contexts, definite in German news, indefinite in Swedish Wikipedia.
-// The 2026-04-21 validation-B run had EN translations in all four
-// flavours (bare / "a" / "an" / "the") across different combos. Rule 42
-// pins one convention per native language via nounArticleHintFor. The
-// extraction prompt AND the translateSingleWord prompt must both apply
-// the hint so single-word add (translateSingleWord) stays consistent
-// with bulk extraction.
-describe('Architecture: Rule 42 — translation field follows native-language noun convention', () => {
+// ─── Rule 42: Translation field mirrors original's grammatical definiteness ─
+// Rule 42 used to dispatch per-native-language conventions via a
+// `nounArticleHintFor` helper (`"the" + singular` for en, `en/ett/ei + singular`
+// for Scandi as native, etc.). That forced English translations to "the X"
+// uniformly — including for Scandi sources where `en bild → a picture` is
+// the linguistically correct form and `en bild → the picture` is wrong.
+// The 2026-04-22 redesign drops the per-native lookup in favour of a
+// single universal rule: the translation field MIRRORS the grammatical
+// definiteness of the original field. Definite original → definite
+// translation, indefinite → indefinite, bare → bare. One rule, no
+// lookup table, no per-native code paths. See CLAUDE.md Rule 42.
+describe('Architecture: Rule 42 — translation mirrors original definiteness', () => {
   const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
 
-  it('nounArticleHintFor helper exists and covers all 12 supported languages', () => {
-    expect(/export function nounArticleHintFor\b/.test(src)).toBe(true);
-    const fnMatch = src.match(/export function nounArticleHintFor[\s\S]*?\n\}/);
-    expect(fnMatch).not.toBeNull();
-    const body = fnMatch![0];
-    // Every supported language must be a branch
-    for (const lang of ['en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'sv', 'no', 'da', 'pl', 'cs']) {
-      if (!new RegExp(`case\\s+['"]${lang}['"]\\s*:`).test(body)) {
-        throw new Error(
-          `nounArticleHintFor is missing a branch for "${lang}".\n` +
-            `Every language in SUPPORTED_LANGUAGES must have a convention string\n` +
-            `so the translation field can be pinned. See CLAUDE.md Rule 42.`,
-        );
-      }
-    }
+  it('TRANSLATION_MIRROR_RULE constant exists and states the mirror principle', () => {
+    const match = src.match(/const TRANSLATION_MIRROR_RULE\s*=\s*`[\s\S]*?`;/);
+    expect(match).not.toBeNull();
+    const body = match![0];
+    // Must name all three article categories
+    expect(/definite original/i.test(body)).toBe(true);
+    expect(/indefinite original/i.test(body)).toBe(true);
+    expect(/bare original/i.test(body)).toBe(true);
+    // Must carry the canonical Scandi counter-example so the LLM
+    // doesn't fall back to "the X" for Scandi sources
+    expect(/en bild.*a picture/i.test(body)).toBe(true);
   });
 
-  it('buildVocabSystemPrompt accepts nativeLanguageCode and uses nounArticleHintFor', () => {
+  it('buildVocabSystemPrompt references TRANSLATION_MIRROR_RULE', () => {
     const fnMatch = src.match(/function buildVocabSystemPrompt\b[\s\S]*?^\}/m);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
-    expect(/nativeLanguageCode/.test(body)).toBe(true);
-    expect(/nounArticleHintFor/.test(body)).toBe(true);
-    // Must produce a translation-field rule (the phrase "translation field"
-    // must appear somewhere in the prompt body driven by the hint)
-    expect(/"translation" field for NOUN|translation.*convention/i.test(body)).toBe(true);
+    expect(/TRANSLATION_MIRROR_RULE/.test(body)).toBe(true);
   });
 
-  it('extractVocabulary forwards nativeLanguageCode into the prompt', () => {
-    const fnMatch = src.match(/export async function extractVocabulary\b[\s\S]*?^\}/m);
-    expect(fnMatch).not.toBeNull();
-    const body = fnMatch![0];
-    // Call site must pass nativeLanguageCode as the fourth argument —
-    // otherwise the translation-side hint falls through.
-    expect(/buildVocabSystemPrompt\([\s\S]*?nativeLanguageCode[\s\S]*?\)/.test(body)).toBe(true);
-  });
-
-  it('translateSingleWord prompt uses nounArticleHintFor for toLanguageCode', () => {
+  it('translateSingleWord prompt references TRANSLATION_MIRROR_RULE', () => {
     const fnMatch = src.match(/export async function translateSingleWord\b[\s\S]*?^\}/m);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
-    expect(/nounArticleHintFor\(toLanguageCode\)/.test(body)).toBe(true);
+    expect(/TRANSLATION_MIRROR_RULE/.test(body)).toBe(true);
+  });
+
+  it('nounArticleHintFor helper no longer exists (redesign deleted it)', () => {
+    // Sanity — the per-native dispatcher was removed in favour of the
+    // universal mirror rule. A re-introduction would signal a return
+    // to the old pattern and should surface in review.
+    expect(/export function nounArticleHintFor\b/.test(src)).toBe(false);
   });
 });

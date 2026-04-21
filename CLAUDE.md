@@ -379,35 +379,30 @@ AND add a negative example for each adjacent language family to
 anchor them back. Prompt length dilutes emphasis; each new rule must
 pay for itself with reinforcement elsewhere.
 
-**Rule 42 (translation field follows native-language noun convention)**
-enforces: `lib/claude.ts` exports `nounArticleHintFor(langCode)` with a
-case for every supported language, `buildVocabSystemPrompt` accepts
-`nativeLanguageCode` and emits a "translation field for NOUN entries"
-rule anchored to the hint, `extractVocabulary` forwards the code, and
-`translateSingleWord` applies the hint for `toLanguageCode`. Every
-noun translation for a given native language must use the same
-article form: `"the dog"` for English, `"der Hund"` for German,
-`"en artikel"` for Swedish, bare nominative for Polish/Czech — the
-same forms their entries take when that language is the LEARNING
-language (Rule 34 / 41).
+**Rule 42 (translation mirrors original's grammatical definiteness)**
+enforces: `lib/claude.ts` exports `TRANSLATION_MIRROR_RULE` (a single
+string constant), and both `buildVocabSystemPrompt` and
+`translateSingleWord` interpolate it into their prompts. The rule is
+universal — no per-native lookup, no per-language branch:
 
-**Why:** without this, the LLM mirrors the source-language register in
-the translation field. The 2026-04-21 validation-B run showed EN
-translations in all four flavours inside a single sweep:
-`cs#5` (recipe) → bare (`jídlo → dish`),
-`cs#6` (science) → definite (`rok → the year`),
-`da#2` (wikipedia) → indefinite (`et land → a country`),
-`da#3` (recipe) → mixed bare + indef (`korn → seeds` alongside
-`en vaniljestang → a vanilla pod`),
-`no#1` (news) → definite (`en ryggen → the back`),
-`it#7` (sports) → mostly definite but one indef leak
-(`una vittoria → a victory`). Vocabulary cards displayed side-by-side
-exposed the inconsistency as visual noise.
+- Definite original (de/fr/es/it/pt/nl/en `the`) → **definite** translation
+- Indefinite original (sv/no/da `en`/`ett`/`ei` per Rule 34) → **indefinite** translation (`en bild → a picture`, never `→ the picture`)
+- Bare original (pl/cs per Rule 41) → **bare** translation (`tekst → text`)
 
-**How to apply:** when adding a new learning or native language, add
-a case to `nounArticleHintFor` with a one-line formula + 2–3 concrete
-examples. The Rule 42 architecture test fails if any SUPPORTED_LANGUAGES
-code is missing a branch.
+**Why:** an earlier iteration used a `nounArticleHintFor(langCode)`
+helper that forced English translations to `"the X"` uniformly,
+including for Scandi sources. That produced semantically wrong cards
+(`en bild → the picture` when `en bild` is literally "a picture" and
+`bilden` would be "the picture"). Mirroring the original's article
+category instead of the native's lexicon convention is both
+linguistically correct and simpler — one rule, no per-language code
+paths, no SUPPORTED_LANGUAGES-coverage test.
+
+**How to apply:** if you ever add a new learning language with a
+different article convention, only Rules 34 / 41 need updating — the
+mirror rule follows automatically. Do NOT re-introduce a per-native
+hint helper; the Rule 42 architecture test explicitly asserts that
+`nounArticleHintFor` no longer exists.
 
 ## Leitner System
 
