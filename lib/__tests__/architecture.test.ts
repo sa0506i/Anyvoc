@@ -2149,3 +2149,61 @@ describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
     expect(/\bda\s*:\s*SCANDINAVIAN_NOUN_RULE/.test(body)).toBe(true);
   });
 });
+
+// ─── Rule 42: Translation field carries native-language noun convention ─
+// Without a dedicated instruction, the LLM mirrors the source-language
+// register in the translation field — bare in Polish/Czech recipe
+// contexts, definite in German news, indefinite in Swedish Wikipedia.
+// The 2026-04-21 validation-B run had EN translations in all four
+// flavours (bare / "a" / "an" / "the") across different combos. Rule 42
+// pins one convention per native language via nounArticleHintFor. The
+// extraction prompt AND the translateSingleWord prompt must both apply
+// the hint so single-word add (translateSingleWord) stays consistent
+// with bulk extraction.
+describe('Architecture: Rule 42 — translation field follows native-language noun convention', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+
+  it('nounArticleHintFor helper exists and covers all 12 supported languages', () => {
+    expect(/export function nounArticleHintFor\b/.test(src)).toBe(true);
+    const fnMatch = src.match(/export function nounArticleHintFor[\s\S]*?\n\}/);
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    // Every supported language must be a branch
+    for (const lang of ['en', 'de', 'fr', 'es', 'it', 'pt', 'nl', 'sv', 'no', 'da', 'pl', 'cs']) {
+      if (!new RegExp(`case\\s+['"]${lang}['"]\\s*:`).test(body)) {
+        throw new Error(
+          `nounArticleHintFor is missing a branch for "${lang}".\n` +
+            `Every language in SUPPORTED_LANGUAGES must have a convention string\n` +
+            `so the translation field can be pinned. See CLAUDE.md Rule 42.`,
+        );
+      }
+    }
+  });
+
+  it('buildVocabSystemPrompt accepts nativeLanguageCode and uses nounArticleHintFor', () => {
+    const fnMatch = src.match(/function buildVocabSystemPrompt\b[\s\S]*?^\}/m);
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    expect(/nativeLanguageCode/.test(body)).toBe(true);
+    expect(/nounArticleHintFor/.test(body)).toBe(true);
+    // Must produce a translation-field rule (the phrase "translation field"
+    // must appear somewhere in the prompt body driven by the hint)
+    expect(/"translation" field for NOUN|translation.*convention/i.test(body)).toBe(true);
+  });
+
+  it('extractVocabulary forwards nativeLanguageCode into the prompt', () => {
+    const fnMatch = src.match(/export async function extractVocabulary\b[\s\S]*?^\}/m);
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    // Call site must pass nativeLanguageCode as the fourth argument —
+    // otherwise the translation-side hint falls through.
+    expect(/buildVocabSystemPrompt\([\s\S]*?nativeLanguageCode[\s\S]*?\)/.test(body)).toBe(true);
+  });
+
+  it('translateSingleWord prompt uses nounArticleHintFor for toLanguageCode', () => {
+    const fnMatch = src.match(/export async function translateSingleWord\b[\s\S]*?^\}/m);
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    expect(/nounArticleHintFor\(toLanguageCode\)/.test(body)).toBe(true);
+  });
+});

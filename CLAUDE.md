@@ -379,6 +379,36 @@ AND add a negative example for each adjacent language family to
 anchor them back. Prompt length dilutes emphasis; each new rule must
 pay for itself with reinforcement elsewhere.
 
+**Rule 42 (translation field follows native-language noun convention)**
+enforces: `lib/claude.ts` exports `nounArticleHintFor(langCode)` with a
+case for every supported language, `buildVocabSystemPrompt` accepts
+`nativeLanguageCode` and emits a "translation field for NOUN entries"
+rule anchored to the hint, `extractVocabulary` forwards the code, and
+`translateSingleWord` applies the hint for `toLanguageCode`. Every
+noun translation for a given native language must use the same
+article form: `"the dog"` for English, `"der Hund"` for German,
+`"en artikel"` for Swedish, bare nominative for Polish/Czech — the
+same forms their entries take when that language is the LEARNING
+language (Rule 34 / 41).
+
+**Why:** without this, the LLM mirrors the source-language register in
+the translation field. The 2026-04-21 validation-B run showed EN
+translations in all four flavours inside a single sweep:
+`cs#5` (recipe) → bare (`jídlo → dish`),
+`cs#6` (science) → definite (`rok → the year`),
+`da#2` (wikipedia) → indefinite (`et land → a country`),
+`da#3` (recipe) → mixed bare + indef (`korn → seeds` alongside
+`en vaniljestang → a vanilla pod`),
+`no#1` (news) → definite (`en ryggen → the back`),
+`it#7` (sports) → mostly definite but one indef leak
+(`una vittoria → a victory`). Vocabulary cards displayed side-by-side
+exposed the inconsistency as visual noise.
+
+**How to apply:** when adding a new learning or native language, add
+a case to `nounArticleHintFor` with a one-line formula + 2–3 concrete
+examples. The Rule 42 architecture test fails if any SUPPORTED_LANGUAGES
+code is missing a branch.
+
 ## Leitner System
 
 - 5 boxes; new vocab → Box 1; correct → box+1 (max 5); incorrect → Box 1

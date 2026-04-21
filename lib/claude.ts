@@ -290,6 +290,55 @@ const CRITICAL_NOUN_RULE_BY_LANG: Record<string, string> = {
   en: ENGLISH_NOUN_RULE,
 };
 
+/**
+ * Terse per-language formula for how nouns must appear in a given
+ * language. Used in the prompt to pin down the "translation" field —
+ * without this, the LLM mirrors the source-language register: bare in
+ * Polish/Czech recipe contexts ("jídlo → dish"), definite in German
+ * news ("die Lage → the situation"), indefinite in Swedish Wikipedia
+ * ("en artikel → an article"). The 2026-04-21 validation-B run had EN
+ * translations in all four flavours (bare / "a" / "an" / "the") across
+ * different combos of the same run. Rule 42 forces one convention per
+ * language so vocabulary cards look uniform.
+ *
+ * Each entry is a short phrase designed to fit inline in a prompt
+ * sentence like "Use … for the translation." The examples duplicate
+ * the source-side noun rules (SCANDINAVIAN / SLAVIC / ENGLISH /
+ * generic) — that duplication is intentional: we cannot assume the
+ * LLM will cross-reference the original-side rule when formatting the
+ * translation.
+ */
+export function nounArticleHintFor(langCode: string | undefined): string {
+  if (!langCode) return '';
+  switch (langCode) {
+    case 'en':
+      return '"the" + singular noun (e.g. "the dog", "the book", "the year") — never bare, never "a"/"an"';
+    case 'de':
+      return 'German definite article + capitalised singular noun (e.g. "der Hund", "die Katze", "das Buch")';
+    case 'fr':
+      return '"le"/"la"/"l\'" + singular noun (e.g. "le chien", "la voiture", "l\'année")';
+    case 'es':
+      return '"el"/"la" + singular noun (e.g. "el libro", "la casa")';
+    case 'it':
+      return '"il"/"la"/"lo"/"l\'" + singular noun (e.g. "il cane", "la casa", "l\'uovo")';
+    case 'pt':
+      return '"o"/"a" + singular noun (e.g. "o passaporte", "a casa")';
+    case 'nl':
+      return '"de"/"het" + singular noun (e.g. "de hond", "het huis")';
+    case 'sv':
+      return 'indefinite "en"/"ett" + singular noun (Scandi convention: "en artikel", "ett språk")';
+    case 'no':
+      return 'indefinite "en"/"ei"/"et" + singular noun (Scandi convention: "en bil", "ei bok", "et hus")';
+    case 'da':
+      return 'indefinite "en"/"et" + singular noun (Scandi convention: "en bog", "et hus")';
+    case 'pl':
+    case 'cs':
+      return 'bare singular nominative — no article, no determiner';
+    default:
+      return '';
+  }
+}
+
 /** Avoid the two classes of multi-word noun leak we see most often: the
  *  LLM bundling an attributive adjective with the noun ("die öffentliche
  *  Gewalt") and the LLM labelling multi-word named entities as common
@@ -300,11 +349,16 @@ function buildVocabSystemPrompt(
   nativeLanguageName: string,
   learningLanguageName: string,
   learningLanguageCode: string,
+  nativeLanguageCode?: string,
 ): string {
   // CEFR classification is no longer the LLM's job — it is handled
   // deterministically by lib/classifier after extraction. The LLM only
   // needs to extract and format the words.
   const scandiRule = CRITICAL_NOUN_RULE_BY_LANG[learningLanguageCode] ?? '';
+  const translationNounHint = nounArticleHintFor(nativeLanguageCode);
+  const translationRule = translationNounHint
+    ? `- "translation" field for NOUN entries: follow the ${nativeLanguageName} convention — ${translationNounHint}. Apply this CONSISTENTLY across every noun translation, regardless of source-text genre (recipes, news, wikipedia all use the same form).`
+    : '';
   return `You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article.
@@ -322,6 +376,7 @@ ${NOUN_SHAPE_RULE}
 ${scandiRule}
 ${NOUN_VERB_FORMATTING_RULES}
 ${adjRuleForLang(learningLanguageCode)}
+${translationRule}
 - List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms". Example: source contains "rivais", base form is "o rival" → source_forms: ["rivais"].
 
 "type" must be one of: "noun", "verb", "adjective", "phrase", "other".
@@ -353,6 +408,7 @@ export async function extractVocabulary(
       nativeLanguageName,
       learningLanguageName,
       learningLanguageCode,
+      nativeLanguageCode,
     );
     const responseText = await callClaude([{ role: 'user', content: chunk }], systemPrompt, 8192, {
       temperature: 0,
@@ -502,6 +558,11 @@ Examples: "o passaporte" (not "passaporte"), "der Hund" (not "Hund"), "le chat" 
 Formatting rules (apply to BOTH "original" and "translation" fields):
 ${NOUN_VERB_FORMATTING_RULES}
 ${adjRuleForLang(fromLanguageCode)}
+${
+  nounArticleHintFor(toLanguageCode)
+    ? `- "translation" field for NOUN entries: follow the ${toLanguageName} convention — ${nounArticleHintFor(toLanguageCode)}. Apply this regardless of how the source word appears.`
+    : ''
+}
 
 Respond exclusively as a JSON object, with no additional text. Leave the level field as "" — it is set locally after translation:
 {
