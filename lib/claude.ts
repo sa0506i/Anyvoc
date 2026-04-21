@@ -291,17 +291,31 @@ const CRITICAL_NOUN_RULE_BY_LANG: Record<string, string> = {
 };
 
 /**
- * Rule 42: the "translation" field mirrors the grammatical definiteness
- * of the "original" field. No per-native lookup table — the rule is
- * universal: definite original → definite translation; indefinite
- * original (only Scandi per Rule 34) → indefinite translation; bare
- * original (only pl/cs per Rule 41) → bare translation. This supersedes
- * the earlier per-language `nounArticleHintFor` helper, which forced a
- * single form per native and produced semantically wrong output on
- * Scandi→EN (`en bild → the picture` when `en bild → a picture` is
- * correct). See CLAUDE.md Rule 42.
+ * Rule 42: translation article category follows the original's
+ * grammatical definiteness, mapped onto the native language's own
+ * article system. Three branches:
+ *   - Definite original → native's definite form (bare if native
+ *     has no articles, e.g. pl/cs).
+ *   - Indefinite original (Scandi en/ett/ei per Rule 34) → native's
+ *     indefinite form (bare if native has no articles).
+ *   - Bare original (pl/cs per Rule 41 — no articles exist in those
+ *     languages) → native's DEFAULT dictionary convention: definite
+ *     for de/fr/es/it/pt/nl/en, indefinite en/ett/ei for Scandi, bare
+ *     only for the article-less pair (cs↔pl).
+ *
+ * The bare-fallback in the third branch matches standard bilingual-
+ * dictionary typography: a DE-PL dictionary shows `das Abitur — matura`
+ * (article on the article-having side), and a PL-DE dictionary should
+ * show `matura — das Abitur`, not `matura — Abitur`. An earlier
+ * iteration had bare→bare on every native, which produced article-less
+ * German and Romance translations that read as typos (`matura → Abitur`,
+ * `pies → Hund`). See CLAUDE.md Rule 42.
  */
-const TRANSLATION_MIRROR_RULE = `- "translation" field for NOUN entries: mirror the grammatical definiteness of "original" using the native language's own article system. Definite original (der/die/das, le/la/l', il/la/lo/l', el/la, o/a, de/het, the) → DEFINITE translation (e.g. "the dog", "der Hund"). Indefinite original (Scandi en/ett/ei per Rule 34) → INDEFINITE translation: "en bild" → "a picture" (not "the picture"), "ett hus" → "a house", "ei bok" → "a book". Bare original (Polish/Czech per Rule 41) → bare translation (e.g. "tekst" → "text", not "the text"). Apply this CONSISTENTLY across every noun, regardless of source-text genre.`;
+const TRANSLATION_MIRROR_RULE = `- "translation" field for NOUN entries: use the native language's article convention for the same definiteness category as the original. Three cases:
+  • Definite original (der/die/das, le/la/l', il/la/lo/l', el/la, o/a, de/het, the) → native's DEFINITE form (e.g. "der Hund" → "the dog" / "le chien" / "el perro"). For Polish or Czech natives, translation is bare since those languages have no articles ("der Hund" → "pies").
+  • Indefinite original (Scandi en/ett/ei per Rule 34) → native's INDEFINITE form: "en bild" → "a picture" (not "the picture"), "ett hus" → "a house", "ei bok" → "a book". For Polish or Czech natives: bare.
+  • Bare original (Polish/Czech per Rule 41 — those languages have no articles at all) → native's DEFAULT DICTIONARY convention: DEFINITE article for de/fr/es/it/pt/nl/en (e.g. "matura" → "das Abitur" / "the matura" / "le baccalauréat" / "il diploma"), INDEFINITE "en/ett/ei" for sv/no/da (e.g. "matura" → "en studentexamen"), bare only for the cs↔pl pair. This matches bilingual-dictionary typography: the article-having language always shows its article.
+  Apply this CONSISTENTLY across every noun, regardless of source-text genre.`;
 
 /** Avoid the two classes of multi-word noun leak we see most often: the
  *  LLM bundling an attributive adjective with the noun ("die öffentliche

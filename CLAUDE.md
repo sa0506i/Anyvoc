@@ -379,30 +379,43 @@ AND add a negative example for each adjacent language family to
 anchor them back. Prompt length dilutes emphasis; each new rule must
 pay for itself with reinforcement elsewhere.
 
-**Rule 42 (translation mirrors original's grammatical definiteness)**
-enforces: `lib/claude.ts` exports `TRANSLATION_MIRROR_RULE` (a single
-string constant), and both `buildVocabSystemPrompt` and
-`translateSingleWord` interpolate it into their prompts. The rule is
-universal — no per-native lookup, no per-language branch:
+**Rule 42 (translation follows the native's article convention, keyed
+to the original's definiteness category)** enforces:
+`lib/claude.ts` exports `TRANSLATION_MIRROR_RULE` (a single string
+constant), and both `buildVocabSystemPrompt` and `translateSingleWord`
+interpolate it. Three branches, no per-native lookup helper:
 
-- Definite original (de/fr/es/it/pt/nl/en `the`) → **definite** translation
-- Indefinite original (sv/no/da `en`/`ett`/`ei` per Rule 34) → **indefinite** translation (`en bild → a picture`, never `→ the picture`)
-- Bare original (pl/cs per Rule 41) → **bare** translation (`tekst → text`)
+- **Definite original** (de/fr/es/it/pt/nl/en `the`) → native's
+  **definite** form (`der Hund → the dog / le chien`). Polish/Czech
+  natives: bare (no articles exist in pl/cs → `der Hund → pies`).
+- **Indefinite original** (sv/no/da `en`/`ett`/`ei` per Rule 34) →
+  native's **indefinite** form (`en bild → a picture`, never
+  `→ the picture`). Polish/Czech natives: bare.
+- **Bare original** (pl/cs per Rule 41 — those languages have no
+  articles at all) → native's **default dictionary convention**:
+  definite for de/fr/es/it/pt/nl/en (`matura → das Abitur`), indefinite
+  `en/ett/ei` for Scandi (`matura → en studentexamen`), bare for the
+  cs↔pl pair. This matches bilingual-dictionary typography where the
+  article-having language always shows its article.
 
-**Why:** an earlier iteration used a `nounArticleHintFor(langCode)`
-helper that forced English translations to `"the X"` uniformly,
-including for Scandi sources. That produced semantically wrong cards
-(`en bild → the picture` when `en bild` is literally "a picture" and
-`bilden` would be "the picture"). Mirroring the original's article
-category instead of the native's lexicon convention is both
-linguistically correct and simpler — one rule, no per-language code
-paths, no SUPPORTED_LANGUAGES-coverage test.
+**Why:** two earlier iterations missed different halves of the rule.
+A `nounArticleHintFor(langCode)` helper forced `"the X"` uniformly for
+EN natives, producing semantically wrong cards (`en bild → the picture`
+when `en bild` is literally "a picture" in Swedish and `bilden` would
+be "the picture"). The first simplification mirrored strictly — but
+then `matura → Abitur` (bare) for PL→DE read as a typo, because a
+real DE-PL dictionary shows `das Abitur — matura` with the article.
+The final rule mirrors where the category exists AND falls back to
+the native's dictionary default for the bare case.
 
 **How to apply:** if you ever add a new learning language with a
 different article convention, only Rules 34 / 41 need updating — the
-mirror rule follows automatically. Do NOT re-introduce a per-native
-hint helper; the Rule 42 architecture test explicitly asserts that
-`nounArticleHintFor` no longer exists.
+translation rule follows automatically from the category. Do NOT
+re-introduce a per-native hint helper; the Rule 42 architecture test
+asserts `nounArticleHintFor` no longer exists. Do ensure the three
+key phrases stay present in the constant: definite / indefinite / bare
+original, the Scandi counter-example (`en bild → a picture`), and the
+bare-fallback example (`matura → das Abitur`).
 
 ## Leitner System
 

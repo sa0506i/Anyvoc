@@ -2175,6 +2175,12 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
     // Must carry the canonical Scandi counter-example so the LLM
     // doesn't fall back to "the X" for Scandi sources
     expect(/en bild.*a picture/i.test(body)).toBe(true);
+    // Must spell out the bare-original fallback: bare pl/cs origins
+    // should translate to the native's dictionary default, not bare
+    // ("matura" → "das Abitur" in a PL→DE card, matching bilingual-
+    // dictionary typography). See CLAUDE.md Rule 42 Why section.
+    expect(/matura.*das Abitur|matura.*Abitur/i.test(body)).toBe(true);
+    expect(/dictionary/i.test(body)).toBe(true);
   });
 
   it('buildVocabSystemPrompt references TRANSLATION_MIRROR_RULE', () => {
