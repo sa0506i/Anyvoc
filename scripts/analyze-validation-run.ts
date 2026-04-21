@@ -61,22 +61,25 @@ interface Dump {
 // CLI
 // -------------------------------------------------------------------
 
-function parseArgs(): { in: string; compare?: string } {
+function parseArgs(): { ins: string[]; compare?: string } {
   const argv = process.argv.slice(2);
-  let inPath: string | undefined;
+  const ins: string[] = [];
   let cmpPath: string | undefined;
   for (const a of argv) {
     const m = a.match(/^--(in|compare)=(.+)$/);
     if (m) {
-      if (m[1] === 'in') inPath = m[2];
+      if (m[1] === 'in') ins.push(m[2]!);
       else if (m[1] === 'compare') cmpPath = m[2];
     }
   }
-  if (!inPath) {
-    console.error('Usage: analyze-validation-run --in=<path> [--compare=<path>]');
+  if (ins.length === 0) {
+    console.error(
+      'Usage: analyze-validation-run --in=<path> [--compare=<path>]\n' +
+        '       analyze-validation-run --in=<path1> --in=<path2> ...  (multi-native mode)',
+    );
     process.exit(2);
   }
-  return { in: inPath, compare: cmpPath };
+  return { ins, compare: cmpPath };
 }
 
 // -------------------------------------------------------------------
@@ -1216,16 +1219,664 @@ function renderDiff(a: Metrics, b: Metrics, aPath: string, bPath: string): strin
 // -------------------------------------------------------------------
 
 function main() {
-  const { in: inPath, compare: cmpPath } = parseArgs();
-  const dump: Dump = JSON.parse(fs.readFileSync(path.resolve(inPath), 'utf-8'));
-  const m = compute(dump);
-  console.log(renderReport(m, inPath));
-  if (cmpPath) {
-    const cmpDump: Dump = JSON.parse(fs.readFileSync(path.resolve(cmpPath), 'utf-8'));
-    const cmpM = compute(cmpDump);
-    console.log('\n\n');
-    console.log(renderDiff(m, cmpM, inPath, cmpPath));
+  const { ins, compare: cmpPath } = parseArgs();
+  if (ins.length === 1) {
+    const inPath = ins[0]!;
+    const dump: Dump = JSON.parse(fs.readFileSync(path.resolve(inPath), 'utf-8'));
+    const m = compute(dump);
+    console.log(renderReport(m, inPath));
+    if (cmpPath) {
+      const cmpDump: Dump = JSON.parse(fs.readFileSync(path.resolve(cmpPath), 'utf-8'));
+      const cmpM = compute(cmpDump);
+      console.log('\n\n');
+      console.log(renderDiff(m, cmpM, inPath, cmpPath));
+    }
+    return;
   }
+  // Multi-file mode: aggregate across native-specific files, compute
+  // per-native + cross-native heuristics (Rule 34 / 38 / 39 / 41 / 42).
+  const dumps = ins.map((p) => ({
+    path: p,
+    dump: JSON.parse(fs.readFileSync(path.resolve(p), 'utf-8')) as Dump,
+  }));
+  console.log(renderMultiReport(dumps));
+}
+
+// -------------------------------------------------------------------
+// Multi-file mode: per-native + per-(learn, native) rule compliance.
+// -------------------------------------------------------------------
+
+type LangCat = 'def' | 'indef' | 'bare';
+
+const LEARN_CATEGORY: Record<string, LangCat> = {
+  de: 'def',
+  fr: 'def',
+  es: 'def',
+  it: 'def',
+  pt: 'def',
+  nl: 'def',
+  en: 'def',
+  sv: 'indef',
+  no: 'indef',
+  da: 'indef',
+  pl: 'bare',
+  cs: 'bare',
+};
+
+// Native default category when learn is BARE (Rule 42 fallback).
+const NATIVE_DEFAULT: Record<string, LangCat> = {
+  de: 'def',
+  fr: 'def',
+  es: 'def',
+  it: 'def',
+  pt: 'def',
+  nl: 'def',
+  en: 'def',
+  sv: 'indef',
+  no: 'indef',
+  da: 'indef',
+  pl: 'bare',
+  cs: 'bare',
+};
+
+/** Classify an extracted translation by its leading article form. Rough
+ *  heuristic; suffix-definiteness in Scandi cannot be reliably detected
+ *  without lemmatisation, so we only flag positive prefix matches. */
+function classifyTransArticle(nativeCode: string, translation: string): LangCat | 'unknown' {
+  const low = translation
+    .trim()
+    .toLowerCase()
+    .replace(/\u2019/g, "'");
+  switch (nativeCode) {
+    case 'en':
+      if (/^the\s/.test(low)) return 'def';
+      if (/^(a|an)\s/.test(low)) return 'indef';
+      return 'bare';
+    case 'de':
+      if (/^(der|die|das|den|dem|des)\s/.test(low)) return 'def';
+      if (/^(ein|eine|einen|einem|einer|eines)\s/.test(low)) return 'indef';
+      return 'bare';
+    case 'fr':
+      if (/^(le|la|les)\s/.test(low) || /^l'/.test(low)) return 'def';
+      if (/^(un|une)\s/.test(low)) return 'indef';
+      return 'bare';
+    case 'es':
+      if (/^(el|la|los|las)\s/.test(low)) return 'def';
+      if (/^(un|una|unos|unas)\s/.test(low)) return 'indef';
+      return 'bare';
+    case 'it':
+      if (/^(il|la|lo|i|gli|le)\s/.test(low) || /^l'/.test(low)) return 'def';
+      if (/^(un|uno|una|un')/.test(low)) return 'indef';
+      return 'bare';
+    case 'pt':
+      if (/^(o|a|os|as)\s/.test(low)) return 'def';
+      if (/^(um|uma|uns|umas)\s/.test(low)) return 'indef';
+      return 'bare';
+    case 'nl':
+      if (/^(de|het)\s/.test(low)) return 'def';
+      if (/^een\s/.test(low)) return 'indef';
+      return 'bare';
+    case 'sv':
+    case 'no':
+    case 'da':
+      // Scandi: indefinite prefix is the canonical lemma shape under Rule 34.
+      if (/^(en|ett|ei|et|den|det)\s/.test(low)) return 'indef';
+      // Definite is a noun SUFFIX in Scandi (bilden, folket, lagen, bogen,
+      // hjernen, boken, huset, dagen). Heuristic: 4+ chars and ends in the
+      // common def-suffix inventory. This misses some edge cases (e.g. def
+      // plural -erne/-ene/-na) and false-flags some bare nouns that
+      // happen to end in -en (like "man" → "en man" indef vs "mannen" def)
+      // but over 12 natives it's a net win over flagging all def-suffix
+      // forms as 'bare' (which was the 2026-04-22 R42 mismatch noise).
+      if (low.length >= 4 && /(erne|ene|ane|arna|orna|na|en|et|n|a)$/.test(low)) return 'def';
+      return 'bare';
+    case 'pl':
+    case 'cs':
+      return 'bare'; // No articles
+    default:
+      return 'unknown';
+  }
+}
+
+/** Expected translation article category for a (learn, native) pair
+ *  per Rule 42 (mirror, with bare-fallback to native default). */
+function expectedTransCat(learnCode: string, nativeCode: string): LangCat {
+  const learnCat = LEARN_CATEGORY[learnCode] ?? 'def';
+  if (learnCat === 'def') {
+    // Native keeps def, except pl/cs which have no articles → bare
+    return nativeCode === 'pl' || nativeCode === 'cs' ? 'bare' : 'def';
+  }
+  if (learnCat === 'indef') {
+    // Scandi-learn: translation uses native's indef form, or bare for pl/cs
+    return nativeCode === 'pl' || nativeCode === 'cs' ? 'bare' : 'indef';
+  }
+  // Learn is bare (pl/cs): fall back to native default (Rule 42 F6 branch)
+  return NATIVE_DEFAULT[nativeCode] ?? 'def';
+}
+
+interface PerNativeStats {
+  native: string;
+  combos: number;
+  ok: number;
+  failed: number;
+  vocab: number;
+  nouns: number;
+  verbs: number;
+  adjectives: number;
+  phrases: number;
+  levelDist: Record<string, number>;
+  // Original-side rule compliance
+  origRule34Pass: number; // scandi learn: en/ett/ei prefix present
+  origRule34Total: number;
+  origRule41aBarePass: number; // pl/cs learn: bare
+  origRule41aBareTotal: number;
+  origRule41bEnThe: number; // en learn: starts with "the "
+  origRule41bEnTotal: number;
+  origRule38AdjPairs: number; // DE/Germanic adj m/f pair (should be 0)
+  origRule38AdjTotal: number;
+  origRule39VerbInfFail: number; // verb not infinitive
+  origRule39VerbTotal: number;
+  // Translation-side rule compliance (Rule 42)
+  transCatDist: Record<LangCat | 'unknown', number>;
+  transRule42Pass: number;
+  transRule42Mismatch: number;
+  // Per learn category → observed translation category
+  transMatrixByLearnCat: Record<LangCat, Record<LangCat | 'unknown', number>>;
+  // DE native capitalization (when native=de)
+  deNativeNounCapPass: number;
+  deNativeNounCapFail: number;
+  // Multi-word noun leaks + type=other multi-word (Rule 33/37)
+  multiWordNounLeaks: number;
+  typeOtherMulti: number;
+  // Repetition + dup (Rule 33)
+  repetitionCombos: number;
+  dupeRatioSum: number;
+  // Abbreviations (should be 0)
+  abbrevLeaks: number;
+  // Curly apostrophe in original (Rule 40 post-fix should be 0)
+  curlyApostropheInOrig: number;
+  // CEFR anomalies
+  zeroZipfA1: number;
+  highZipfC: number;
+  // Samples (capped)
+  samples: Record<
+    string,
+    {
+      learn: string;
+      original: string;
+      translation: string;
+      type: string;
+      level: string;
+      reason?: string;
+    }[]
+  >;
+}
+
+function emptySamples(): PerNativeStats['samples'] {
+  return {
+    R34_scandi_bare: [],
+    R38_de_adjpair: [],
+    R39_verb_notinf: [],
+    R41a_pl_cs_withart: [],
+    R41b_en_nothe: [],
+    R42_mirror_mismatch: [],
+    DE_cap_err: [],
+    Rule33_multiword: [],
+    Rule37_other: [],
+    Abbrev: [],
+    CurlyApostrophe: [],
+    CEFR_zerozipf_A1: [],
+    CEFR_highzipf_C: [],
+  };
+}
+function pushS(
+  arr: PerNativeStats['samples'][string],
+  s: PerNativeStats['samples'][string][number],
+  cap = 12,
+) {
+  if (arr.length < cap) arr.push(s);
+}
+
+function computePerNative(dump: Dump): PerNativeStats {
+  const nativeCode = (dump.natives ?? [dump.results[0]?.native ?? 'en'])[0] ?? 'en';
+  const s: PerNativeStats = {
+    native: nativeCode,
+    combos: dump.results.length,
+    ok: 0,
+    failed: 0,
+    vocab: 0,
+    nouns: 0,
+    verbs: 0,
+    adjectives: 0,
+    phrases: 0,
+    levelDist: {},
+    origRule34Pass: 0,
+    origRule34Total: 0,
+    origRule41aBarePass: 0,
+    origRule41aBareTotal: 0,
+    origRule41bEnThe: 0,
+    origRule41bEnTotal: 0,
+    origRule38AdjPairs: 0,
+    origRule38AdjTotal: 0,
+    origRule39VerbInfFail: 0,
+    origRule39VerbTotal: 0,
+    transCatDist: { def: 0, indef: 0, bare: 0, unknown: 0 },
+    transRule42Pass: 0,
+    transRule42Mismatch: 0,
+    transMatrixByLearnCat: {
+      def: { def: 0, indef: 0, bare: 0, unknown: 0 },
+      indef: { def: 0, indef: 0, bare: 0, unknown: 0 },
+      bare: { def: 0, indef: 0, bare: 0, unknown: 0 },
+    },
+    deNativeNounCapPass: 0,
+    deNativeNounCapFail: 0,
+    multiWordNounLeaks: 0,
+    typeOtherMulti: 0,
+    repetitionCombos: 0,
+    dupeRatioSum: 0,
+    abbrevLeaks: 0,
+    curlyApostropheInOrig: 0,
+    zeroZipfA1: 0,
+    highZipfC: 0,
+    samples: emptySamples(),
+  };
+
+  for (const r of dump.results) {
+    if (!r.ok) {
+      s.failed++;
+      continue;
+    }
+    s.ok++;
+    const learn = r.lang;
+    const learnCat = LEARN_CATEGORY[learn] ?? 'def';
+    const vocab = r.vocab ?? [];
+    s.vocab += vocab.length;
+
+    // Rep/dup per-combo
+    const keyCount = new Map<string, number>();
+    for (const v of vocab) {
+      const k = (v.original || '').trim().toLowerCase() + '|' + v.type;
+      keyCount.set(k, (keyCount.get(k) ?? 0) + 1);
+    }
+    let maxCount = 0;
+    for (const n of keyCount.values()) if (n > maxCount) maxCount = n;
+    if (maxCount >= 3) s.repetitionCombos++;
+    const total = vocab.length;
+    const uniq = keyCount.size;
+    s.dupeRatioSum += total > 0 ? 1 - uniq / total : 0;
+
+    for (const v of vocab) {
+      // Types + levels
+      if (v.type === 'noun') s.nouns++;
+      else if (v.type === 'verb') s.verbs++;
+      else if (v.type === 'adjective') s.adjectives++;
+      else if (v.type === 'phrase') s.phrases++;
+      s.levelDist[v.level] = (s.levelDist[v.level] ?? 0) + 1;
+
+      // Rule 40: curly apostrophe in original (should be 0)
+      if (/\u2019/.test(v.original)) {
+        s.curlyApostropheInOrig++;
+        pushS(s.samples.CurlyApostrophe!, {
+          learn,
+          original: v.original,
+          translation: v.translation,
+          type: v.type,
+          level: v.level,
+        });
+      }
+
+      // Rule 5 / abbreviations in lib/vocabFilters
+      if (isAbbreviation(v.original)) {
+        s.abbrevLeaks++;
+        pushS(s.samples.Abbrev!, {
+          learn,
+          original: v.original,
+          translation: v.translation,
+          type: v.type,
+          level: v.level,
+        });
+      }
+
+      // Multi-word noun + type=other multi-word
+      if (v.type === 'noun' && isMultiWordNoun(v.original)) {
+        s.multiWordNounLeaks++;
+        pushS(s.samples.Rule33_multiword!, {
+          learn,
+          original: v.original,
+          translation: v.translation,
+          type: v.type,
+          level: v.level,
+        });
+      }
+      if (isTypeOtherMultiWord(v)) {
+        s.typeOtherMulti++;
+        pushS(s.samples.Rule37_other!, {
+          learn,
+          original: v.original,
+          translation: v.translation,
+          type: v.type,
+          level: v.level,
+        });
+      }
+
+      // ORIGINAL-side Rule 34: scandi learn must start with en/ett/ei
+      if (learn === 'sv' || learn === 'no' || learn === 'da') {
+        if (v.type === 'noun') {
+          s.origRule34Total++;
+          if (hasArticle(learn, v.original)) s.origRule34Pass++;
+          else {
+            pushS(s.samples.R34_scandi_bare!, {
+              learn,
+              original: v.original,
+              translation: v.translation,
+              type: v.type,
+              level: v.level,
+            });
+          }
+        }
+      }
+
+      // Rule 41a: pl/cs learn noun should be bare (no article prefix)
+      if (learn === 'pl' || learn === 'cs') {
+        if (v.type === 'noun') {
+          s.origRule41aBareTotal++;
+          const low = v.original.trim().toLowerCase();
+          // Any leading article-like token from any language
+          const hasAnyArt =
+            /^(the|a|an|der|die|das|le|la|les|l'|el|los|las|il|lo|gli|le|o|os|as|de|het|en|ett|ei|et|den|det|un|une|uno|una|um|uma)\s/.test(
+              low,
+            );
+          if (!hasAnyArt) s.origRule41aBarePass++;
+          else {
+            pushS(s.samples.R41a_pl_cs_withart!, {
+              learn,
+              original: v.original,
+              translation: v.translation,
+              type: v.type,
+              level: v.level,
+              reason: 'article detected',
+            });
+          }
+        }
+      }
+
+      // Rule 41b: en learn noun should start with "the "
+      if (learn === 'en') {
+        if (v.type === 'noun') {
+          s.origRule41bEnTotal++;
+          const low = v.original.trim().toLowerCase();
+          if (/^the\s/.test(low)) s.origRule41bEnThe++;
+          else {
+            pushS(s.samples.R41b_en_nothe!, {
+              learn,
+              original: v.original,
+              translation: v.translation,
+              type: v.type,
+              level: v.level,
+            });
+          }
+        }
+      }
+
+      // Rule 38: de/nl/sv/no/da/pl/cs/en adj m/f pair (should collapse to single)
+      if (
+        v.type === 'adjective' &&
+        ['de', 'nl', 'sv', 'no', 'da', 'pl', 'cs', 'en'].includes(learn)
+      ) {
+        s.origRule38AdjTotal++;
+        if (v.original.includes(',')) {
+          s.origRule38AdjPairs++;
+          pushS(s.samples.R38_de_adjpair!, {
+            learn,
+            original: v.original,
+            translation: v.translation,
+            type: v.type,
+            level: v.level,
+          });
+        }
+      }
+
+      // Rule 39: verb must be infinitive (per-learn-lang regex from compare-sweeps)
+      if (v.type === 'verb') {
+        s.origRule39VerbTotal++;
+        if (!isInfinitive(learn, v.original)) {
+          s.origRule39VerbInfFail++;
+          pushS(s.samples.R39_verb_notinf!, {
+            learn,
+            original: v.original,
+            translation: v.translation,
+            type: v.type,
+            level: v.level,
+          });
+        }
+      }
+
+      // TRANSLATION-side Rule 42: check mirror rule
+      if (v.type === 'noun') {
+        const obsCat = classifyTransArticle(nativeCode, v.translation);
+        s.transCatDist[obsCat]++;
+        s.transMatrixByLearnCat[learnCat][obsCat]++;
+        const expectedCat = expectedTransCat(learn, nativeCode);
+        if (
+          obsCat === expectedCat ||
+          (obsCat === 'bare' &&
+            (nativeCode === 'sv' || nativeCode === 'no' || nativeCode === 'da') &&
+            expectedCat === 'indef')
+        ) {
+          // Scandi def-suffix forms may be classified 'bare' by our simple
+          // prefix regex when they actually end in -en/-et. Accept bare as
+          // a soft pass only for scandi natives where this is plausible.
+          s.transRule42Pass++;
+        } else {
+          s.transRule42Mismatch++;
+          pushS(s.samples.R42_mirror_mismatch!, {
+            learn,
+            original: v.original,
+            translation: v.translation,
+            type: v.type,
+            level: v.level,
+            reason: `${learnCat}→${obsCat} (expected ${expectedCat})`,
+          });
+        }
+      }
+
+      // DE native: noun translations should start with def article + capitalised noun
+      if (nativeCode === 'de' && v.type === 'noun') {
+        const tr = v.translation.trim();
+        const m = tr.match(/^(der|die|das)\s+(\S+)/i);
+        if (m) {
+          const noun = m[2]!;
+          if (/^[A-ZÄÖÜ]/.test(noun)) s.deNativeNounCapPass++;
+          else {
+            s.deNativeNounCapFail++;
+            pushS(s.samples.DE_cap_err!, {
+              learn,
+              original: v.original,
+              translation: v.translation,
+              type: v.type,
+              level: v.level,
+              reason: 'noun not capitalised after article',
+            });
+          }
+        } else {
+          // Missing article — also a fail if learn is def-category
+          if (learnCat === 'def') {
+            s.deNativeNounCapFail++;
+            pushS(s.samples.DE_cap_err!, {
+              learn,
+              original: v.original,
+              translation: v.translation,
+              type: v.type,
+              level: v.level,
+              reason: 'missing der/die/das',
+            });
+          }
+        }
+      }
+
+      // CEFR anomalies
+      const z = zipfOf(learn as Lang, v.original);
+      const lvlRank: Record<string, number> = { A1: 1, A2: 2, B1: 3, B2: 4, C1: 5, C2: 6 };
+      const lvl = lvlRank[v.level] ?? 0;
+      if (z >= 6 && lvl >= 5) {
+        s.highZipfC++;
+        pushS(s.samples.CEFR_highzipf_C!, {
+          learn,
+          original: v.original,
+          translation: v.translation,
+          type: v.type,
+          level: v.level,
+          reason: `zipf=${z.toFixed(2)}`,
+        });
+      }
+      if (z === 0 && lvl <= 2 && v.type !== 'phrase') {
+        s.zeroZipfA1++;
+        pushS(s.samples.CEFR_zerozipf_A1!, {
+          learn,
+          original: v.original,
+          translation: v.translation,
+          type: v.type,
+          level: v.level,
+        });
+      }
+    }
+  }
+  return s;
+}
+
+function fmtPct(num: number, denom: number): string {
+  if (denom === 0) return '—';
+  return ((num / denom) * 100).toFixed(1) + '%';
+}
+
+function renderMultiReport(items: { path: string; dump: Dump }[]): string {
+  const L: string[] = [];
+  const perNative = items.map(({ dump }) => computePerNative(dump));
+  perNative.sort((a, b) => a.native.localeCompare(b.native));
+
+  const totalCombos = perNative.reduce((a, p) => a + p.combos, 0);
+  const totalOk = perNative.reduce((a, p) => a + p.ok, 0);
+  const totalFailed = perNative.reduce((a, p) => a + p.failed, 0);
+  const totalVocab = perNative.reduce((a, p) => a + p.vocab, 0);
+
+  L.push(`# Multi-Native Validation Analyse — ${items.length} Native-Dateien`);
+  L.push('');
+  L.push(`- Files analysed: ${items.map((i) => path.basename(i.path)).join(', ')}`);
+  L.push(`- Combos total: **${totalCombos}** (ok: ${totalOk}, failed: ${totalFailed})`);
+  L.push(`- Vokabeln total: **${totalVocab}**`);
+  L.push('');
+
+  // ────────────────────────────────
+  // Per-native summary table
+  // ────────────────────────────────
+  L.push('## 1) Per-Native Summary');
+  L.push('');
+  L.push(
+    '| Native | Combos | OK/Fail | Vocab | Noun | Verb | Adj | Phrase | A1 | A2 | B1 | B2 | C1 | C2 |',
+  );
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const p of perNative) {
+    const ld = p.levelDist;
+    L.push(
+      `| ${p.native} | ${p.combos} | ${p.ok}/${p.failed} | ${p.vocab} | ${p.nouns} | ${p.verbs} | ${p.adjectives} | ${p.phrases} | ${ld.A1 ?? 0} | ${ld.A2 ?? 0} | ${ld.B1 ?? 0} | ${ld.B2 ?? 0} | ${ld.C1 ?? 0} | ${ld.C2 ?? 0} |`,
+    );
+  }
+  L.push('');
+
+  // ────────────────────────────────
+  // Rule compliance (per native file)
+  // ────────────────────────────────
+  L.push('## 2) Rule Compliance per Native File');
+  L.push('');
+  L.push(
+    '| Native | R34 Scandi indef | R38 DE adj single | R39 Verb inf | R41a pl/cs bare | R41b en "the" | R42 Mirror | DE cap (native=de) | R33 MW-noun | R37 other-MW | Abbrev | Curly ’ | Rep≥3 |',
+  );
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const p of perNative) {
+    const r42pct = fmtPct(p.transRule42Pass, p.transRule42Pass + p.transRule42Mismatch);
+    const r34pct = fmtPct(p.origRule34Pass, p.origRule34Total);
+    const r38violPct = fmtPct(p.origRule38AdjPairs, p.origRule38AdjTotal);
+    const r39failPct = fmtPct(p.origRule39VerbInfFail, p.origRule39VerbTotal);
+    const r41apct = fmtPct(p.origRule41aBarePass, p.origRule41aBareTotal);
+    const r41bpct = fmtPct(p.origRule41bEnThe, p.origRule41bEnTotal);
+    const deCapPct =
+      p.native === 'de'
+        ? fmtPct(p.deNativeNounCapPass, p.deNativeNounCapPass + p.deNativeNounCapFail)
+        : '—';
+    L.push(
+      `| ${p.native} | ${r34pct} (pass) | ${r38violPct} (violations) | ${r39failPct} (violations) | ${r41apct} (pass) | ${r41bpct} (pass) | ${r42pct} (pass) | ${deCapPct} | ${p.multiWordNounLeaks} | ${p.typeOtherMulti} | ${p.abbrevLeaks} | ${p.curlyApostropheInOrig} | ${p.repetitionCombos} |`,
+    );
+  }
+  L.push('');
+
+  // ────────────────────────────────
+  // Rule 42 Mirror matrix (aggregated)
+  // ────────────────────────────────
+  L.push('## 3) Rule 42 Mirror — Translation Article Distribution');
+  L.push('');
+  L.push(
+    'Per (learn-category → native) pair, share of translations starting with each article category.',
+  );
+  L.push('');
+  L.push(
+    '| Native | DEF learn → def/indef/bare/unk | INDEF learn → def/indef/bare/unk | BARE learn → def/indef/bare/unk | Expected |',
+  );
+  L.push('|---|---|---|---|---|');
+  for (const p of perNative) {
+    const m = p.transMatrixByLearnCat;
+    const fmt = (cat: LangCat) => {
+      const row = m[cat];
+      const total = row.def + row.indef + row.bare + row.unknown;
+      if (total === 0) return '— (0)';
+      return `${fmtPct(row.def, total)}/${fmtPct(row.indef, total)}/${fmtPct(row.bare, total)}/${fmtPct(row.unknown, total)} (${total})`;
+    };
+    const expectedDef = expectedTransCat('de', p.native);
+    const expectedIndef = expectedTransCat('sv', p.native);
+    const expectedBare = expectedTransCat('pl', p.native);
+    const expected = `DEF→${expectedDef} · INDEF→${expectedIndef} · BARE→${expectedBare}`;
+    L.push(`| ${p.native} | ${fmt('def')} | ${fmt('indef')} | ${fmt('bare')} | ${expected} |`);
+  }
+  L.push('');
+
+  // ────────────────────────────────
+  // Top flags per rule (aggregated across natives)
+  // ────────────────────────────────
+  L.push('## 4) Flagged Entries (aggregated, max 12 per rule)');
+  L.push('');
+  const rules: [string, keyof PerNativeStats['samples']][] = [
+    ['R34 Scandi noun without en/ett/ei', 'R34_scandi_bare'],
+    ['R38 DE/Germanic adj m/f pair leaked', 'R38_de_adjpair'],
+    ['R39 Verb not in infinitive form', 'R39_verb_notinf'],
+    ['R41a pl/cs noun with article', 'R41a_pl_cs_withart'],
+    ['R41b en noun without "the "', 'R41b_en_nothe'],
+    ['R42 Mirror mismatch', 'R42_mirror_mismatch'],
+    ['DE translation capitalization error', 'DE_cap_err'],
+    ['Rule 33 multi-word noun leak', 'Rule33_multiword'],
+    ['Rule 37 type=other multi-word', 'Rule37_other'],
+    ['Abbreviation leak', 'Abbrev'],
+    ['Curly apostrophe in original', 'CurlyApostrophe'],
+    ['CEFR zero-zipf A1/A2', 'CEFR_zerozipf_A1'],
+    ['CEFR high-zipf C1/C2', 'CEFR_highzipf_C'],
+  ];
+  for (const [label, key] of rules) {
+    const all = perNative.flatMap((p) =>
+      (p.samples[key] ?? []).map((s) => ({ ...s, native: p.native })),
+    );
+    L.push(`### ${label} — ${all.length} entries`);
+    if (all.length === 0) {
+      L.push('✓ (none)');
+      L.push('');
+      continue;
+    }
+    for (const s of all.slice(0, 12)) {
+      L.push(
+        `- [${s.learn}→${(s as { native?: string }).native ?? '?'}] "${s.original}" → "${s.translation}" (${s.type}/${s.level})${s.reason ? ` — ${s.reason}` : ''}`,
+      );
+    }
+    L.push('');
+  }
+
+  return L.join('\n');
 }
 
 main();
