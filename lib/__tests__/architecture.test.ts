@@ -2099,3 +2099,49 @@ describe('Architecture: Rule 40 — curly apostrophes normalised', () => {
     expect(hasReplace).toBe(true);
   });
 });
+
+// ─── Rule 41: Article-less + determinerless languages have explicit rules ─
+// The generic "ALWAYS include the direct article" line is vacuous for
+// Polish / Czech (no articles exist) and contrary-to-convention for
+// English (the/a/an are determiners, not lexical). Without explicit
+// overrides in CRITICAL_NOUN_RULE_BY_LANG, small LLMs may prepend a
+// foreign article, switch languages, or emit "the house" / "ten tekst".
+// The 2026-04-21 sweep ran native=en + learning∈{11 non-en}, so EN-as-
+// learning was never exercised — this rule closes the gap before a
+// future sweep with EN-as-learning or a PL-native hits it.
+describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+
+  it('SLAVIC_NOUN_RULE constant exists and names pl + cs', () => {
+    const match = src.match(/const SLAVIC_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
+    expect(match).not.toBeNull();
+    const body = match![0];
+    expect(/\bpolish\b/i.test(body)).toBe(true);
+    expect(/\bczech\b/i.test(body)).toBe(true);
+    // Must instruct bare form (NO article)
+    expect(/no articles|bare|NEVER prepend/i.test(body)).toBe(true);
+  });
+
+  it('ENGLISH_NOUN_RULE constant exists and forbids the/a/an prefix', () => {
+    const match = src.match(/const ENGLISH_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
+    expect(match).not.toBeNull();
+    const body = match![0];
+    expect(/\benglish\b/i.test(body)).toBe(true);
+    expect(/bare|NEVER prepend|without any article/i.test(body)).toBe(true);
+    // Must name the three EN determiners so small models can't wiggle
+    expect(/the/i.test(body) && /\ba\b/i.test(body) && /\ban\b/i.test(body)).toBe(true);
+  });
+
+  it('CRITICAL_NOUN_RULE_BY_LANG maps pl, cs, en to the new rules', () => {
+    const match = src.match(/const CRITICAL_NOUN_RULE_BY_LANG[\s\S]*?\};/);
+    expect(match).not.toBeNull();
+    const body = match![0];
+    expect(/\bpl\s*:\s*SLAVIC_NOUN_RULE/.test(body)).toBe(true);
+    expect(/\bcs\s*:\s*SLAVIC_NOUN_RULE/.test(body)).toBe(true);
+    expect(/\ben\s*:\s*ENGLISH_NOUN_RULE/.test(body)).toBe(true);
+    // Sanity: Scandi entries still present (Rule 34 invariant)
+    expect(/\bsv\s*:\s*SCANDINAVIAN_NOUN_RULE/.test(body)).toBe(true);
+    expect(/\bno\s*:\s*SCANDINAVIAN_NOUN_RULE/.test(body)).toBe(true);
+    expect(/\bda\s*:\s*SCANDINAVIAN_NOUN_RULE/.test(body)).toBe(true);
+  });
+});

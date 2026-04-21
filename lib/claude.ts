@@ -262,10 +262,26 @@ export function chunkText(text: string, maxChars: number = MAX_CHARS_PER_CHUNK):
  *  linguistically comparable. */
 const SCANDINAVIAN_NOUN_RULE = `- IMPORTANT — for Swedish (sv), Norwegian (no), and Danish (da), these languages mark definiteness as a noun SUFFIX, not a prepositive article. In the "original" field, ALWAYS prepend the INDEFINITE article based on grammatical gender: "en" (common gender, sv/no/da), "ett" (neuter, sv), "ei" (feminine, no). Examples: "en artikel", "ett språk" (sv), "ei bok" (no), "en bog" (da). Never emit a bare noun in these languages.`;
 
+/** Polish and Czech have no articles at all. The generic "ALWAYS include
+ *  the direct article" line is vacuous for them — there is no article to
+ *  include. We make it explicit so small models don't try to prepend a
+ *  non-existent article or switch languages (e.g. slipping a Russian or
+ *  German article). See CLAUDE.md Rule 41. */
+const SLAVIC_NOUN_RULE = `- IMPORTANT — for Polish (pl) and Czech (cs), these languages have NO articles at all. In the "original" field, emit nouns in the BARE singular nominative form — NEVER prepend any article or determiner. Examples: "tekst" (pl, not "ten tekst"), "vedení" (cs, not "to vedení"). This OVERRIDES the generic "include article" rule above for these two languages.`;
+
+/** English nouns carry optional determiners (the / a / an) that are not
+ *  part of the lexical entry. Dictionary convention is the bare form, and
+ *  the classifier strips "the"/"a"/"an" before lookup anyway — mirroring
+ *  that convention on the extraction side keeps the data consistent. */
+const ENGLISH_NOUN_RULE = `- IMPORTANT — for English (en), emit nouns in the BARE singular form without any article. NEVER prepend "the", "a", or "an" in the "original" field. Examples: "house", "child", "book". This OVERRIDES the generic "include article" rule above.`;
+
 const CRITICAL_NOUN_RULE_BY_LANG: Record<string, string> = {
   sv: SCANDINAVIAN_NOUN_RULE,
   no: SCANDINAVIAN_NOUN_RULE,
   da: SCANDINAVIAN_NOUN_RULE,
+  pl: SLAVIC_NOUN_RULE,
+  cs: SLAVIC_NOUN_RULE,
+  en: ENGLISH_NOUN_RULE,
 };
 
 /** Avoid the two classes of multi-word noun leak we see most often: the

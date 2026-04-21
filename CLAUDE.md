@@ -286,11 +286,12 @@ bypass.
 
 ## Vocabulary Formatting Rules (system prompt)
 
-- **Nouns:** direct article + singular; feminine form after comma if exists
-  `"le médecin, la médecin"` / `"der Arzt, die Ärztin"`
-  Proper nouns (Eigennamen) are ignored.
-  Lowercase in all languages except German (even if capitalised in source text).
-  Hyphens from line breaks are removed (e.g. "Wort-\ntrennung" → "Worttrennung").
+- **Nouns (language-scoped — Rule 41 covers pl/cs/en, Rule 34 covers scandi):**
+  - **de / fr / es / it / pt / nl:** direct article + singular; feminine form after comma if exists (`"le médecin, la médecin"` / `"der Arzt, die Ärztin"`).
+  - **sv / no / da** (Scandinavian — see `SCANDINAVIAN_NOUN_RULE`): prepend the **indefinite** article by grammatical gender (`en` / `ett` / `ei`). These languages mark definiteness as a noun suffix, so a bare form is ambiguous.
+  - **pl / cs** (Slavic — `SLAVIC_NOUN_RULE`): no articles exist; emit the bare singular nominative (`tekst`, `vedení`). Never prepend a determiner.
+  - **en** (`ENGLISH_NOUN_RULE`): bare singular form, no `the` / `a` / `an`. Dictionary convention + the classifier strips those anyway.
+  - Across all languages: proper nouns (Eigennamen) are ignored; nouns are lowercase in every language except German (even if capitalised in source text); hyphens from line breaks are removed (e.g. `"Wort-\ntrennung"` → `"Worttrennung"`).
 - **Verbs:** always the infinitive form — **never conjugated, never a past participle**.
   Reflexive verbs carry the pronoun: `"se souvenir"`, `"sich erinnern"`, `"acordar-se"`.
   Counter-examples the LLM has been observed to emit (all wrong, all blocked by Rule 39):
@@ -333,6 +334,29 @@ or U+2019 apostrophe in its elision-article strip. Without both halves,
 Readability-extracted French / Italian articles with typographic
 apostrophes bypass Rule 36's elision strip, land in zero-zipf, and get
 levelled by the AoA-fallback (see 2026-04-21 sweep analysis).
+
+**Rule 41 (article-less languages carry an explicit noun rule)**
+enforces: `lib/claude.ts` exports `SLAVIC_NOUN_RULE` (pl, cs) and
+`ENGLISH_NOUN_RULE` (en), and `CRITICAL_NOUN_RULE_BY_LANG` maps all three
+codes to the corresponding constant alongside the existing sv/no/da
+Scandinavian entries. The generic "ALWAYS include the direct article"
+line in `NOUN_VERB_FORMATTING_RULES` is vacuous for pl/cs (no articles
+exist) and contrary-to-convention for en (the/a/an are determiners, not
+lexical). Without explicit overrides, small LLMs either prepend a
+foreign article, switch languages, or emit `"the house"` / `"ten tekst"`.
+Expanding `CRITICAL_NOUN_RULE_BY_LANG` to cover every learning language
+where the generic rule is wrong closes the gap computationally.
+
+**Why:** pl/cs/en were silent gaps after Rule 34 codified sv/no/da. The
+2026-04-21 sweep ran with native=en / learning∈{11-non-en}, so en was
+never the learning language and the gap didn't surface, but the next
+sweep with EN-as-learning or a PL-native would have hit it.
+
+**How to apply:** when adding a new learning language, decide whether the
+generic "include article" rule covers it. If not (article-less, clitic,
+or suffix-marking), write a dedicated `{LANG}_NOUN_RULE` constant with a
+concrete example and add the code to `CRITICAL_NOUN_RULE_BY_LANG`. Rule
+41's architecture test then proves the mapping exists.
 
 ## Leitner System
 
