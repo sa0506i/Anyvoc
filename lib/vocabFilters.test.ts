@@ -5,6 +5,9 @@ import {
   collapseIdenticalFormPair,
   capitaliseGermanNouns,
   postProcessExtractedVocab,
+  collapseAdjectivePair,
+  isNonInfinitiveVerb,
+  normaliseApostrophes,
 } from './vocabFilters';
 
 describe('isAbbreviation', () => {
@@ -262,7 +265,9 @@ describe('postProcessExtractedVocab', () => {
       make({ original: 'der Hund', type: 'noun' }),
       make({ original: 'der Hund', type: 'noun' }), // exact dup
       make({ original: 'Der Hund', type: 'noun' }), // case-insensitive dup
-      make({ original: 'der Hund', type: 'verb' }), // different type — kept
+      // Different type AND a valid DE infinitive so Rule 39 doesn't drop
+      // the verb variant. Keeps the dedup-guard test honest.
+      make({ original: 'hundeln', type: 'verb' }),
     ];
     const out = postProcessExtractedVocab(items, 'de', 'en');
     expect(out).toHaveLength(2);
@@ -301,5 +306,172 @@ describe('postProcessExtractedVocab', () => {
     ];
     const out = postProcessExtractedVocab(items, 'fr', 'en');
     expect(out.map((i) => i.original)).toEqual(['selbst']);
+  });
+});
+
+describe('collapseAdjectivePair (Rule 38)', () => {
+  it.each([
+    ['dünn, dünne', 'de', 'dünn'],
+    ['groß, große', 'de', 'groß'],
+    ['stark, starke', 'de', 'stark'],
+    ['mooi, mooie', 'nl', 'mooi'],
+    ['stor, stora', 'sv', 'stor'],
+    ['stor, store', 'no', 'stor'],
+    ['stor, store', 'da', 'stor'],
+  ])('collapses Germanic/Scandi adjective pair %s → %s', (input, lang, expected) => {
+    expect(collapseAdjectivePair(input, 'adjective', lang)).toBe(expected);
+  });
+
+  it.each([
+    ['beau, belle', 'fr'],
+    ['petit, petite', 'fr'],
+    ['bonito, bonita', 'es'],
+    ['bello, bella', 'it'],
+    ['pequeno, pequena', 'pt'],
+  ])('keeps Romance m/f pair %s (lang=%s)', (input, lang) => {
+    expect(collapseAdjectivePair(input, 'adjective', lang)).toBe(input);
+  });
+
+  it('no-op when not an adjective', () => {
+    expect(collapseAdjectivePair('haut, haute', 'noun', 'de')).toBe('haut, haute');
+    expect(collapseAdjectivePair('haut, haute', 'verb', 'de')).toBe('haut, haute');
+  });
+
+  it('no-op when not a 2-part comma list', () => {
+    expect(collapseAdjectivePair('dünn', 'adjective', 'de')).toBe('dünn');
+    expect(collapseAdjectivePair('a, b, c', 'adjective', 'de')).toBe('a, b, c');
+  });
+});
+
+describe('isNonInfinitiveVerb (Rule 39)', () => {
+  it.each([
+    // German past participles / conjugated forms
+    ['installiert', 'de'],
+    ['zahlt', 'de'],
+    ['abläuft', 'de'],
+    ['auf', 'de'],
+    // Portuguese conjugated / past participle
+    ['morreu', 'pt'],
+    ['indicou', 'pt'],
+    ['registado', 'pt'],
+    // French past participle
+    ['constitué', 'fr'],
+    // Spanish conjugated
+    ['invitamos', 'es'],
+    ['dicho', 'es'],
+    // Italian conjugated / truncated
+    ['render', 'it'],
+    ['distingue', 'it'],
+    ['fondata', 'it'],
+  ])('drops non-infinitive verb %s (%s)', (word, lang) => {
+    expect(isNonInfinitiveVerb(word, 'verb', lang)).toBe(true);
+  });
+
+  it.each([
+    // German infinitives
+    ['bringen', 'de'],
+    ['sich erinnern', 'de'],
+    ['verarbeiten', 'de'],
+    // French infinitives
+    ['courir', 'fr'],
+    ['se souvenir', 'fr'],
+    ['être', 'fr'],
+    // Spanish incl. accented -ír
+    ['freír', 'es'],
+    ['reír', 'es'],
+    ['dar', 'es'],
+    ['dedicarse', 'es'],
+    // Italian incl. -rre
+    ['disporre', 'it'],
+    ['tradurre', 'it'],
+    ['correre', 'it'],
+    // Portuguese
+    ['correr', 'pt'],
+    ['acordar-se', 'pt'],
+    // Dutch incl. -n after long vowel
+    ['zijn', 'nl'],
+    ['gaan', 'nl'],
+    ['staan', 'nl'],
+    ['doen', 'nl'],
+    ['opengaan', 'nl'],
+    ['verarbeiten', 'nl'], // -en ending
+  ])('keeps valid infinitive %s (%s)', (word, lang) => {
+    expect(isNonInfinitiveVerb(word, 'verb', lang)).toBe(false);
+  });
+
+  it('no-op when type is not verb', () => {
+    expect(isNonInfinitiveVerb('installiert', 'adjective', 'de')).toBe(false);
+    expect(isNonInfinitiveVerb('morreu', 'noun', 'pt')).toBe(false);
+  });
+
+  it('passes Scandi + Slavic verbs unchanged (no reliable infinitive regex)', () => {
+    expect(isNonInfinitiveVerb('att göra', 'verb', 'sv')).toBe(false);
+    expect(isNonInfinitiveVerb('whatever', 'verb', 'sv')).toBe(false);
+    expect(isNonInfinitiveVerb('at være', 'verb', 'da')).toBe(false);
+    expect(isNonInfinitiveVerb('å se', 'verb', 'no')).toBe(false);
+    expect(isNonInfinitiveVerb('uspokojivý', 'verb', 'cs')).toBe(false);
+    expect(isNonInfinitiveVerb('tekst', 'verb', 'pl')).toBe(false);
+  });
+});
+
+describe('normaliseApostrophes (Rule 40)', () => {
+  it('replaces curly apostrophe with ASCII', () => {
+    expect(normaliseApostrophes('l\u2019ann\u00e9e')).toBe("l'ann\u00e9e");
+    expect(normaliseApostrophes('d\u2019amour')).toBe("d'amour");
+    expect(normaliseApostrophes('s\u2019assurer')).toBe("s'assurer");
+  });
+
+  it('leaves ASCII apostrophes untouched', () => {
+    expect(normaliseApostrophes("l'ann\u00e9e")).toBe("l'ann\u00e9e");
+  });
+
+  it('handles undefined / empty', () => {
+    expect(normaliseApostrophes(undefined)).toBe('');
+    expect(normaliseApostrophes('')).toBe('');
+  });
+});
+
+describe('postProcessExtractedVocab — new rules integration', () => {
+  const make = (o: Partial<{ original: string; translation: string; type: string }>) => ({
+    original: '',
+    translation: '',
+    type: 'noun',
+    ...o,
+  });
+
+  it('collapses DE adjective m/f pair and dedups against singleton base', () => {
+    const items = [
+      make({ original: 'dünn, dünne', translation: 'thin', type: 'adjective' }),
+      make({ original: 'dünn', translation: 'thin', type: 'adjective' }),
+    ];
+    const out = postProcessExtractedVocab(items, 'de', 'en');
+    expect(out).toHaveLength(1);
+    expect(out[0].original).toBe('dünn');
+  });
+
+  it('keeps Romance adjective m/f pair untouched', () => {
+    const items = [make({ original: 'bonito, bonita', translation: 'pretty', type: 'adjective' })];
+    const out = postProcessExtractedVocab(items, 'es', 'en');
+    expect(out[0].original).toBe('bonito, bonita');
+  });
+
+  it('drops non-infinitive verbs', () => {
+    const items = [
+      make({ original: 'installiert', translation: 'installed', type: 'verb' }),
+      make({ original: 'bringen', translation: 'to bring', type: 'verb' }),
+      make({ original: 'auf', translation: 'on', type: 'verb' }),
+    ];
+    const out = postProcessExtractedVocab(items, 'de', 'en');
+    expect(out.map((i) => i.original)).toEqual(['bringen']);
+  });
+
+  it("normalises curly apostrophes so l'année and l\u2019année dedup", () => {
+    const items = [
+      make({ original: "l'ann\u00e9e", translation: 'the year', type: 'noun' }),
+      make({ original: 'l\u2019ann\u00e9e', translation: 'the year', type: 'noun' }),
+    ];
+    const out = postProcessExtractedVocab(items, 'fr', 'en');
+    expect(out).toHaveLength(1);
+    expect(out[0].original).toBe("l'ann\u00e9e");
   });
 });

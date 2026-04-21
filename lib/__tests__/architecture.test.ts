@@ -1138,17 +1138,22 @@ describe('Architecture: Rule 27 — translateSingleWord prompt has CRITICAL FORM
     const body = match![0];
     // Must include the critical emphasis block
     expect(body).toMatch(/CRITICAL FORMATTING RULE/);
-    // Must reference the shared rules constant
-    expect(body).toMatch(/VOCAB_FORMATTING_RULES/);
+    // Must reference the shared rules constant(s). 2026-04-21 the single
+    // VOCAB_FORMATTING_RULES was split into NOUN_VERB_FORMATTING_RULES +
+    // a per-language adjective branch (Rule 38) — accept either shape.
+    expect(body).toMatch(/VOCAB_FORMATTING_RULES|NOUN_VERB_FORMATTING_RULES/);
     // Must instruct about base form / inflected input
     expect(body).toMatch(/inflect|conjugat|base form|dictionary/i);
   });
 
-  it('lib/claude.ts VOCAB_FORMATTING_RULES mentions articles for nouns', () => {
+  it('lib/claude.ts formatting rules constant mentions articles + infinitive + reflexive', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
-    const match = src.match(/const VOCAB_FORMATTING_RULES\s*=\s*`[\s\S]*?`;/);
-    expect(match).not.toBeNull();
-    const rules = match![0];
+    // Either the legacy VOCAB_FORMATTING_RULES constant or the post-
+    // split NOUN_VERB_FORMATTING_RULES + ROMANCE_ADJ_RULE / SINGLE_FORM_ADJ_RULE.
+    const legacyMatch = src.match(/const VOCAB_FORMATTING_RULES\s*=\s*`[\s\S]*?`;/);
+    const nvMatch = src.match(/const NOUN_VERB_FORMATTING_RULES\s*=\s*`[\s\S]*?`;/);
+    const rules = (legacyMatch?.[0] ?? '') + (nvMatch?.[0] ?? '');
+    expect(rules.length).toBeGreaterThan(0);
     expect(rules).toMatch(/article/i);
     expect(rules).toMatch(/infinitive/i);
     expect(rules).toMatch(/reflexive/i);
@@ -1909,11 +1914,14 @@ describe('Architecture: Rule 36 — classifier strips apostrophe articles', () =
 
   it('normaliseLookupKey strips leading apostrophe-letter prefixes', () => {
     const body = fnMatch?.[0] ?? '';
-    // Accept either a regex replace or a manual slice that clearly
-    // handles the elision pattern. Pattern must include an apostrophe
-    // character inside the matcher.
+    // Accept any of: ASCII-only regex replace, curly+ASCII class, manual
+    // startsWith check, or a \u2019 normalisation pass (Rule 40). Any of
+    // these means elision is handled; the test should not be brittle to
+    // the specific regex class shape.
     const hasApostropheStrip =
-      /replace\s*\(\s*\/\^\[[^\]]*\]'/i.test(body) || /\.startsWith\("[a-z]'"\)/i.test(body);
+      /replace\s*\(\s*\/\^\[[^\]]*\][\\u20']/i.test(body) ||
+      /\.startsWith\("[a-z]'"\)/i.test(body) ||
+      /\\u2019/.test(body);
     if (!hasApostropheStrip) {
       throw new Error(
         `normaliseLookupKey must strip apostrophe-attached elision\n` +
@@ -1960,5 +1968,134 @@ describe('Architecture: Rule 37 — isMultiWordNounLeak covers "other" type too'
       );
     }
     expect(guardsNoun && guardsOther).toBe(true);
+  });
+});
+
+// ─── Rule 38: Adjective rule is language-scoped in extraction prompt ──
+// Romance languages (fr, es, it, pt) inflect adjectives by gender in the
+// dictionary form ("beau, belle"). German / Dutch / Scandi / Slavic do
+// NOT — "dünn" is the base, "dünne" is an inflected weak-declension form.
+// Emitting "dünn, dünne" is a category error. Prompt must branch per
+// language; post-filter must collapse leaked pairs. See CLAUDE.md
+// §"Vocabulary Formatting Rules" Rule 38.
+describe('Architecture: Rule 38 — adjective rule is language-scoped', () => {
+  const claudeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const filtersSrc = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
+
+  it('lib/claude.ts has a Romance vs single-form adjective branch', () => {
+    const hasRomance =
+      /ROMANCE_ADJ_RULE/.test(claudeSrc) || /masculine and feminine/.test(claudeSrc);
+    const hasSingleForm =
+      /SINGLE_FORM_ADJ_RULE/.test(claudeSrc) || /SINGLE dictionary base form/.test(claudeSrc);
+    const hasLangBranch = /adjRuleForLang/.test(claudeSrc);
+    if (!(hasRomance && hasSingleForm && hasLangBranch)) {
+      throw new Error(
+        `lib/claude.ts must distinguish Romance adjective rule from single-form rule.\n` +
+          `Found: romance=${hasRomance}, singleForm=${hasSingleForm}, branch=${hasLangBranch}.\n` +
+          `Romance adjectives ("beau, belle") differ by gender in the dictionary form.\n` +
+          `Germanic/Scandi/Slavic adjectives ("dünn") do not — emitting "dünn, dünne"\n` +
+          `is a category error. See CLAUDE.md Rule 38.`,
+      );
+    }
+    expect(hasRomance && hasSingleForm && hasLangBranch).toBe(true);
+  });
+
+  it('lib/vocabFilters.ts exports collapseAdjectivePair', () => {
+    const hasExport = /export function collapseAdjectivePair\b/.test(filtersSrc);
+    const hasRomanceGuard = /NO_GENDER_ADJ_LANGS|no.gender.*adj/i.test(filtersSrc);
+    if (!(hasExport && hasRomanceGuard)) {
+      throw new Error(
+        `lib/vocabFilters.ts must export collapseAdjectivePair AND track the\n` +
+          `set of languages where adjective m/f pairs are illegitimate\n` +
+          `(NO_GENDER_ADJ_LANGS). Romance pairs must pass through unchanged.\n` +
+          `Found: export=${hasExport}, guard-set=${hasRomanceGuard}.`,
+      );
+    }
+    expect(hasExport && hasRomanceGuard).toBe(true);
+  });
+
+  it('postProcessExtractedVocab invokes collapseAdjectivePair', () => {
+    const ppMatch = filtersSrc.match(/export function postProcessExtractedVocab[\s\S]*?\n\}/);
+    expect(ppMatch).not.toBeNull();
+    const body = ppMatch![0];
+    expect(/collapseAdjectivePair/.test(body)).toBe(true);
+  });
+});
+
+// ─── Rule 39: Non-infinitive verbs dropped in post-processor ──────────
+// The LLM occasionally emits conjugated or past-participle forms as
+// type='verb' — especially Portuguese ("morreu", "registado"), German
+// ("installiert", "zahlt"), and Italian ("distingue"). The 2026-04-21
+// sweep quantified 26 such leaks across 6108 entries. The extraction
+// prompt must name the mistake explicitly with per-language examples,
+// and postProcessExtractedVocab must call isNonInfinitiveVerb to drop
+// leaks that slip past the prompt. See CLAUDE.md Rule 39.
+describe('Architecture: Rule 39 — non-infinitive verbs dropped', () => {
+  const claudeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const filtersSrc = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
+
+  it('extraction prompt names the verb-infinitive mistake explicitly', () => {
+    const hasWarning = /never conjugated|never a past participle/i.test(claudeSrc);
+    const hasExamples = /morrer|installieren|rendere/.test(claudeSrc);
+    if (!(hasWarning && hasExamples)) {
+      throw new Error(
+        `Extraction prompt must explicitly forbid conjugated / past-participle\n` +
+          `verb forms and include at least one per-language example\n` +
+          `(morrer, installieren, rendere). Found: warning=${hasWarning},\n` +
+          `examples=${hasExamples}. See CLAUDE.md Rule 39.`,
+      );
+    }
+    expect(hasWarning && hasExamples).toBe(true);
+  });
+
+  it('lib/vocabFilters.ts exports isNonInfinitiveVerb', () => {
+    expect(/export function isNonInfinitiveVerb\b/.test(filtersSrc)).toBe(true);
+  });
+
+  it('postProcessExtractedVocab calls isNonInfinitiveVerb', () => {
+    const ppMatch = filtersSrc.match(/export function postProcessExtractedVocab[\s\S]*?\n\}/);
+    expect(ppMatch).not.toBeNull();
+    expect(/isNonInfinitiveVerb/.test(ppMatch![0])).toBe(true);
+  });
+});
+
+// ─── Rule 40: Curly apostrophes normalised to ASCII ──────────────────
+// Readability-extracted HTML emits typographic apostrophes (\u2019) while
+// the extraction prompt's examples and the classifier's elision-article
+// strip both assume ASCII ('). The 2026-04-21 sweep found 27 French
+// entries with \u2019 that bypassed Rule 36's apostrophe strip, fell to
+// zero-zipf, and landed in AoA-fallback levels. Both sides must normalise:
+// postProcessExtractedVocab calls normaliseApostrophes so dedup keys
+// collapse, and normaliseLookupKey accepts both apostrophe codepoints.
+describe('Architecture: Rule 40 — curly apostrophes normalised', () => {
+  const filtersSrc = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
+  const featuresSrc = fs.readFileSync(path.join(ROOT, 'lib', 'classifier', 'features.ts'), 'utf8');
+
+  it('lib/vocabFilters.ts exports normaliseApostrophes', () => {
+    expect(/export function normaliseApostrophes\b/.test(filtersSrc)).toBe(true);
+  });
+
+  it('postProcessExtractedVocab calls normaliseApostrophes', () => {
+    const ppMatch = filtersSrc.match(/export function postProcessExtractedVocab[\s\S]*?\n\}/);
+    expect(ppMatch).not.toBeNull();
+    expect(/normaliseApostrophes/.test(ppMatch![0])).toBe(true);
+  });
+
+  it('classifier normaliseLookupKey handles both ASCII and curly apostrophe', () => {
+    const fnMatch = featuresSrc.match(/function normaliseLookupKey\b[\s\S]*?\n\}/);
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    // Either the key is pre-normalised to ASCII with a \u2019 replace, or
+    // the final apostrophe-strip regex contains the curly codepoint.
+    const hasReplace = /\\u2019/.test(body) || /\u2019/.test(body);
+    if (!hasReplace) {
+      throw new Error(
+        `normaliseLookupKey must handle typographic apostrophe (\u2019, U+2019).\n` +
+          `Readability-extracted HTML emits curly apostrophes for French/Italian\n` +
+          `elision articles ("l\u2019année", "l\u2019uovo") that otherwise bypass\n` +
+          `the ASCII-only apostrophe strip and hit zero-zipf. See CLAUDE.md Rule 40.`,
+      );
+    }
+    expect(hasReplace).toBe(true);
   });
 });

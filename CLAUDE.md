@@ -291,9 +291,48 @@ bypass.
   Proper nouns (Eigennamen) are ignored.
   Lowercase in all languages except German (even if capitalised in source text).
   Hyphens from line breaks are removed (e.g. "Wort-\ntrennung" → "Worttrennung").
-- **Verbs:** infinitive; reflexive with pronoun: `"se souvenir"`, `"sich erinnern"`, `"acordar-se"`
-- **Adjectives:** m + f if different: `"beau, belle"` / `"petit, petite"`
+- **Verbs:** always the infinitive form — **never conjugated, never a past participle**.
+  Reflexive verbs carry the pronoun: `"se souvenir"`, `"sich erinnern"`, `"acordar-se"`.
+  Counter-examples the LLM has been observed to emit (all wrong, all blocked by Rule 39):
+  PT `"morreu"` / `"registado"`, DE `"installiert"` / `"zahlt"` / `"auf"` / `"fündig"`,
+  IT `"distingue"` / `"render"` / `"fondata"`, FR `"constitué"`, ES `"invitamos"` / `"dicho"`.
+- **Adjectives (language-scoped — Rule 38):**
+  - Romance learning languages (fr / es / it / pt) emit m + f if different:
+    `"beau, belle"` / `"bonito, bonita"` / `"bello, bella"`. Legitimate.
+  - All other learning languages (de / nl / sv / no / da / pl / cs / en) emit a
+    **single dictionary base form only**: `"dünn"` (not `"dünn, dünne"`),
+    `"mooi"` (not `"mooi, mooie"`), `"stor"` (not `"stor, stora"`). German /
+    Dutch / Scandinavian / English adjectives are not genus-lexically
+    inflected — the second token of a leaked pair is a weak-declension
+    inflection, not a separate dictionary entry. Polish / Czech adjectives
+    do inflect by gender in form, but the lexicon convention is the
+    masculine singular so the pair is still not required.
 - `translateSingleWord()` now also returns `original` (formatted base form), not just translation
+
+**Rule 38 (language-scoped adjective rule)** enforces: (a) `lib/claude.ts`
+exports a `ROMANCE_ADJ_RULE` plus a `SINGLE_FORM_ADJ_RULE` and switches
+between them via `adjRuleForLang(learningLanguageCode)`; (b)
+`lib/vocabFilters.ts` exports `collapseAdjectivePair` and tracks
+`NO_GENDER_ADJ_LANGS`; (c) `postProcessExtractedVocab` calls
+`collapseAdjectivePair` before `collapseIdenticalFormPair`.
+
+**Rule 39 (non-infinitive verb drop)** enforces: (a) the extraction prompt
+spells out "never conjugated, never a past participle" and names at least
+one per-language counter-example (morrer / installieren / rendere); (b)
+`lib/vocabFilters.ts` exports `isNonInfinitiveVerb` and the function is
+called from `postProcessExtractedVocab`. The per-language regex mirrors
+`scripts/compare-sweeps.ts` `isInfinitive`; Scandinavian and Slavic pass
+unchanged (no reliable infinitive morphology without a lemmatiser).
+
+**Rule 40 (curly-apostrophe normalisation)** enforces: (a)
+`lib/vocabFilters.ts` exports `normaliseApostrophes` and
+`postProcessExtractedVocab` calls it before every other filter (so dedup
+keys collapse `"l'année"` with `"l\u2019année"`); (b) the classifier's
+`normaliseLookupKey` in `lib/classifier/features.ts` accepts either ASCII
+or U+2019 apostrophe in its elision-article strip. Without both halves,
+Readability-extracted French / Italian articles with typographic
+apostrophes bypass Rule 36's elision strip, land in zero-zipf, and get
+levelled by the AoA-fallback (see 2026-04-21 sweep analysis).
 
 ## Leitner System
 

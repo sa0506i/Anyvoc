@@ -215,18 +215,25 @@ const ARTICLE_PREFIXES = new Set([
 
 function normaliseLookupKey(word: string): string {
   // Take only the first comma-separated form: "le médecin, la médecin" → "le médecin".
-  const first = word.split(',')[0]!.trim().toLowerCase();
+  // Also normalise typographic apostrophe (\u2019) to ASCII here so the
+  // elision strip below catches both forms — Readability HTML extraction
+  // emits curly apostrophes while the prompt + corpus use ASCII (Rule 40).
+  const first = word
+    .split(',')[0]!
+    .trim()
+    .toLowerCase()
+    .replace(/\u2019/g, "'");
   // Remove leading whitespace-separated article / reflexive pronoun if present.
   const tokens = first.split(/\s+/).filter(Boolean);
   const afterWhitespaceArticle =
     tokens.length > 1 && ARTICLE_PREFIXES.has(tokens[0]) ? tokens.slice(1).join(' ') : first;
   // Then strip apostrophe-attached elision articles (French / Italian /
   // Portuguese / some English): "l'uovo" → "uovo", "d'amour" → "amour",
-  // "s'assurer" → "assurer", "c'est" → "est", "j'ai" → "ai". Without this
-  // strip, "l'uovo" never hits the "uovo" entry in the Leipzig corpus and
-  // falls through to the zero-zipf default (C2 neutral), misclassifying
-  // trivially common words as advanced. See 2026-04-20 sweep analysis I.9.
-  return afterWhitespaceArticle.replace(/^[a-zà-ÿ]'/i, '');
+  // "s'assurer" → "assurer", "c'est" → "est", "j'ai" → "ai". Accepts both
+  // ASCII ' (\u0027) and curly ' (\u2019) — the 2026-04-21 sweep found
+  // 27 FR entries with curly apostrophes that bypassed this strip and
+  // hit zero-zipf. See 2026-04-20 sweep analysis I.9 + Rule 36.
+  return afterWhitespaceArticle.replace(/^[a-zà-ÿ][\u2019']/i, '');
 }
 
 export interface Features {

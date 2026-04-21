@@ -84,6 +84,19 @@ describe('classifyWord — local classification', () => {
     expect(mockedCallClaude).not.toHaveBeenCalled();
   });
 
+  // Regression 2026-04-21: curly apostrophe (\u2019, U+2019) emitted by
+  // Readability-extracted HTML was bypassing the ASCII-only apostrophe
+  // strip. 27 French entries landed in zero-zipf → AoA-fallback. Rule 40
+  // normalises \u2019 → ' before the elision strip so both forms behave
+  // identically.
+  it('l\u2019ann\u00e9e (fr) — curly apostrophe is handled like ASCII', async () => {
+    const ascii = await classifyWord("l'ann\u00e9e", 'fr');
+    const curly = await classifyWord('l\u2019ann\u00e9e', 'fr');
+    expect(curly).toBe(ascii);
+    expect(['A1', 'A2', 'B1', 'B2']).toContain(curly);
+    expect(mockedCallClaude).not.toHaveBeenCalled();
+  });
+
   it('the button (en) — article "the" is stripped, A1', async () => {
     expect(await classifyWord('the button', 'en')).toBe('A1');
   });

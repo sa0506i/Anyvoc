@@ -13,12 +13,34 @@ const API_URL =
 const MODEL = 'mistral-small-2506';
 const MAX_CHARS_PER_CHUNK = 5000;
 
-/** Shared vocabulary formatting rules used in both extract and single-word prompts. */
-const VOCAB_FORMATTING_RULES = `- Nouns: ALWAYS include the direct article before the noun in singular form (e.g. "der Hund", "le chat", "o passaporte", "el libro", "il cane", "de hond"). This is mandatory — never omit the article. If a distinct feminine form exists, add it after a comma (e.g. "le médecin, la médecin" / "der Arzt, die Ärztin"). Ignore proper nouns.
+/** Shared vocabulary formatting rules used in both extract and single-word prompts.
+ *
+ * Adjective rule is language-scoped: Romance languages (fr, es, it, pt)
+ * inflect adjectives by gender in the base form ("beau, belle"), so both
+ * forms are requested. German / Dutch / Scandinavian / Slavic adjectives
+ * do NOT carry gender in the dictionary form — "dünn" is the base, "dünne"
+ * is an inflected form (weak declension). Emitting "dünn, dünne" pairs is
+ * a category error. See CLAUDE.md Rule 38. */
+const ROMANCE_ADJ_RULE = `- Adjectives: give both masculine and feminine forms when they differ (e.g. "beau, belle" / "petit, petite" / "bonito, bonita").`;
+const SINGLE_FORM_ADJ_RULE = `- Adjectives: emit the SINGLE dictionary base form only (e.g. "dünn" not "dünn, dünne"; "mooi" not "mooi, mooie"; "stor" not "stor, stora"). Never pair an adjective with its inflected form — the language you are extracting does NOT inflect adjectives by gender in the dictionary entry.`;
+
+function adjRuleForLang(learningLanguageCode: string): string {
+  switch (learningLanguageCode) {
+    case 'fr':
+    case 'es':
+    case 'it':
+    case 'pt':
+      return ROMANCE_ADJ_RULE;
+    default:
+      return SINGLE_FORM_ADJ_RULE;
+  }
+}
+
+/** Shared non-adjective formatting rules. */
+const NOUN_VERB_FORMATTING_RULES = `- Nouns: ALWAYS include the direct article before the noun in singular form (e.g. "der Hund", "le chat", "o passaporte", "el libro", "il cane", "de hond"). This is mandatory — never omit the article. If a distinct feminine form exists, add it after a comma (e.g. "le médecin, la médecin" / "der Arzt, die Ärztin"). Ignore proper nouns.
 - In every language except German, write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
 - Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always in the infinitive. Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").
-- Adjectives: give both masculine and feminine forms when they differ (e.g. "beau, belle" / "schön" or "petit, petite" / "klein").`;
+- Verbs: always in the infinitive form — never conjugated, never a past participle. Portuguese "morrer" (not "morreu" / "morrido"), German "installieren" (not "installiert" / "zahlt"), Italian "rendere" (not "render" / "distingue"), French "constituer" (not "constitué"). Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").`;
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
@@ -276,12 +298,13 @@ Rules:
 - "original" field: the word in ${learningLanguageName}. "translation" field: the translation in ${nativeLanguageName}.
 ${NOUN_SHAPE_RULE}
 ${scandiRule}
-${VOCAB_FORMATTING_RULES}
+${NOUN_VERB_FORMATTING_RULES}
+${adjRuleForLang(learningLanguageCode)}
 - List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms". Example: source contains "rivais", base form is "o rival" → source_forms: ["rivais"].
 
 "type" must be one of: "noun", "verb", "adjective", "phrase", "other".
 Pick the type that matches each extracted word — DO NOT label every entry "noun".
-Examples: verbs are infinitives ("correr", "sich erinnern"); adjectives give the m/f forms if they differ ("bonito, bonita"); phrases are multi-word fixed expressions ("de repente").
+Examples: verbs are infinitives ("correr", "sich erinnern"); phrases are multi-word fixed expressions ("de repente").
 
 Respond exclusively as a JSON array, no additional text. Leave "level" as "".
 The example below is shape only — the actual types in your output depend on what is in the source text:
@@ -455,7 +478,8 @@ CRITICAL FORMATTING RULE: Every noun MUST include its article in the base form. 
 Examples: "o passaporte" (not "passaporte"), "der Hund" (not "Hund"), "le chat" (not "chat"), "el libro" (not "libro").
 
 Formatting rules (apply to BOTH "original" and "translation" fields):
-${VOCAB_FORMATTING_RULES}
+${NOUN_VERB_FORMATTING_RULES}
+${adjRuleForLang(fromLanguageCode)}
 
 Respond exclusively as a JSON object, with no additional text. Leave the level field as "" — it is set locally after translation:
 {
