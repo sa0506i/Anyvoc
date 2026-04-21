@@ -13,34 +13,323 @@ const API_URL =
 const MODEL = 'mistral-small-2506';
 const MAX_CHARS_PER_CHUNK = 5000;
 
-/** Shared vocabulary formatting rules used in both extract and single-word prompts.
+/**
+ * Per-language example bank used by the prompt builders. Each entry
+ * holds the concrete lemma / counter-example shapes the LLM needs in
+ * order to follow the extraction rules for THAT language only.
  *
- * Adjective rule is language-scoped: Romance languages (fr, es, it, pt)
- * inflect adjectives by gender in the base form ("beau, belle"), so both
- * forms are requested. German / Dutch / Scandinavian / Slavic adjectives
- * do NOT carry gender in the dictionary form — "dünn" is the base, "dünne"
- * is an inflected form (weak declension). Emitting "dünn, dünne" pairs is
- * a category error. See CLAUDE.md Rule 38. */
-const ROMANCE_ADJ_RULE = `- Adjectives: give both masculine and feminine forms when they differ (e.g. "beau, belle" / "petit, petite" / "bonito, bonita").`;
-const SINGLE_FORM_ADJ_RULE = `- Adjectives: emit the SINGLE dictionary base form only (e.g. "dünn" not "dünn, dünne"; "mooi" not "mooi, mooie"; "stor" not "stor, stora"). Never pair an adjective with its inflected form — the language you are extracting does NOT inflect adjectives by gender in the dictionary entry.`;
-
-function adjRuleForLang(learningLanguageCode: string): string {
-  switch (learningLanguageCode) {
-    case 'fr':
-    case 'es':
-    case 'it':
-    case 'pt':
-      return ROMANCE_ADJ_RULE;
-    default:
-      return SINGLE_FORM_ADJ_RULE;
-  }
+ * Rule 46 (F11, 2026-04-22): the prompt must only carry examples in
+ * the learning language of the current extraction and, for the
+ * translation-side rule, in the native language. The earlier shared
+ * constants (NOUN_VERB_FORMATTING_RULES, TRANSLATION_MIRROR_RULE,
+ * NOUN_SHAPE_RULE, ROMANCE_ADJ_RULE, SINGLE_FORM_ADJ_RULE, the CRITICAL
+ * header) mixed examples from 4-7 languages in every single prompt,
+ * which diluted the signal for small models (47% Portuguese-native
+ * translations leaking into English in the 2026-04-22 sweep). This
+ * dict + the builder functions below replace every cross-language
+ * example with a learn-lang-only one.
+ */
+interface LangExamples {
+  /** English name for template interpolation ("German", "Portuguese"). */
+  name: string;
+  /** Article category of the canonical "original" field per Rule 34/41. */
+  artCat: 'def' | 'indef' | 'bare';
+  /** Canonical lemma shape: "der Hund" (de), "en bild" (sv), "pies" (pl). */
+  nounLemma: string;
+  /** Bare form for the CRITICAL header counter ("not 'Hund'"). */
+  nounBare: string;
+  /** Indef counter for def-cat languages ("not 'ein Hund'"). */
+  nounIndef?: string;
+  /** Example of a legit-looking attributive-adjective-plus-noun pair
+   *  that must be split into two entries — for NOUN_SHAPE_RULE. */
+  attrAdj?: { good: string; bad: string };
+  /** Verb infinitive + a common wrong form (past participle / conjugated). */
+  verbInf: string;
+  verbWrong: string;
+  /** Reflexive verb example if the language has a dedicated marker. */
+  verbReflexive?: string;
+  /** Single-form adjective example for non-Romance langs. */
+  adjSingle: string;
+  /** Inflected counter-form for non-Romance ("dünne" vs "dünn"). */
+  adjInflected?: string;
+  /** Legitimate m/f pair for Romance ("beau, belle"). */
+  adjMFPair?: string;
+  /** Two-line phrase example for the JSON block. */
+  phraseExample: string;
+  /** Translation of phraseExample — fallback if nativeLang phrase missing. */
+  phraseTranslation?: string;
 }
 
-/** Shared non-adjective formatting rules. */
-const NOUN_VERB_FORMATTING_RULES = `- Nouns: ALWAYS include the DEFINITE article before the noun in singular form — never the indefinite. German "der Hund" (not "ein Hund"), French "le chat" (not "un chat"), Portuguese "o passaporte" (not "um passaporte"), Spanish "el libro" (not "un libro"), Italian "il cane" (not "un cane"), Dutch "de hond" (not "een hond"). This is mandatory — never omit the article, never substitute the indefinite form. If a distinct feminine form exists, add it after a comma (e.g. "le médecin, la médecin" / "der Arzt, die Ärztin"). Ignore proper nouns.
-- In every language except German, write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always in the infinitive form — never conjugated, never a past participle. Portuguese "morrer" (not "morreu" / "morrido"), German "installieren" (not "installiert" / "zahlt"), Italian "rendere" (not "render" / "distingue"), French "constituer" (not "constitué"). Always include the reflexive pronoun for reflexive verbs (e.g. "sich erinnern", "se souvenir", "acordar-se").`;
+const LANG_EXAMPLES: Record<string, LangExamples> = {
+  en: {
+    name: 'English',
+    artCat: 'def',
+    nounLemma: 'the dog',
+    nounBare: 'dog',
+    nounIndef: 'a dog',
+    attrAdj: { good: 'the power', bad: 'the political power' },
+    verbInf: 'to run',
+    verbWrong: 'ran',
+    adjSingle: 'small',
+    phraseExample: 'by the way',
+  },
+  de: {
+    name: 'German',
+    artCat: 'def',
+    nounLemma: 'der Hund',
+    nounBare: 'Hund',
+    nounIndef: 'ein Hund',
+    attrAdj: { good: 'die Gewalt', bad: 'die öffentliche Gewalt' },
+    verbInf: 'laufen',
+    verbWrong: 'lief',
+    verbReflexive: 'sich erinnern',
+    adjSingle: 'klein',
+    adjInflected: 'kleine',
+    phraseExample: 'im Grunde genommen',
+  },
+  fr: {
+    name: 'French',
+    artCat: 'def',
+    nounLemma: 'le chien',
+    nounBare: 'chien',
+    nounIndef: 'un chien',
+    attrAdj: { good: 'la cité', bad: 'la cité médiévale' },
+    verbInf: 'courir',
+    verbWrong: 'couru',
+    verbReflexive: 'se souvenir',
+    adjSingle: 'petit',
+    adjMFPair: 'petit, petite',
+    phraseExample: 'de toute façon',
+  },
+  es: {
+    name: 'Spanish',
+    artCat: 'def',
+    nounLemma: 'el perro',
+    nounBare: 'perro',
+    nounIndef: 'un perro',
+    attrAdj: { good: 'la lengua', bad: 'la lengua materna' },
+    verbInf: 'correr',
+    verbWrong: 'corrió',
+    verbReflexive: 'acordarse',
+    adjSingle: 'bonito',
+    adjMFPair: 'bonito, bonita',
+    phraseExample: 'de repente',
+  },
+  it: {
+    name: 'Italian',
+    artCat: 'def',
+    nounLemma: 'il cane',
+    nounBare: 'cane',
+    nounIndef: 'un cane',
+    attrAdj: { good: 'la città', bad: 'la città medievale' },
+    verbInf: 'correre',
+    verbWrong: 'corso',
+    verbReflexive: 'ricordarsi',
+    adjSingle: 'bello',
+    adjMFPair: 'bello, bella',
+    phraseExample: 'di solito',
+  },
+  pt: {
+    name: 'Portuguese',
+    artCat: 'def',
+    nounLemma: 'o cão',
+    nounBare: 'cão',
+    nounIndef: 'um cão',
+    attrAdj: { good: 'a cidade', bad: 'a cidade medieval' },
+    verbInf: 'correr',
+    verbWrong: 'correu',
+    verbReflexive: 'acordar-se',
+    adjSingle: 'bonito',
+    adjMFPair: 'bonito, bonita',
+    phraseExample: 'de repente',
+  },
+  nl: {
+    name: 'Dutch',
+    artCat: 'def',
+    nounLemma: 'de hond',
+    nounBare: 'hond',
+    nounIndef: 'een hond',
+    attrAdj: { good: 'de macht', bad: 'de politieke macht' },
+    verbInf: 'lopen',
+    verbWrong: 'liep',
+    verbReflexive: 'zich herinneren',
+    adjSingle: 'mooi',
+    adjInflected: 'mooie',
+    phraseExample: 'aan de slag',
+  },
+  sv: {
+    name: 'Swedish',
+    artCat: 'indef',
+    nounLemma: 'en hund',
+    nounBare: 'hund',
+    attrAdj: { good: 'en makt', bad: 'en politisk makt' },
+    verbInf: 'att springa',
+    verbWrong: 'sprang',
+    adjSingle: 'stor',
+    adjInflected: 'stora',
+    phraseExample: 'hur som helst',
+  },
+  no: {
+    name: 'Norwegian',
+    artCat: 'indef',
+    nounLemma: 'en hund',
+    nounBare: 'hund',
+    attrAdj: { good: 'en makt', bad: 'en politisk makt' },
+    verbInf: 'å springe',
+    verbWrong: 'sprang',
+    adjSingle: 'stor',
+    adjInflected: 'store',
+    phraseExample: 'for eksempel',
+  },
+  da: {
+    name: 'Danish',
+    artCat: 'indef',
+    nounLemma: 'en hund',
+    nounBare: 'hund',
+    attrAdj: { good: 'en magt', bad: 'en politisk magt' },
+    verbInf: 'at løbe',
+    verbWrong: 'løb',
+    adjSingle: 'stor',
+    adjInflected: 'store',
+    phraseExample: 'for eksempel',
+  },
+  pl: {
+    name: 'Polish',
+    artCat: 'bare',
+    nounLemma: 'pies',
+    nounBare: 'pies',
+    attrAdj: { good: 'państwo', bad: 'potężne państwo' },
+    verbInf: 'biegać',
+    verbWrong: 'biegł',
+    adjSingle: 'wysoki',
+    phraseExample: 'na przykład',
+  },
+  cs: {
+    name: 'Czech',
+    artCat: 'bare',
+    nounLemma: 'pes',
+    nounBare: 'pes',
+    attrAdj: { good: 'stát', bad: 'mocný stát' },
+    verbInf: 'běžet',
+    verbWrong: 'běžel',
+    adjSingle: 'vysoký',
+    phraseExample: 'na příklad',
+  },
+};
+
+function getLangExamples(code: string): LangExamples {
+  return LANG_EXAMPLES[code] ?? LANG_EXAMPLES.en!;
+}
+
+/** Builds the "- Nouns: …" + "- Verbs: …" pair using only learn-lang
+ *  examples (F11 / Rule 46). For indef-category languages (sv/no/da)
+ *  the noun line is a no-op — the SCANDINAVIAN_NOUN_RULE block already
+ *  covers the canonical indef-prefix convention. For bare-category
+ *  languages (pl/cs) the noun line is also a no-op — SLAVIC_NOUN_RULE
+ *  covers it. Only def-category languages get a "DEFINITE not
+ *  indefinite" line here, and only with their own example. */
+function buildNounVerbRules(learnCode: string): string {
+  const ex = getLangExamples(learnCode);
+  const lines: string[] = [];
+  if (ex.artCat === 'def' && ex.nounIndef) {
+    lines.push(
+      `- Nouns: ALWAYS include the DEFINITE article before the noun in singular form — never the indefinite. For ${ex.name}: write "${ex.nounLemma}" (not "${ex.nounIndef}", not "${ex.nounBare}"). This is mandatory. If a distinct feminine form exists, add it after a comma.`,
+    );
+  }
+  if (learnCode !== 'de') {
+    lines.push(
+      `- Write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).`,
+    );
+  }
+  lines.push(
+    `- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").`,
+  );
+  const reflexiveHint = ex.verbReflexive
+    ? ` Reflexive verbs carry the pronoun: "${ex.verbReflexive}".`
+    : '';
+  lines.push(
+    `- Verbs: always the infinitive form — never conjugated, never a past participle. For ${ex.name}: "${ex.verbInf}" (not "${ex.verbWrong}").${reflexiveHint}`,
+  );
+  return lines.join('\n');
+}
+
+/** Builds the adjective rule using only learn-lang examples. */
+function buildAdjRule(learnCode: string): string {
+  const ex = getLangExamples(learnCode);
+  if (ex.adjMFPair) {
+    // Romance: m + f pair is legit
+    return `- Adjectives: give both masculine and feminine forms when they differ (e.g. "${ex.adjMFPair}" in ${ex.name}).`;
+  }
+  // All others: single form. Keep a brief counter-example when we have one.
+  const counter = ex.adjInflected
+    ? ` (e.g. "${ex.adjSingle}" not "${ex.adjSingle}, ${ex.adjInflected}")`
+    : ` (e.g. "${ex.adjSingle}")`;
+  return `- Adjectives: emit the SINGLE dictionary base form only${counter}. Never pair an adjective with its inflected form — ${ex.name} does NOT inflect adjectives by gender in the dictionary entry.`;
+}
+
+/** Builds the "one content word after the article" noun-shape rule
+ *  using only the learn-lang counter-example. */
+function buildNounShapeRule(learnCode: string): string {
+  const ex = getLangExamples(learnCode);
+  const attrExample = ex.attrAdj
+    ? ` For ${ex.name}: write "${ex.attrAdj.good}" not "${ex.attrAdj.bad}" (list the adjective as a separate entry if relevant).`
+    : '';
+  return `- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article.${attrExample} Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.`;
+}
+
+/** Builds the CRITICAL FORMATTING header with a single learn-lang example. */
+function buildCriticalHeader(learnCode: string): string {
+  const ex = getLangExamples(learnCode);
+  if (ex.artCat === 'bare') {
+    // pl/cs — there is no article to demand
+    return `CRITICAL FORMATTING RULE: Extract each noun in its ${ex.name} dictionary base form. Example: "${ex.nounLemma}".`;
+  }
+  return `CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article. Example for ${ex.name}: "${ex.nounLemma}" (not "${ex.nounBare}").`;
+}
+
+/** Builds the translation-side article rule using one learn-lang
+ *  source and one native-lang target example. Replaces the earlier
+ *  TRANSLATION_MIRROR_RULE constant which carried examples for 7
+ *  natives at once. */
+function buildTranslationRule(learnCode: string, nativeCode: string): string {
+  const learnEx = getLangExamples(learnCode);
+  const nativeEx = getLangExamples(nativeCode);
+  const source = learnEx.nounLemma;
+  // Native target form: mirror the learn's article category. For bare
+  // learn (pl/cs), fall back to the native's own dictionary convention
+  // (its nounLemma, which already respects Rule 34/41). For def learn
+  // into pl/cs native we output bare because pl/cs have no articles.
+  let target: string;
+  if (learnEx.artCat === 'bare' || nativeEx.artCat === 'bare') {
+    target = nativeEx.artCat === 'bare' ? nativeEx.nounLemma : nativeEx.nounLemma;
+  } else {
+    // Mirror article category: both native and learn have def/indef lemmas
+    target = nativeEx.nounLemma;
+  }
+  const bareNote =
+    nativeEx.artCat === 'bare'
+      ? `${nativeEx.name} has no articles, so the translation is bare.`
+      : `Use the ${nativeEx.name} dictionary form with its article, matching the definiteness category of the original.`;
+  return `- "translation" field for NOUN entries: ${bareNote} Example: "${source}" (${learnEx.name}) → "${target}" (${nativeEx.name}).`;
+}
+
+/** JSON example for the trailing prompt block — now using one
+ *  learn-lang noun + one native-lang translation pair instead of the
+ *  PT-heavy cross-language mix the old template hard-coded. */
+function buildJsonExample(learnCode: string, nativeCode: string): string {
+  const le = getLangExamples(learnCode);
+  const ne = getLangExamples(nativeCode);
+  // source_forms shows an inflected form — use a plausible plural/conjugated
+  // shape, falling back to the bare/wrong form if nothing better is known.
+  const nounSrcForm = le.nounBare;
+  const verbSrcForm = le.verbWrong;
+  return `[
+  { "original": "${le.nounLemma}", "translation": "${ne.nounLemma}", "level": "", "type": "noun", "source_forms": ["${nounSrcForm}"] },
+  { "original": "${le.verbInf}", "translation": "${ne.verbInf}", "level": "", "type": "verb", "source_forms": ["${verbSrcForm}"] },
+  { "original": "${le.adjMFPair ?? le.adjSingle}", "translation": "${ne.adjMFPair ?? ne.adjSingle}", "level": "", "type": "adjective", "source_forms": ["${le.adjInflected ?? le.adjSingle}"] },
+  { "original": "${le.phraseExample}", "translation": "${ne.phraseExample}", "level": "", "type": "phrase", "source_forms": ["${le.phraseExample}"] }
+]`;
+}
 
 interface ClaudeMessage {
   role: 'user' | 'assistant';
@@ -311,59 +600,42 @@ const CRITICAL_NOUN_RULE_BY_LANG: Record<string, string> = {
  * German and Romance translations that read as typos (`matura → Abitur`,
  * `pies → Hund`). See CLAUDE.md Rule 42.
  */
-const TRANSLATION_MIRROR_RULE = `- "translation" field for NOUN entries: use the native language's article convention for the same definiteness category as the original. Three cases:
-  • Definite original (der/die/das, le/la/l', il/la/lo/l', el/la, o/a, de/het, the) → native's DEFINITE form (e.g. "der Hund" → "the dog" / "le chien" / "el perro"). For Polish or Czech natives, translation is bare since those languages have no articles ("der Hund" → "pies").
-  • Indefinite original (Scandi en/ett/ei per Rule 34) → native's INDEFINITE form: "en bild" → "a picture" (not "the picture"), "ett hus" → "a house", "ei bok" → "a book". For Polish or Czech natives: bare.
-  • Bare original (Polish/Czech per Rule 41 — those languages have no articles at all) → native's DEFAULT DICTIONARY convention. NEVER emit the translation bare if the native language has articles. For de/fr/es/it/pt/nl/en natives use the DEFINITE article: "matura" → "das Abitur" / "the matura" / "le baccalauréat" / "il diploma"; "tekst" → "der Text" / "the text" / "le texte" / "il testo" / "o texto" / "de tekst" (NEVER just "testo", "tekst", "texto" bare); "państwo" → "lo stato" / "the state" / "der Staat" (NEVER bare "stato"); "godzina" → "l'ora" / "the hour" / "die Stunde" (NEVER bare "ora"). For sv/no/da natives use the INDEFINITE article "en/ett/ei": "matura" → "en studentexamen", "tekst" → "en text". For cs/pl natives (article-less pair): bare is correct. The rule is: the translation's article must match the native language's own lexicon convention — when in doubt, add the article.
-  Apply this CONSISTENTLY across every noun, regardless of source-text genre.`;
-
-/** Avoid the two classes of multi-word noun leak we see most often: the
- *  LLM bundling an attributive adjective with the noun ("die öffentliche
- *  Gewalt") and the LLM labelling multi-word named entities as common
- *  nouns ("le Real Madrid"). */
-const NOUN_SHAPE_RULE = `- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. Never bundle an attributive adjective with the noun (write "die Gewalt" not "die öffentliche Gewalt"; if the adjective is relevant, list it as a separate adjective entry). Multi-word proper nouns ("le Real Madrid", "la British Broadcasting Corporation") are proper nouns and MUST be omitted entirely.`;
-
 function buildVocabSystemPrompt(
   nativeLanguageName: string,
   learningLanguageName: string,
   learningLanguageCode: string,
+  nativeLanguageCode: string,
 ): string {
   // CEFR classification is no longer the LLM's job — it is handled
   // deterministically by lib/classifier after extraction. The LLM only
   // needs to extract and format the words.
   const scandiRule = CRITICAL_NOUN_RULE_BY_LANG[learningLanguageCode] ?? '';
+  const verbHint = getLangExamples(learningLanguageCode).verbInf;
   return `You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
-CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article.
-Examples: "o passaporte" (not "passaporte"), "der Hund" (not "Hund"), "le chat" (not "chat"), "el libro" (not "libro").
+${buildCriticalHeader(learningLanguageCode)}
 
 The learning language is ${learningLanguageName}; the native language is ${nativeLanguageName}.
 
 Rules:
 - Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
-- Proper nouns to ignore include: people's names (Maria, João, Anna), cities (Berlin, Lisboa, Paris), countries (Portugal, Deutschland), brand or product names (Google, iPhone), titles of works, sports clubs (Real Madrid, FC Barcelona, Bayern Munich), and broadcaster names (BBC, HBO Max). Never include any of these in the output.
-- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters such as "GNR", "DLRG", "IRS", "EU", "USA". Never include these in the output.
+- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
+- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
 - Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
 - "original" field: the word in ${learningLanguageName}. "translation" field: the translation in ${nativeLanguageName}.
-${NOUN_SHAPE_RULE}
+${buildNounShapeRule(learningLanguageCode)}
 ${scandiRule}
-${NOUN_VERB_FORMATTING_RULES}
-${adjRuleForLang(learningLanguageCode)}
-${TRANSLATION_MIRROR_RULE}
-- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms". Example: source contains "rivais", base form is "o rival" → source_forms: ["rivais"].
+${buildNounVerbRules(learningLanguageCode)}
+${buildAdjRule(learningLanguageCode)}
+${buildTranslationRule(learningLanguageCode, nativeLanguageCode)}
+- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
 
 "type" must be one of: "noun", "verb", "adjective", "phrase", "other".
-Pick the type that matches each extracted word — DO NOT label every entry "noun".
-Examples: verbs are infinitives ("correr", "sich erinnern"); phrases are multi-word fixed expressions ("de repente").
+Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "${verbHint}"); phrases are multi-word fixed expressions.
 
 Respond exclusively as a JSON array, no additional text. Leave "level" as "".
 The example below is shape only — the actual types in your output depend on what is in the source text:
-[
-  { "original": "o passaporte", "translation": "the passport", "level": "", "type": "noun", "source_forms": ["passaportes"] },
-  { "original": "correr", "translation": "to run", "level": "", "type": "verb", "source_forms": ["corre", "corremos"] },
-  { "original": "bonito, bonita", "translation": "beautiful", "level": "", "type": "adjective", "source_forms": ["bonitos"] },
-  { "original": "de repente", "translation": "suddenly", "level": "", "type": "phrase", "source_forms": ["de repente"] }
-]`;
+${buildJsonExample(learningLanguageCode, nativeLanguageCode)}`;
 }
 
 export async function extractVocabulary(
@@ -381,6 +653,7 @@ export async function extractVocabulary(
       nativeLanguageName,
       learningLanguageName,
       learningLanguageCode,
+      nativeLanguageCode ?? 'en',
     );
     const responseText = await callClaude([{ role: 'user', content: chunk }], systemPrompt, 8192, {
       temperature: 0,
@@ -522,15 +795,18 @@ export async function translateSingleWord(
 ): Promise<{ original: string; translation: string; level: string; type: string }> {
   // CEFR level is determined locally after the translation comes back —
   // the LLM is only responsible for formatting + translation.
+  const nativeCode = toLanguageCode ?? 'en';
+  const scandiRule = CRITICAL_NOUN_RULE_BY_LANG[fromLanguageCode] ?? '';
   const systemPrompt = `You are a language teacher assistant. The user sends a word or phrase in ${fromLanguageName} — it may be inflected, conjugated, or in plural form. Your job: determine the dictionary base form, translate it into ${toLanguageName}, and identify its word type.
 
-CRITICAL FORMATTING RULE: Every noun MUST include its article in the base form. Never write a bare noun without an article.
-Examples: "o passaporte" (not "passaporte"), "der Hund" (not "Hund"), "le chat" (not "chat"), "el libro" (not "libro").
+${buildCriticalHeader(fromLanguageCode)}
 
 Formatting rules (apply to BOTH "original" and "translation" fields):
-${NOUN_VERB_FORMATTING_RULES}
-${adjRuleForLang(fromLanguageCode)}
-${TRANSLATION_MIRROR_RULE}
+${buildNounShapeRule(fromLanguageCode)}
+${scandiRule}
+${buildNounVerbRules(fromLanguageCode)}
+${buildAdjRule(fromLanguageCode)}
+${buildTranslationRule(fromLanguageCode, nativeCode)}
 
 Respond exclusively as a JSON object, with no additional text. Leave the level field as "" — it is set locally after translation:
 {

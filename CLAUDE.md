@@ -412,10 +412,43 @@ the native's dictionary default for the bare case.
 different article convention, only Rules 34 / 41 need updating — the
 translation rule follows automatically from the category. Do NOT
 re-introduce a per-native hint helper; the Rule 42 architecture test
-asserts `nounArticleHintFor` no longer exists. Do ensure the three
-key phrases stay present in the constant: definite / indefinite / bare
-original, the Scandi counter-example (`en bild → a picture`), and the
-bare-fallback example (`matura → das Abitur`).
+asserts `nounArticleHintFor` no longer exists.
+
+**Rule 46 (F11 / 2026-04-22 — per-language examples in the prompt)**
+enforces: all language-specific examples in the extraction prompt come
+from a single `LANG_EXAMPLES` dictionary, keyed by language code. The
+five rule blocks (CRITICAL header, NOUN_SHAPE, NOUN_VERB, adjective,
+TRANSLATION_MIRROR) are now built by helper functions —
+`buildCriticalHeader(learnCode)`, `buildNounShapeRule(learnCode)`,
+`buildNounVerbRules(learnCode)`, `buildAdjRule(learnCode)`,
+`buildTranslationRule(learnCode, nativeCode)` — each emitting exactly
+one example drawn from the learn-lang (and, for the translation rule,
+one native-lang target) entry of `LANG_EXAMPLES`. The JSON example at
+the end of the prompt is built the same way via `buildJsonExample`.
+
+**Why:** the pre-F11 prompt carried 4-7 language examples in every
+single prompt regardless of the current (learn, native) combo —
+`"o passaporte"`, `"der Hund"`, `"le chat"`, `"el libro"` appeared
+verbatim in the header even when the user was extracting German into
+English. The 2026-04-22 sweep surfaced the cost: a 47% English-leak
+in Portuguese-native translations (the LLM lost the "native is
+Portuguese" instruction under the weight of cross-language
+noise). Post-F11 the prompt for a DE→EN combo is ~46% shorter (6228
+chars → 3370 chars) and contains only German + English examples.
+Same for SV→DE: 7861 → 4840 chars, Swedish + German only.
+
+**How to apply:** if you add a new learning language (or change the
+canonical lemma / verb / adjective example for an existing one),
+extend `LANG_EXAMPLES` with an entry that provides: `name`, `artCat`,
+`nounLemma`, `nounBare`, `nounIndef` (for def-cat langs only),
+`attrAdj` (good + bad shape for NOUN_SHAPE_RULE), `verbInf`,
+`verbWrong` (conjugated counter-example), optional `verbReflexive`,
+`adjSingle`, optional `adjInflected` (for non-Romance),
+`adjMFPair` (for Romance only), and `phraseExample`. The builder
+functions pick fields automatically based on `artCat`. The Rule 42 /
+Rule 27 / Rule 38 / Rule 39 / Rule 40 architecture tests validate
+that each builder emits the required structural vocabulary
+(article / infinitive / reflexive / type-enum coverage).
 
 ## Leitner System
 

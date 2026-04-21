@@ -1130,33 +1130,34 @@ describe('Architecture: Rule 26 — default learning language differs from nativ
 // shared VOCAB_FORMATTING_RULES constant must both appear in the
 // translateSingleWord system prompt.
 describe('Architecture: Rule 27 — translateSingleWord prompt has CRITICAL FORMATTING RULE', () => {
-  it('lib/claude.ts translateSingleWord systemPrompt includes CRITICAL FORMATTING RULE', () => {
+  it('lib/claude.ts translateSingleWord systemPrompt is built from per-language builders', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
-    // Find the translateSingleWord function body
     const match = src.match(/export async function translateSingleWord\b[\s\S]*?\n\}/);
     expect(match).not.toBeNull();
     const body = match![0];
-    // Must include the critical emphasis block
-    expect(body).toMatch(/CRITICAL FORMATTING RULE/);
-    // Must reference the shared rules constant(s). 2026-04-21 the single
-    // VOCAB_FORMATTING_RULES was split into NOUN_VERB_FORMATTING_RULES +
-    // a per-language adjective branch (Rule 38) — accept either shape.
-    expect(body).toMatch(/VOCAB_FORMATTING_RULES|NOUN_VERB_FORMATTING_RULES/);
+    // Must emit the CRITICAL header via the per-lang builder (post-F11
+    // 2026-04-22 refactor — the cross-language literal was removed).
+    expect(body).toMatch(/buildCriticalHeader\(fromLanguageCode\)/);
+    // Must wire all shared rule builders
+    expect(body).toMatch(/buildNounShapeRule\(fromLanguageCode\)/);
+    expect(body).toMatch(/buildNounVerbRules\(fromLanguageCode\)/);
+    expect(body).toMatch(/buildAdjRule\(fromLanguageCode\)/);
+    expect(body).toMatch(/buildTranslationRule\(fromLanguageCode,/);
     // Must instruct about base form / inflected input
     expect(body).toMatch(/inflect|conjugat|base form|dictionary/i);
   });
 
-  it('lib/claude.ts formatting rules constant mentions articles + infinitive + reflexive', () => {
+  it('lib/claude.ts buildNounVerbRules output mentions articles + infinitive + reflexive', () => {
+    // buildNounVerbRules is a function now, not a const. Parse its body
+    // and assert the article / infinitive / reflexive vocabulary is still
+    // present so the per-lang output still carries the three concepts.
     const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
-    // Either the legacy VOCAB_FORMATTING_RULES constant or the post-
-    // split NOUN_VERB_FORMATTING_RULES + ROMANCE_ADJ_RULE / SINGLE_FORM_ADJ_RULE.
-    const legacyMatch = src.match(/const VOCAB_FORMATTING_RULES\s*=\s*`[\s\S]*?`;/);
-    const nvMatch = src.match(/const NOUN_VERB_FORMATTING_RULES\s*=\s*`[\s\S]*?`;/);
-    const rules = (legacyMatch?.[0] ?? '') + (nvMatch?.[0] ?? '');
-    expect(rules.length).toBeGreaterThan(0);
-    expect(rules).toMatch(/article/i);
-    expect(rules).toMatch(/infinitive/i);
-    expect(rules).toMatch(/reflexive/i);
+    const match = src.match(/function buildNounVerbRules[\s\S]*?\n\}/);
+    expect(match).not.toBeNull();
+    const body = match![0];
+    expect(body).toMatch(/article/i);
+    expect(body).toMatch(/infinitive/i);
+    expect(body).toMatch(/reflexive/i);
   });
 });
 
@@ -1681,18 +1682,27 @@ describe('Architecture: Rule 40 — extractVocabulary prompt shows every non-oth
   // then made capitaliseGermanNouns fire on verbs for German users.
   // Pin the prompt to show each non-"other" type so the model has
   // canonical anchors for all of them.
-  it('buildVocabSystemPrompt includes noun/verb/adjective/phrase examples AND the type enum', () => {
+  it('extraction prompt includes noun/verb/adjective/phrase examples AND the type enum', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
 
-    const fnMatch = src.match(/function\s+buildVocabSystemPrompt[\s\S]*?^}/m);
-    expect(fnMatch).not.toBeNull();
-    const body = fnMatch![0];
+    // Post-F11 (2026-04-22): the JSON example was moved out of
+    // buildVocabSystemPrompt into its own builder `buildJsonExample(learnCode,
+    // nativeCode)` so the entries can be per-language. Check that
+    // builder emits the full type-enum cover, and that the prompt
+    // shell references it.
+    const promptFn = src.match(/function\s+buildVocabSystemPrompt[\s\S]*?^}/m);
+    expect(promptFn).not.toBeNull();
+    expect(promptFn![0]).toMatch(/buildJsonExample\(/);
+
+    const jsonFn = src.match(/function\s+buildJsonExample[\s\S]*?^}/m);
+    expect(jsonFn).not.toBeNull();
+    const body = jsonFn![0];
 
     const REQUIRED_TYPE_LABELS = ['noun', 'verb', 'adjective', 'phrase'];
     const missing = REQUIRED_TYPE_LABELS.filter((t) => !body.includes(`"type": "${t}"`));
     if (missing.length > 0) {
       throw new Error(
-        `EXTRACTION PROMPT BIAS in lib/claude.ts: buildVocabSystemPrompt\n` +
+        `EXTRACTION PROMPT BIAS in lib/claude.ts: buildJsonExample\n` +
           `must include one "type": "${REQUIRED_TYPE_LABELS.join('" / "type": "')}" example.\n` +
           `Missing: ${missing.map((t) => `"type": "${t}"`).join(', ')}.\n` +
           `Temperature-0 small models cargo-cult single-example prompts —\n` +
@@ -1702,9 +1712,9 @@ describe('Architecture: Rule 40 — extractVocabulary prompt shows every non-oth
     }
     expect(missing).toEqual([]);
 
-    // The prompt must also carry an enum-shaped listing so the model
-    // treats the field as a choice, not a cargo-culted constant.
-    expect(body).toMatch(/"noun".*"verb".*"adjective".*"phrase"/s);
+    // The JSON example must cover all four types in order so the
+    // model treats the field as a choice, not a cargo-culted constant.
+    expect(body).toMatch(/"noun"[\s\S]*"verb"[\s\S]*"adjective"[\s\S]*"phrase"/);
   });
 });
 
@@ -1983,11 +1993,18 @@ describe('Architecture: Rule 38 — adjective rule is language-scoped', () => {
   const filtersSrc = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
 
   it('lib/claude.ts has a Romance vs single-form adjective branch', () => {
+    // Post-F11 (2026-04-22): the adj rule is now built per-language from
+    // LANG_EXAMPLES inside buildAdjRule. The branch lives in buildAdjRule
+    // checking `ex.adjMFPair` (Romance → m/f pair line) vs fallback
+    // (single-form line). Accept either the legacy constants or the new
+    // builder-based shape.
     const hasRomance =
-      /ROMANCE_ADJ_RULE/.test(claudeSrc) || /masculine and feminine/.test(claudeSrc);
+      /ROMANCE_ADJ_RULE/.test(claudeSrc) ||
+      /masculine and feminine forms when they differ/.test(claudeSrc);
     const hasSingleForm =
       /SINGLE_FORM_ADJ_RULE/.test(claudeSrc) || /SINGLE dictionary base form/.test(claudeSrc);
-    const hasLangBranch = /adjRuleForLang/.test(claudeSrc);
+    const hasLangBranch =
+      /adjRuleForLang/.test(claudeSrc) || /function buildAdjRule/.test(claudeSrc);
     if (!(hasRomance && hasSingleForm && hasLangBranch)) {
       throw new Error(
         `lib/claude.ts must distinguish Romance adjective rule from single-form rule.\n` +
@@ -2036,13 +2053,19 @@ describe('Architecture: Rule 39 — non-infinitive verbs dropped', () => {
 
   it('extraction prompt names the verb-infinitive mistake explicitly', () => {
     const hasWarning = /never conjugated|never a past participle/i.test(claudeSrc);
-    const hasExamples = /morrer|installieren|rendere/.test(claudeSrc);
+    // Post-F11 (2026-04-22): verb examples now come from LANG_EXAMPLES
+    // per-language (verbInf + verbWrong). Accept the new per-language
+    // example-bank shape OR the legacy inline mentions.
+    const hasLegacyExamples = /morrer|installieren|rendere/.test(claudeSrc);
+    const hasLangBank = /const LANG_EXAMPLES[\s\S]*?verbInf:\s*['"][a-zà-ÿ]/i.test(claudeSrc);
+    const hasExamples = hasLegacyExamples || hasLangBank;
     if (!(hasWarning && hasExamples)) {
       throw new Error(
         `Extraction prompt must explicitly forbid conjugated / past-participle\n` +
-          `verb forms and include at least one per-language example\n` +
-          `(morrer, installieren, rendere). Found: warning=${hasWarning},\n` +
-          `examples=${hasExamples}. See CLAUDE.md Rule 39.`,
+          `verb forms and include per-language examples (either inline\n` +
+          `"morrer, installieren, rendere" or via LANG_EXAMPLES bank with\n` +
+          `verbInf + verbWrong per code). Found: warning=${hasWarning},\n` +
+          `legacy=${hasLegacyExamples}, bank=${hasLangBank}. See CLAUDE.md Rule 39.`,
       );
     }
     expect(hasWarning && hasExamples).toBe(true);
@@ -2164,37 +2187,37 @@ describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
 describe('Architecture: Rule 42 — translation mirrors original definiteness', () => {
   const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
 
-  it('TRANSLATION_MIRROR_RULE constant exists and states the mirror principle', () => {
-    const match = src.match(/const TRANSLATION_MIRROR_RULE\s*=\s*`[\s\S]*?`;/);
-    expect(match).not.toBeNull();
-    const body = match![0];
-    // Must name all three article categories
-    expect(/definite original/i.test(body)).toBe(true);
-    expect(/indefinite original/i.test(body)).toBe(true);
-    expect(/bare original/i.test(body)).toBe(true);
-    // Must carry the canonical Scandi counter-example so the LLM
-    // doesn't fall back to "the X" for Scandi sources
-    expect(/en bild.*a picture/i.test(body)).toBe(true);
-    // Must spell out the bare-original fallback: bare pl/cs origins
-    // should translate to the native's dictionary default, not bare
-    // ("matura" → "das Abitur" in a PL→DE card, matching bilingual-
-    // dictionary typography). See CLAUDE.md Rule 42 Why section.
-    expect(/matura.*das Abitur|matura.*Abitur/i.test(body)).toBe(true);
-    expect(/dictionary/i.test(body)).toBe(true);
+  it('buildTranslationRule function exists and uses LANG_EXAMPLES per learn+native', () => {
+    // Post-F11 (2026-04-22): the TRANSLATION_MIRROR_RULE literal was
+    // replaced by a builder `buildTranslationRule(learnCode, nativeCode)`
+    // that emits ONE source→target example per combo, drawn from
+    // LANG_EXAMPLES. The constant form was cross-language-heavy and
+    // diluted the signal for small models (47 % English-leak in
+    // Portuguese-native translations in the 2026-04-22 sweep).
+    const fnMatch = src.match(/function buildTranslationRule\b[\s\S]*?\n\}/);
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    // Must consult per-lang examples for both sides of the pair
+    expect(/getLangExamples\(learnCode\)/.test(body)).toBe(true);
+    expect(/getLangExamples\(nativeCode\)/.test(body)).toBe(true);
+    // Must emit the "translation field for NOUN" block
+    expect(/"translation" field for NOUN/.test(body)).toBe(true);
   });
 
-  it('buildVocabSystemPrompt references TRANSLATION_MIRROR_RULE', () => {
+  it('buildVocabSystemPrompt references buildTranslationRule', () => {
     const fnMatch = src.match(/function buildVocabSystemPrompt\b[\s\S]*?^\}/m);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
-    expect(/TRANSLATION_MIRROR_RULE/.test(body)).toBe(true);
+    expect(/buildTranslationRule\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(
+      true,
+    );
   });
 
-  it('translateSingleWord prompt references TRANSLATION_MIRROR_RULE', () => {
+  it('translateSingleWord prompt references buildTranslationRule', () => {
     const fnMatch = src.match(/export async function translateSingleWord\b[\s\S]*?^\}/m);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
-    expect(/TRANSLATION_MIRROR_RULE/.test(body)).toBe(true);
+    expect(/buildTranslationRule\(fromLanguageCode,\s*nativeCode\)/.test(body)).toBe(true);
   });
 
   it('nounArticleHintFor helper no longer exists (redesign deleted it)', () => {
