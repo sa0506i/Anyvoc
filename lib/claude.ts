@@ -287,6 +287,44 @@ function buildCriticalHeader(learnCode: string): string {
   return `CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article. Example for ${ex.name}: "${ex.nounLemma}" (not "${ex.nounBare}").`;
 }
 
+/** Picks the correct native-lang example form for a translation based
+ *  on the learn-lang's article category (Rule 42 Mirror + F6 fallback).
+ *
+ *  - learn DEF → native's def form (nativeEx.nounLemma for def-cat
+ *    natives; for indef-cat Scandi natives we use their nounLemma too,
+ *    which is the indef-prefix lemma per Rule 34 — accepted as the
+ *    Scandi dictionary convention). For bare-cat natives (pl/cs) →
+ *    bare nounLemma.
+ *  - learn INDEF (Scandi) → native's indef form: nativeEx.nounIndef
+ *    when the native has a distinct indef article (de/fr/es/it/pt/
+ *    nl/en); otherwise nativeEx.nounLemma (already indef for Scandi
+ *    natives; bare for pl/cs natives).
+ *  - learn BARE (pl/cs) → native's default (nativeEx.nounLemma).
+ *
+ *  F12 fix (2026-04-22): without this dispatch, the translation
+ *  example for every combo used nativeEx.nounLemma regardless of
+ *  learn's category. For INDEF-learn → def-cat native (e.g. sv→de)
+ *  this produced "en hund → der Hund" — indef source mirrored to def
+ *  target, which directly contradicted the Mirror rule stated in the
+ *  same prompt. The LLM followed the concrete example over the
+ *  abstract rule, driving INDEF→indef compliance down to 0% for
+ *  de/nl/es natives in the post-F11 sweep.
+ */
+function pickTranslationTarget(learnCode: string, nativeCode: string): string {
+  const learnEx = getLangExamples(learnCode);
+  const nativeEx = getLangExamples(nativeCode);
+  if (nativeEx.artCat === 'bare') {
+    // pl/cs native: always bare (no articles exist)
+    return nativeEx.nounLemma;
+  }
+  if (learnEx.artCat === 'indef' && nativeEx.nounIndef) {
+    // Scandi learn → native's indef form (mirror indef category)
+    return nativeEx.nounIndef;
+  }
+  // DEF or BARE learn → native's canonical lemma
+  return nativeEx.nounLemma;
+}
+
 /** Builds the translation-side article rule using one learn-lang
  *  source and one native-lang target example. Replaces the earlier
  *  TRANSLATION_MIRROR_RULE constant which carried examples for 7
@@ -295,17 +333,7 @@ function buildTranslationRule(learnCode: string, nativeCode: string): string {
   const learnEx = getLangExamples(learnCode);
   const nativeEx = getLangExamples(nativeCode);
   const source = learnEx.nounLemma;
-  // Native target form: mirror the learn's article category. For bare
-  // learn (pl/cs), fall back to the native's own dictionary convention
-  // (its nounLemma, which already respects Rule 34/41). For def learn
-  // into pl/cs native we output bare because pl/cs have no articles.
-  let target: string;
-  if (learnEx.artCat === 'bare' || nativeEx.artCat === 'bare') {
-    target = nativeEx.artCat === 'bare' ? nativeEx.nounLemma : nativeEx.nounLemma;
-  } else {
-    // Mirror article category: both native and learn have def/indef lemmas
-    target = nativeEx.nounLemma;
-  }
+  const target = pickTranslationTarget(learnCode, nativeCode);
   const bareNote =
     nativeEx.artCat === 'bare'
       ? `${nativeEx.name} has no articles, so the translation is bare.`
@@ -319,12 +347,13 @@ function buildTranslationRule(learnCode: string, nativeCode: string): string {
 function buildJsonExample(learnCode: string, nativeCode: string): string {
   const le = getLangExamples(learnCode);
   const ne = getLangExamples(nativeCode);
+  const nounTarget = pickTranslationTarget(learnCode, nativeCode);
   // source_forms shows an inflected form — use a plausible plural/conjugated
   // shape, falling back to the bare/wrong form if nothing better is known.
   const nounSrcForm = le.nounBare;
   const verbSrcForm = le.verbWrong;
   return `[
-  { "original": "${le.nounLemma}", "translation": "${ne.nounLemma}", "level": "", "type": "noun", "source_forms": ["${nounSrcForm}"] },
+  { "original": "${le.nounLemma}", "translation": "${nounTarget}", "level": "", "type": "noun", "source_forms": ["${nounSrcForm}"] },
   { "original": "${le.verbInf}", "translation": "${ne.verbInf}", "level": "", "type": "verb", "source_forms": ["${verbSrcForm}"] },
   { "original": "${le.adjMFPair ?? le.adjSingle}", "translation": "${ne.adjMFPair ?? ne.adjSingle}", "level": "", "type": "adjective", "source_forms": ["${le.adjInflected ?? le.adjSingle}"] },
   { "original": "${le.phraseExample}", "translation": "${ne.phraseExample}", "level": "", "type": "phrase", "source_forms": ["${le.phraseExample}"] }
