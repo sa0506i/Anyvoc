@@ -10,6 +10,17 @@ if (!process.env.MISTRAL_API_KEY) {
 
 const app = express();
 
+// --- Trust proxy: Fly.dev puts exactly one reverse proxy (Fly Edge) in
+// front of this Node app, so X-Forwarded-For carries the real client IP.
+// Without this, req.ip returns the Fly-internal proxy IP (identical for
+// every request) and express-rate-limit buckets ALL traffic globally
+// instead of per user — a 60/min limit that should be per-IP instead
+// throttles the whole backend worldwide.
+// Value `1` = trust exactly one hop; do NOT use `true` (would trust the
+// whole X-Forwarded-For chain, which is spoofable by any client). If Fly
+// ever chains multiple proxies, raise to the hop count, never blanket-true.
+app.set('trust proxy', 1);
+
 // --- CORS: restrict to expected origins ---
 // React Native fetch doesn't send an Origin header, so CORS mainly
 // gates browser clients (Expo web in dev). In production we accept
@@ -70,10 +81,20 @@ function validateMessage(msg) {
   return 'message content must be string or array';
 }
 
-// --- Rate limiting: 60 requests per minute per IP ---
+// --- Rate limiting: 120 requests per minute per IP ---
+// Raised from 60 → 120 on 2026-04-23 alongside the trust-proxy fix: the
+// previous 60/min was effectively a global bucket (see trust-proxy note
+// above), so it never actually constrained per-user usage. With the fix
+// the limit is now per-IP, and 120/min gives generous headroom for:
+//  (a) normal app usage — a single user hitting the share flow or the
+//      long-press translate pro-mode path can easily trigger 5-10 calls
+//      in a burst (extraction chunking + classifier fallbacks).
+//  (b) dev sweeps from a workstation (try-pipeline:parallel, concurrency≤6).
+// If abuse is observed, halve this or add a second sliding window at the
+// hour level.
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 60,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
   message: { content: [], error: { message: 'Too many requests, please try again later.' } },
