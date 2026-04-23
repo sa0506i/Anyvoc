@@ -123,6 +123,10 @@ interface CliArgs {
   sweep: boolean;
   natives?: SupportedLanguage[];
   mode: ExtractionMode;
+  /** Prompt-version toggle for the Matrix-Regel A/B (Slice 7/7).
+   *  Sets ANYVOC_PROMPT_VERSION at runtime so lib/claude's
+   *  defaultPromptVersion() picks up the chosen path. */
+  prompt: 'v1' | 'v2';
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -135,6 +139,7 @@ function parseArgs(argv: string[]): CliArgs {
     seed: Date.now() >>> 0,
     sweep: false,
     mode: 'monolithic',
+    prompt: 'v1',
   };
   for (const raw of argv.slice(2)) {
     const m = raw.match(/^--([^=]+)(?:=(.*))?$/);
@@ -195,6 +200,14 @@ function parseArgs(argv: string[]): CliArgs {
           process.exit(2);
         }
         args.mode = value;
+        break;
+      }
+      case 'prompt': {
+        if (value !== 'v1' && value !== 'v2') {
+          console.error(`Invalid --prompt value "${value}". Use "v1" or "v2".`);
+          process.exit(2);
+        }
+        args.prompt = value;
         break;
       }
       case 'natives': {
@@ -271,6 +284,11 @@ Options:
                           native-agnostic Phase 1 + per-native Phase 2).
                           Two-phase is dev-only; the production app is
                           unaffected (enforced by architecture Rule 35).
+  --prompt=<v1|v2>        Prompt-version toggle for the Matrix-Regel A/B
+                          (default v1). v2 = source-preserving extraction
+                          + matrix translation targets per the 2026-04-23
+                          user-approved matrices. Sets
+                          ANYVOC_PROMPT_VERSION; see CLAUDE.md Rule 47.
   --out=<path>            Write full JSON summary to <path>.
   --help                  Show this message.
 
@@ -599,6 +617,11 @@ async function processOneSweep(
 async function main(): Promise<void> {
   const args = parseArgs(process.argv);
 
+  // Propagate prompt-version choice to lib/claude BEFORE any extractVocabulary
+  // call. defaultPromptVersion() reads this env var on every builder
+  // invocation, so setting it here affects all downstream processOne() calls.
+  process.env.ANYVOC_PROMPT_VERSION = args.prompt;
+
   if (!args.url && !args.lang && !args.all && !args.sweep) {
     printHelp();
     process.exit(2);
@@ -720,6 +743,7 @@ async function main(): Promise<void> {
           seed: args.seed,
           maxChars: args.maxChars,
           mode: args.mode,
+          promptVersion: args.prompt,
           sweep: args.sweep,
           natives: sweepNatives,
           totals: {

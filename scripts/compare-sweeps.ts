@@ -35,6 +35,9 @@ interface VocabItem {
   level: string;
   type: string;
   source_forms?: string[];
+  /** Slice 3/7 — v2 only. "def" | "indef" | "bare" per the LLM's
+   *  source-category extraction. Absent in v1 dumps. */
+  source_cat?: 'def' | 'indef' | 'bare';
 }
 
 interface PipelineResult {
@@ -60,10 +63,82 @@ interface PipelineDump {
   ranAt?: string;
   seed?: number;
   maxChars?: number;
+  promptVersion?: 'v1' | 'v2';
   sweep?: boolean;
   natives?: string[];
   totals?: Record<string, unknown>;
   results: PipelineResult[];
+}
+
+// ---- Matrix-Regel translation-shape checkers (Slice 6/7) -----------
+// Per-native regexes mirroring matrixTranslationTarget's behaviour:
+// given a source_cat, does the LLM translation carry the expected
+// article pattern? Lexeme-independent — only checks prefix/suffix shape.
+
+const NATIVE_SYSTEM: Record<string, 'articled' | 'scandi' | 'articleless'> = {
+  de: 'articled',
+  fr: 'articled',
+  es: 'articled',
+  it: 'articled',
+  pt: 'articled',
+  nl: 'articled',
+  en: 'articled',
+  sv: 'scandi',
+  no: 'scandi',
+  da: 'scandi',
+  pl: 'articleless',
+  cs: 'articleless',
+};
+
+const DEF_PREFIX: Record<string, RegExp> = {
+  de: /^(der|die|das)\s/i,
+  fr: /^(le\s|la\s|les\s|l')/i,
+  es: /^(el|la|los|las)\s/i,
+  it: /^(il\s|lo\s|la\s|i\s|gli\s|le\s|l')/i,
+  pt: /^(o|a|os|as)\s/i,
+  nl: /^(de|het)\s/i,
+  en: /^the\s/i,
+};
+
+const INDEF_PREFIX: Record<string, RegExp> = {
+  de: /^(ein|eine)\s/i,
+  fr: /^(un\s|une\s|un'|une')/i,
+  es: /^(un|una|unos|unas)\s/i,
+  it: /^(un\s|uno\s|una\s|un')/i,
+  pt: /^(um|uma|uns|umas)\s/i,
+  nl: /^(een|'n)\s/i,
+  en: /^(a|an)\s/i,
+};
+
+const SCANDI_INDEF = /^(en|ett|ei)\s/i;
+
+/** True when `translation` matches the matrix's expected article shape
+ *  for the given source_cat + native. Returns true for unsupported natives
+ *  or empty input (no false positives from the "skip" path). */
+function translationMatchesMatrix(
+  sourceCat: 'def' | 'indef' | 'bare',
+  native: string,
+  translation: string,
+): boolean {
+  const sys = NATIVE_SYSTEM[native];
+  if (!sys) return true;
+  const t = translation.trim();
+  if (!t) return true;
+  if (sys === 'articleless') {
+    // pl/cs: should be bare — shouldn't carry ANY article prefix.
+    const anyArt =
+      /^(der|die|das|ein|eine|le|la|les|l'|un|une|el|los|las|il|lo|gli|i|o|a|os|as|de|het|een|the|a|an|en|ett|ei)\s/i;
+    return !anyArt.test(t);
+  }
+  const wantDef = sourceCat === 'def';
+  if (sys === 'scandi') {
+    // Scandi DEF target = suffix-definite (NO 'en/ett/ei' prefix).
+    // Scandi INDEF/BARE target = 'en/ett/ei' prefix.
+    return wantDef ? !SCANDI_INDEF.test(t) : SCANDI_INDEF.test(t);
+  }
+  // articled native
+  const pat = wantDef ? DEF_PREFIX[native] : INDEF_PREFIX[native];
+  return pat ? pat.test(t) : true;
 }
 
 // ---- CLI ----
@@ -391,6 +466,38 @@ function kpis(dump: PipelineDump): Kpi[] {
     }
   }
 
+  // #13/14/15 — Matrix-Regel v2 sensors. Inactive (0 / N/A) for v1 dumps
+  // since source_cat is stripped there; meaningful for v2 dumps only.
+  let totalNouns = 0;
+  let nounsWithSourceCat = 0;
+  let nounsMatchingMatrix = 0;
+  let scandiDefNouns = 0;
+  let scandiDefSuffixHits = 0;
+  for (const r of results) {
+    for (const v of r.vocab ?? []) {
+      if (v.type !== 'noun') continue;
+      totalNouns++;
+      if (!v.source_cat) continue;
+      nounsWithSourceCat++;
+      if (translationMatchesMatrix(v.source_cat, r.native, v.translation)) {
+        nounsMatchingMatrix++;
+      }
+      // Scandi def-suffix recognition: did the LLM recognise a suffix-def
+      // form in the source text and tag it source_cat='def'? Heuristic:
+      // Scandi learning lang + source_cat='def' + lemma ends with a
+      // recognised definite suffix (-en common, -et neuter, -a feminine-def,
+      // -ene/-na plural-def). Acceptable proxy for the full article-category
+      // match (which would need the original HTML to verify).
+      if (SCANDI.has(r.lang) && v.source_cat === 'def') {
+        scandiDefNouns++;
+        if (/(en|et|na|ne|a)$/i.test(v.original.trim())) scandiDefSuffixHits++;
+      }
+    }
+  }
+  const sourceCatCoverage = totalNouns > 0 ? nounsWithSourceCat / totalNouns : 0;
+  const matrixMatchRate = nounsWithSourceCat > 0 ? nounsMatchingMatrix / nounsWithSourceCat : 0;
+  const scandiDefSuffixRate = scandiDefNouns > 0 ? scandiDefSuffixHits / scandiDefNouns : 0;
+
   return [
     {
       key: 'loopRate',
@@ -495,6 +602,32 @@ function kpis(dump: PipelineDump): Kpi[] {
       unit: 'entries',
       higherIsBetter: false,
       target: '<5',
+    },
+    // Matrix-Regel v2 sensors (Slice 6/7). 0% in v1 dumps (source_cat
+    // absent); meaningful only when the dump was produced with --prompt=v2.
+    {
+      key: 'sourceCatCoverage',
+      label: 'Source-Cat Coverage (v2 only)',
+      value: sourceCatCoverage,
+      unit: '%',
+      higherIsBetter: true,
+      target: '≥95% in v2',
+    },
+    {
+      key: 'matrixMatchRate',
+      label: 'Translation-Target Match Rate (v2 only)',
+      value: matrixMatchRate,
+      unit: '%',
+      higherIsBetter: true,
+      target: '≥92% in v2',
+    },
+    {
+      key: 'scandiDefSuffix',
+      label: 'Scandi Def-Suffix Recognition (v2 only)',
+      value: scandiDefSuffixRate,
+      unit: '%',
+      higherIsBetter: true,
+      target: '≥85% in v2',
     },
   ];
 }
