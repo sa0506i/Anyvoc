@@ -1591,7 +1591,10 @@ describe('Architecture: Rule 38 — callClaude retries transient failures', () =
   // and wrapped it in a retry loop. Silent removal of the wrapper
   // would undo this hardening without any test catching it.
   it('lib/claude.ts exposes a retry loop around callClaudeOnce with an isRetryable() gate', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+    // Phase 2 Slice 1 (2026-04-23): transport moved to lib/claude/transport.ts.
+    // This sensor now inspects the new file. lib/claude.ts re-exports the
+    // symbols but the retry loop itself lives in the sub-module.
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'transport.ts'), 'utf8');
 
     // Shape constants + helpers.
     expect(src).toMatch(/const\s+MAX_RETRIES\s*=\s*\d+/);
@@ -2325,10 +2328,16 @@ describe('Architecture: Rule 47 — Matrix-Regel v2 prompt-builder siblings exis
   });
 
   it('ExtractedVocab carries an optional source_cat field', () => {
-    const m = src.match(/export interface ExtractedVocab\b[\s\S]*?\n\}/);
+    // Phase 2 Slice 1 (2026-04-23): ExtractedVocab moved to lib/claude/types.ts.
+    // lib/claude.ts re-exports it so external callers are unaffected.
+    const typesSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'types.ts'), 'utf8');
+    const m = typesSrc.match(/export interface ExtractedVocab\b[\s\S]*?\n\}/);
     expect(m).not.toBeNull();
     const body = m![0];
-    expect(/source_cat\?:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body)).toBe(true);
+    // source_cat uses ArticleCategory alias now, but pattern accepts both.
+    const hasInlineEnum = /source_cat\?:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body);
+    const hasAliasForm = /source_cat\?:\s*ArticleCategory/.test(body);
+    expect(hasInlineEnum || hasAliasForm).toBe(true);
   });
 
   it('buildVocabSystemPrompt body wires v2 fragment builders when version === "v2"', () => {

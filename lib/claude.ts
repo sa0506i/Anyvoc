@@ -1,31 +1,28 @@
-import Constants from 'expo-constants';
 import { classifyWord, type SupportedLanguage } from './classifier';
 import { postProcessExtractedVocab } from './vocabFilters';
-import { franc } from 'franc-min';
+// Phase 2 Slice 1: transport, chunking, detection, and shared types
+// live in dedicated files under ./claude/. lib/claude.ts continues to
+// re-export them so existing callers (shareProcessing, urlExtractor,
+// etc.) keep working unchanged.
+import { callClaude, ClaudeAPIError } from './claude/transport';
+import { chunkText } from './claude/chunk';
+import { detectLanguage } from './claude/detectLanguage';
+import type {
+  ExtractedVocab,
+  TranslateSingleWordResult,
+  ClaudeMessage,
+  PromptVersion,
+} from './claude/types';
 
-// Read the backend URL from app.json.extra so it lives in one place
-// (config). Fallback to the Fly.dev URL so unit tests and anything
-// that imports this module outside the Expo runtime still work.
-const DEFAULT_API_URL = 'https://anyvoc-backend.fly.dev/api/chat';
-const API_URL =
-  (Constants?.expoConfig?.extra as { backendApiUrl?: string } | undefined)?.backendApiUrl ??
-  DEFAULT_API_URL;
-const MODEL = 'mistral-small-2506';
-const MAX_CHARS_PER_CHUNK = 5000;
-
-/**
- * Prompt-version toggle for the Matrix-Regel A/B.
- *
- * Slice 2/7 (2026-04-23): v1 is byte-identical to the pre-Matrix-Regel baseline
- * and stays the Production default until the sweep in Slice 7 validates v2
- * end-to-end. v2 implements source-preserving extraction + matrix translation
- * targets per the user-approved 2026-04-23 matrices.
- *
- * Callers can override per-call (used by unit tests + try-pipeline). Env override
- * `ANYVOC_PROMPT_VERSION=v2` is used by the sweep scripts to switch Production
- * code paths without modifying source.
- */
-export type PromptVersion = 'v1' | 'v2' | 'v3';
+export { callClaude, ClaudeAPIError } from './claude/transport';
+export { chunkText } from './claude/chunk';
+export { detectLanguage } from './claude/detectLanguage';
+export type {
+  ExtractedVocab,
+  TranslateSingleWordResult,
+  PromptVersion,
+  ArticleCategory,
+} from './claude/types';
 
 function defaultPromptVersion(): PromptVersion {
   // Slice 7/7 (2026-04-23): flipped from v1 → v2 after the full sweep
@@ -435,224 +432,12 @@ function buildJsonExample(learnCode: string, nativeCode: string): string {
 ]`;
 }
 
-interface ClaudeMessage {
-  role: 'user' | 'assistant';
-  content: string | ClaudeContentBlock[];
-}
-
-interface ClaudeContentBlock {
-  type: 'text' | 'image';
-  text?: string;
-  source?: {
-    type: 'base64';
-    media_type: string;
-    data: string;
-  };
-}
-
-interface ClaudeResponse {
-  content: { type: string; text: string }[];
-  error?: { message: string };
-}
-
-export interface ExtractedVocab {
-  original: string;
-  translation: string;
-  level: string;
-  type: 'noun' | 'verb' | 'adjective' | 'phrase' | 'other';
-  source_forms: string[];
-  /** v2 Matrix-Regel: article category of the first occurrence in the
-   *  source text, as reported by the LLM. Present only when PROMPT_VERSION
-   *  is 'v2'; stripped in v1 mode. Not persisted to SQLite — strictly
-   *  pipeline metadata used by the A/B sweep to compute Translation-Target
-   *  Match Rate (LLM translation vs matrixTranslationTarget expectation). */
-  source_cat?: 'def' | 'indef' | 'bare';
-}
-
-interface CallClaudeOptions {
-  temperature?: number;
-}
-
-export class ClaudeAPIError extends Error {
-  constructor(
-    message: string,
-    public statusCode?: number,
-  ) {
-    super(message);
-    this.name = 'ClaudeAPIError';
-  }
-}
-
-// Retry policy for transient upstream failures (5xx + generic network
-// errors). 4xx status codes and AbortError (timeout) are NOT retried —
-// they're caller/config problems or user-visible timeouts. Backoff is
-// jittered exponentially. Zeroed in tests so the existing suite stays
-// fast without needing fake timers.
-const MAX_RETRIES = 2; // 3 total attempts
-const RETRY_BASE_MS = process.env.NODE_ENV === 'test' ? 0 : 400;
-
-function isRetryable(err: unknown): boolean {
-  if (err instanceof ClaudeAPIError) {
-    return err.statusCode !== undefined && err.statusCode >= 500;
-  }
-  // Non-ClaudeAPIError errors reach us only as network failures —
-  // AbortError is wrapped into a ClaudeAPIError above, so anything
-  // else is a transient fetch/DNS/TLS hiccup worth retrying.
-  return err instanceof Error;
-}
-
-function retryDelayMs(attempt: number): number {
-  if (RETRY_BASE_MS === 0) return 0;
-  const base = RETRY_BASE_MS * Math.pow(2, attempt);
-  const jitter = Math.floor(Math.random() * 100);
-  return base + jitter;
-}
-
-export async function callClaude(
-  messages: ClaudeMessage[],
-  systemPrompt: string,
-  maxTokens: number = 4096,
-  options?: CallClaudeOptions,
-): Promise<string> {
-  let lastErr: unknown;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await callClaudeOnce(messages, systemPrompt, maxTokens, options);
-    } catch (err) {
-      lastErr = err;
-      if (attempt === MAX_RETRIES || !isRetryable(err)) throw err;
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt)));
-    }
-  }
-  throw lastErr;
-}
-
-async function callClaudeOnce(
-  messages: ClaudeMessage[],
-  systemPrompt: string,
-  maxTokens: number,
-  options?: CallClaudeOptions,
-): Promise<string> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120_000);
-
-  try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages,
-        ...(options?.temperature !== undefined && { temperature: options.temperature }),
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const status = response.status;
-      if (status === 401) {
-        throw new ClaudeAPIError('Service authentication error. Please try again later.', status);
-      }
-      if (status === 429) {
-        throw new ClaudeAPIError(
-          'API rate limit reached. Please wait a moment and try again.',
-          status,
-        );
-      }
-      const errorBody = await response.text().catch(() => '');
-      let detail = 'Unknown error';
-      if (errorBody) {
-        try {
-          const parsed = JSON.parse(errorBody) as { error?: { message?: string } };
-          if (parsed?.error?.message) detail = parsed.error.message;
-        } catch {
-          detail = errorBody;
-        }
-      }
-      throw new ClaudeAPIError(`API error (${status}): ${detail}`, status);
-    }
-
-    const data: ClaudeResponse = await response.json();
-    if (data.error) {
-      throw new ClaudeAPIError(data.error.message);
-    }
-
-    const textBlock = data.content.find((b) => b.type === 'text');
-    return textBlock?.text ?? '';
-  } catch (err) {
-    if (err instanceof ClaudeAPIError) throw err;
-    if ((err as { name?: string })?.name === 'AbortError') {
-      throw new ClaudeAPIError('Request timed out. Please check your connection and try again.');
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new ClaudeAPIError(`Network error: ${msg}`);
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-/** ISO 639-3 (franc output) → ISO 639-1 (our language codes) for supported languages. */
-const ISO3_TO_ISO1: Record<string, string> = {
-  eng: 'en',
-  deu: 'de',
-  fra: 'fr',
-  spa: 'es',
-  ita: 'it',
-  por: 'pt',
-  nld: 'nl',
-  swe: 'sv',
-  nob: 'no',
-  nno: 'no',
-  dan: 'da',
-  pol: 'pl',
-  ces: 'cs',
-};
-
-/**
- * Detect the language of a text sample using franc (offline, synchronous).
- * Returns an ISO 639-1 code for supported languages, or null if undetermined
- * or unsupported.
- */
-export function detectLanguage(text: string): string | null {
-  const sample = text.substring(0, 500);
-  const iso3 = franc(sample);
-  if (iso3 === 'und') return null;
-  return ISO3_TO_ISO1[iso3] ?? null;
-}
-
-export function chunkText(text: string, maxChars: number = MAX_CHARS_PER_CHUNK): string[] {
-  if (text.length <= maxChars) return [text];
-
-  const chunks: string[] = [];
-  let remaining = text;
-
-  while (remaining.length > 0) {
-    if (remaining.length <= maxChars) {
-      chunks.push(remaining);
-      break;
-    }
-
-    // Find a sentence boundary near the max limit
-    let splitAt = maxChars;
-    const searchStart = Math.max(0, maxChars - 500);
-    const searchArea = remaining.substring(searchStart, maxChars);
-
-    // Look for sentence-ending punctuation followed by space
-    const sentenceEnd = searchArea.search(/[.!?]\s+(?=\p{Lu})/u);
-    if (sentenceEnd !== -1) {
-      splitAt = searchStart + sentenceEnd + 1;
-    }
-
-    chunks.push(remaining.substring(0, splitAt).trim());
-    remaining = remaining.substring(splitAt).trim();
-  }
-
-  return chunks;
-}
+// Transport types (ClaudeMessage, ClaudeContentBlock, ClaudeResponse,
+// CallClaudeOptions), ClaudeAPIError, callClaude + retry, ExtractedVocab,
+// TranslateSingleWordResult, PromptVersion, ArticleCategory, chunkText,
+// and detectLanguage all moved to lib/claude/{types,transport,chunk,
+// detectLanguage}.ts in Phase 2 Slice 1. They're imported + re-exported
+// at the top of this file so external callers keep working unchanged.
 
 /** Scandinavian languages mark definiteness with a noun suffix rather than
  *  a prepositive article, so the generic "direct article" rule breaks down.
@@ -1237,17 +1022,10 @@ export async function translateText(
   return translations.join('\n\n');
 }
 
-// NB: extracted to a type alias so the translateSingleWord function signature
-// stays a single line — the Rule-27/42 architecture-test regex non-greedily
-// captures up to the first `\n}` and would otherwise stop at the type brace
-// before reaching the function body.
-export type TranslateSingleWordResult = {
-  original: string;
-  translation: string;
-  level: string;
-  type: string;
-  source_cat?: 'def' | 'indef' | 'bare';
-};
+// NB: TranslateSingleWordResult (extracted to a type alias so the
+// translateSingleWord signature stays single-line — the Rule-27/42
+// regex is non-greedy up to the first `\n}`) now lives in
+// lib/claude/types.ts. Re-exported at the top of this file.
 
 export async function translateSingleWord(
   word: string,
