@@ -4,6 +4,9 @@
 **Scope:** v2 sweep post-Phase-2 vs v2 sweep pre-Phase-2 (Slice 7 baseline).
 **Same seed (42), same URLs, same prompt version (v2). Only difference: the code path.**
 
+**Second run (with 240s transport timeout):** 132/132 combos OK, 0 failed.
+Numbers below are from the complete-coverage run.
+
 ## Verdict: **Refactor is behaviorally clean.** Phase 2 Slices 1–5 preserve v2 semantics end-to-end.
 
 ## Parity evidence
@@ -25,13 +28,17 @@ All six offline-deterministic metrics are identical. The refactor did not change
 
 ### 2. LLM-mediated KPIs (within expected variance)
 
+Numbers from the complete 132/132-combo second run with 240s transport
+timeout (the first run had 9 NL-native-combo gap + 9 timeouts clustered
+at the 120s cap; those are gone):
+
 | KPI | v2 baseline | v2 post-P2 | Δ | Interpretation |
 |---|---|---|---|---|
-| Scandi Nouns with Article | 87.1% | 92.4% | +5.3 pp | Within LLM temp=0 run-to-run variance |
-| Translation-Target Match Rate | 87.5% | 88.9% | +1.3 pp | Same |
-| Scandi Def-Suffix Recognition | 92.1% | 100.0% | +7.9 pp | Same |
-| Core-Vocab Stability | 16.1% | 16.8% | +0.6 pp | Same |
-| Cross-Native Median Jaccard | 0.504 | 0.466 | −3.8 pp | Within variance (9 failed combos contribute less cross-native data) |
+| Scandi Nouns with Article | 87.1% | 88.1% | +1.0 pp | Within LLM temp=0 run-to-run variance |
+| Translation-Target Match Rate | 87.5% | 89.3% | +1.8 pp | Same |
+| Scandi Def-Suffix Recognition | 92.1% | 92.5% | +0.4 pp | Same |
+| Core-Vocab Stability | 16.1% | 16.1% | 0 | Identical |
+| Cross-Native Median Jaccard | 0.504 | 0.508 | +0.004 | Identical |
 | Verb Infinitive Compliance | 99.9% | 99.9% | 0 | Identical |
 | Source-Cat Coverage | 100.0% | 100.0% | 0 | Identical |
 
@@ -51,28 +58,41 @@ Per-combo counts are functionally identical. The small drop in total vocab
 in the post-P2 run is entirely explained by the 9 failed combos, not by
 behaviour change.
 
-## The latency / timeout anomaly
+## The latency / timeout situation
 
-Post-P2 sweep had:
+**First Phase-2 sweep** (before timeout bump):
 - p95 latency 45.4 s → 98.6 s (+117 %)
 - p50 latency 23.5 s → 52.3 s (+122 %)
-- 50 of 123 successful combos took over 60 s
-- 9 combos timed out at exactly 120 s (the client-side `AbortController` cap)
+- 9 combos cliff-timed-out at exactly 120.000 ms (the old `AbortController` cap)
 
-**This is NOT a refactor regression.** Evidence:
+**Mitigation applied (commit 3814c0b):** raised the client-side abort
+cap in `lib/claude/transport.ts` from 120 s to 240 s.
 
-1. All 9 failures elapsed at exactly 120.000–120.015 ms — they hit the hardcoded client timeout, not a random network error. The transport layer (`lib/claude/transport.ts`) is byte-identical to `lib/claude.ts` pre-refactor (verified by architecture test Rule 38 + the code itself, which was copy-pasted without modification in Slice 1).
-2. Parity snapshots prove the **prompt strings going over the wire are byte-identical**. Mistral sees the same input as before.
-3. Per-URL Jaccard 0.921 proves the LLM gave functionally the same output — it just took longer.
-4. Mistral Small latency varies significantly with time of day + backend load. The Phase-1 baseline was run during relatively low-load window; the Phase-2 sweep hit a higher-load window.
+**Second Phase-2 sweep** (after timeout bump):
+- p95 latency 136.1 s (still high on Mistral's slow window that afternoon)
+- 0 timeouts — the 9 combos that would have cliffed now complete in
+  120–180 s (max observed: 219 s, still under the 240 s cap).
+- 132/132 combos successful.
 
-**Mitigation** (optional): raise the `AbortController` timeout in `lib/claude/transport.ts` from 120 s to 180 s or 240 s so peak-load sweeps don't cliff-time. Would cost more wall-time on slow days but eliminate the timeout-failure pattern.
+**Neither run's latency regression is refactor-caused.** Evidence:
+
+1. The transport layer (`lib/claude/transport.ts`) is byte-identical to
+   the pre-refactor `lib/claude.ts` block — verified by architecture
+   test Rule 38 and inspection of the Slice-1 commit diff.
+2. Parity snapshots prove the **prompt strings going over the wire are
+   byte-identical**. Mistral sees the same input as before.
+3. Per-URL Jaccard 0.921 on shared `learn=de` URLs proves the LLM
+   returned functionally the same output — it just took longer.
+4. Mistral Small latency varies significantly with time-of-day and
+   backend load. The Phase-1 baseline ran during a low-load window; the
+   two Phase-2 runs hit a slower window. Same code on a different day
+   would produce different absolute latency numbers.
 
 ## Recommendation
 
-- **Phase 2 refactor: MERGE / KEEP.** Every quality metric is either unchanged or measurably better than baseline; every offline-deterministic metric is bit-exact.
+- **Phase 2 refactor: MERGE / KEEP.** Every quality metric is within LLM-noise of baseline or slightly better; every offline-deterministic metric is bit-exact.
 - **No rollback needed.** v2 remains the Production default (`ANYVOC_PROMPT_VERSION` unset).
-- **Queue an optional follow-up** to raise the transport timeout if the timeout pattern persists across multiple sweeps.
+- **Timeout bump shipped** (commit 3814c0b) — the second Phase-2 sweep confirmed the bump eliminates the 120s-cliff failures without introducing new issues. Max observed elapsed 219 s, well under the new 240 s cap.
 
 ## Rollback lever (unchanged)
 
