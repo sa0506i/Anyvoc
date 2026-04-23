@@ -40,6 +40,13 @@ interface LangExamples {
   nounBare: string;
   /** Indef counter for def-cat languages ("not 'ein Hund'"). */
   nounIndef?: string;
+  /** Definite form used as translation target when the source category is DEF.
+   *  For articled langs this is identical to nounLemma (e.g. "der Hund") —
+   *  leave undefined; consumers fall back to nounLemma.
+   *  For Scandi langs this is the SUFFIX-DEFINITE form ("hunden" / "bogen" /
+   *  "bilden") which differs from nounLemma (the INDEF-prefix form "en hund").
+   *  For articleless langs (pl/cs) this is unused — they have no articles. */
+  nounDef?: string;
   /** Example of a legit-looking attributive-adjective-plus-noun pair
    *  that must be split into two entries — for NOUN_SHAPE_RULE. */
   attrAdj?: { good: string; bad: string };
@@ -162,6 +169,7 @@ const LANG_EXAMPLES: Record<string, LangExamples> = {
     artCat: 'indef',
     nounLemma: 'en hund',
     nounBare: 'hund',
+    nounDef: 'hunden',
     attrAdj: { good: 'en makt', bad: 'en politisk makt' },
     verbInf: 'att springa',
     verbWrong: 'sprang',
@@ -174,6 +182,7 @@ const LANG_EXAMPLES: Record<string, LangExamples> = {
     artCat: 'indef',
     nounLemma: 'en hund',
     nounBare: 'hund',
+    nounDef: 'hunden',
     attrAdj: { good: 'en makt', bad: 'en politisk makt' },
     verbInf: 'å springe',
     verbWrong: 'sprang',
@@ -186,6 +195,7 @@ const LANG_EXAMPLES: Record<string, LangExamples> = {
     artCat: 'indef',
     nounLemma: 'en hund',
     nounBare: 'hund',
+    nounDef: 'hunden',
     attrAdj: { good: 'en magt', bad: 'en politisk magt' },
     verbInf: 'at løbe',
     verbWrong: 'løb',
@@ -310,6 +320,39 @@ function buildCriticalHeader(learnCode: string): string {
  *  abstract rule, driving INDEF→indef compliance down to 0% for
  *  de/nl/es natives in the post-F11 sweep.
  */
+/** Translation-target lookup per the user-approved matrix (2026-04-23).
+ *
+ *  Given the article category of the source-language occurrence of a noun
+ *  (`'def' | 'indef' | 'bare'`), return the translation target in the
+ *  native language that matches that category's convention.
+ *
+ *  Rule (see `lib/__tests__/matrix-rule.test.ts` for the 12×3 ground truth):
+ *   - Articleless native (pl/cs): always `nounBare` — these languages have
+ *     no articles at all, so the native target is bare regardless of source.
+ *   - DEF source → native's definite form. For articled natives this is
+ *     `nounLemma` (which carries the DEF article in those profiles, e.g.
+ *     "der Hund"); for Scandi natives this is `nounDef` (the suffix-definite
+ *     form "hunden") which differs from their INDEF-prefix `nounLemma`.
+ *   - INDEF or BARE source → native's indefinite form. For articled natives
+ *     this is `nounIndef` ("ein Hund"); for Scandi natives this is
+ *     `nounLemma` (already the INDEF-prefix lemma "en hund"). BARE mirrors
+ *     to INDEF per the user comment attached to the matrix ("Fuer BARE
+ *     (pl,cs), wird immer auf indef uebersetzt").
+ */
+export function matrixTranslationTarget(
+  sourceCat: 'def' | 'indef' | 'bare',
+  nativeCode: string,
+): string {
+  const n = getLangExamples(nativeCode);
+  if (n.artCat === 'bare') return n.nounBare; // articleless native
+  if (sourceCat === 'def') {
+    // Scandi natives use the suffix-definite form; articled natives' lemma IS def.
+    return n.artCat === 'indef' ? n.nounDef! : n.nounLemma;
+  }
+  // INDEF or BARE source → native's indefinite form.
+  return n.artCat === 'indef' ? n.nounLemma : n.nounIndef!;
+}
+
 function pickTranslationTarget(learnCode: string, nativeCode: string): string {
   const learnEx = getLangExamples(learnCode);
   const nativeEx = getLangExamples(nativeCode);
