@@ -851,7 +851,14 @@ describe('Architecture: Rule 21 — claude.ts wires postProcessExtractedVocab', 
   const claudeSrc = readClaudeSource();
 
   it('imports postProcessExtractedVocab from ./vocabFilters', () => {
-    expect(claudeSrc).toMatch(/postProcessExtractedVocab.*from\s+['"]\.\/vocabFilters['"]/s);
+    // Phase 2 Slice 4 (2026-04-23): the import moved to the
+    // orchestrator sub-modules (extract.ts + translateSingleWord.ts)
+    // under lib/claude/, which reach back up with '../vocabFilters'.
+    // The concatenated source in readClaudeSource() contains either
+    // form; accept both.
+    expect(claudeSrc).toMatch(
+      /postProcessExtractedVocab[\s\S]*?from\s+['"](\.\.?\/vocabFilters)['"]/,
+    );
   });
 
   it('extractVocabulary calls postProcessExtractedVocab', () => {
