@@ -28,7 +28,12 @@ const MAX_CHARS_PER_CHUNK = 5000;
 export type PromptVersion = 'v1' | 'v2';
 
 function defaultPromptVersion(): PromptVersion {
-  return process.env.ANYVOC_PROMPT_VERSION === 'v2' ? 'v2' : 'v1';
+  // Slice 7/7 (2026-04-23): flipped from v1 → v2 after the full sweep
+  // confirmed v2 meets every Go/No-Go criterion in the plan file. See
+  // docs/superpowers/specs/2026-04-23-phase1-go-nogo.md for the full
+  // KPI diff. Env override ANYVOC_PROMPT_VERSION=v1 remains available
+  // for emergency rollback without code change.
+  return process.env.ANYVOC_PROMPT_VERSION === 'v1' ? 'v1' : 'v2';
 }
 
 /**

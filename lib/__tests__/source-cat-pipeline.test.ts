@@ -81,7 +81,8 @@ describe('extractVocabulary — source_cat round-trip under v2', () => {
   });
 
   it('v1 mode: source_cat is stripped from output even if LLM sneaks it in', async () => {
-    delete process.env.ANYVOC_PROMPT_VERSION; // default = v1
+    // Post-Slice-7: default is v2, so v1 must be opt-in explicitly.
+    process.env.ANYVOC_PROMPT_VERSION = 'v1';
     const llmResponse = JSON.stringify([
       {
         original: 'der Hund',
@@ -115,7 +116,8 @@ describe('translateSingleWord — source_cat round-trip under v2', () => {
   });
 
   it('strips source_cat in v1 mode even if LLM returns it', async () => {
-    delete process.env.ANYVOC_PROMPT_VERSION;
+    // Post-Slice-7: default is v2, so v1 must be opt-in explicitly.
+    process.env.ANYVOC_PROMPT_VERSION = 'v1';
     const llmResponse = JSON.stringify({
       original: 'der Hund',
       translation: 'the dog',

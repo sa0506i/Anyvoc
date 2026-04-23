@@ -136,11 +136,12 @@ describe('buildVocabSystemPrompt — v1 vs v2 prompt shape', () => {
       expect(p).not.toMatch(/"source_cat"/);
     });
 
-    it('unset ANYVOC_PROMPT_VERSION defaults to v1 during A/B phase', () => {
+    it('unset ANYVOC_PROMPT_VERSION defaults to v2 (post-Slice-7)', () => {
       delete process.env.ANYVOC_PROMPT_VERSION;
       const p = buildVocabSystemPrompt('English', 'German', 'de', 'en');
-      // A/B-phase default: v1 until sweep validates v2 (Slice 7).
-      expect(p).not.toMatch(/"source_cat"/);
+      // Post-Slice-7 (2026-04-23): v2 is the default after sweep validation.
+      // Emergency rollback = set ANYVOC_PROMPT_VERSION=v1 explicitly.
+      expect(p).toMatch(/"source_cat"/);
     });
   });
 });
