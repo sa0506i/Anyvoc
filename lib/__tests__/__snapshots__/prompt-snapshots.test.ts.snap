@@ -543,7 +543,10 @@ PHRASE EXTRACTION:
 Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for French: "de toute façon". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
 
 TRANSLATION RULE (Norwegian target):
-Mirror the source's article category into Norwegian. DEF "le chien" → "hunden". INDEF "un chien" → "en hund". BARE source → "en hund". For abstract / mass / uncountable nouns (freedom, equality, respect, water, information) whose natural dictionary form in Norwegian goes bare, emit bare — do NOT force an indefinite article where it would read as stilted (e.g. do not force "un'uguaglianza" when "uguaglianza" is conventional).
+Mirror the source's article category into Norwegian. DEF "le chien" → "hunden". INDEF "un chien" → "en hund". BARE source → "en hund".
+
+TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
+  If the Norwegian dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in Norwegian. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
 
 "type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
 
@@ -625,7 +628,10 @@ PHRASE EXTRACTION:
 Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for German: "im Grunde genommen". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
 
 TRANSLATION RULE (Swedish target):
-Mirror the source's article category into Swedish. DEF "der Hund" → "hunden". INDEF "ein Hund" → "en hund". BARE source → "en hund". For abstract / mass / uncountable nouns (freedom, equality, respect, water, information) whose natural dictionary form in Swedish goes bare, emit bare — do NOT force an indefinite article where it would read as stilted (e.g. do not force "un'uguaglianza" when "uguaglianza" is conventional).
+Mirror the source's article category into Swedish. DEF "der Hund" → "hunden". INDEF "ein Hund" → "en hund". BARE source → "en hund".
+
+TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
+  If the Swedish dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in Swedish. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
 
 "type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
 
@@ -668,7 +674,10 @@ PHRASE EXTRACTION:
 Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for Polish: "na przykład". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
 
 TRANSLATION RULE (German target):
-Polish has no articles (source is always bare). Translate to the German INDEFINITE form by default. Example: "pies" → "ein Hund". For abstract / mass / uncountable nouns (freedom, equality, respect, water, information) whose natural dictionary form in German goes bare, emit bare — do NOT force an indefinite article where it would read as stilted (e.g. do not force "un'uguaglianza" when "uguaglianza" is conventional).
+Polish has no articles (source is always bare). Translate to the German INDEFINITE form by default. Example: "pies" → "ein Hund".
+
+TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
+  If the German dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in German. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
 
 "type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
 
@@ -711,7 +720,10 @@ PHRASE EXTRACTION:
 Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for Polish: "na przykład". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
 
 TRANSLATION RULE (Swedish target):
-Polish has no articles (source is always bare). Translate to the Swedish INDEFINITE form by default. Example: "pies" → "en hund". For abstract / mass / uncountable nouns (freedom, equality, respect, water, information) whose natural dictionary form in Swedish goes bare, emit bare — do NOT force an indefinite article where it would read as stilted (e.g. do not force "un'uguaglianza" when "uguaglianza" is conventional).
+Polish has no articles (source is always bare). Translate to the Swedish INDEFINITE form by default. Example: "pies" → "en hund".
+
+TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
+  If the Swedish dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in Swedish. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
 
 "type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
 
@@ -746,7 +758,7 @@ Scandi languages mark definiteness as a SUFFIX (sv/no/da). Extract each noun in 
   (a) SUFFIX-DEFINITE in text (e.g. "hunden", "bogen", "folket") → emit as-is, source_cat="def".
   (b) INDEF-PREFIX in text (e.g. "en hund", "ett språk", "ei bok", "et år") → emit with prefix, source_cat="indef".
   (c) BARE in text (recipes, legal, after adjectives) → prepend indefinite by gender: "en" (common sg/pl), "ett" (sv neuter), "et" (no/da neuter), "ei" (no feminine). source_cat="bare".
-Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix.
+Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix. ABSTRACT Scandi nouns (respekt, språk, ansvar, frihet, likestilling, demokrati, kompetanse) ARE STILL subject to this rule — there is NO exception for abstract meanings in the ORIGINAL field. A Slice-7b.4 sweep regression: the mass-noun exception only applies to the TRANSLATION target, never to the source-side lemma.
 
 VERB EXTRACTION (Danish):
 Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. Danish: "at løbe" (never "løb", never any tense / person / mood surface form). For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
@@ -793,7 +805,7 @@ Scandi languages mark definiteness as a SUFFIX (sv/no/da). Extract each noun in 
   (a) SUFFIX-DEFINITE in text (e.g. "hunden", "bogen", "folket") → emit as-is, source_cat="def".
   (b) INDEF-PREFIX in text (e.g. "en hund", "ett språk", "ei bok", "et år") → emit with prefix, source_cat="indef".
   (c) BARE in text (recipes, legal, after adjectives) → prepend indefinite by gender: "en" (common sg/pl), "ett" (sv neuter), "et" (no/da neuter), "ei" (no feminine). source_cat="bare".
-Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix.
+Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix. ABSTRACT Scandi nouns (respekt, språk, ansvar, frihet, likestilling, demokrati, kompetanse) ARE STILL subject to this rule — there is NO exception for abstract meanings in the ORIGINAL field. A Slice-7b.4 sweep regression: the mass-noun exception only applies to the TRANSLATION target, never to the source-side lemma.
 
 VERB EXTRACTION (Swedish):
 Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. Swedish: "att springa" (never "sprang", never any tense / person / mood surface form). For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
@@ -805,7 +817,10 @@ PHRASE EXTRACTION:
 Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for Swedish: "hur som helst". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
 
 TRANSLATION RULE (German target):
-Scandi INDEF source ("en"/"ett"/"ei"/"et" prefix, e.g. "en hund") MUST map to the German INDEFINITE category — NEVER the definite. DEF source ("hunden") maps to German definite. Examples: DEF "hunden" → "der Hund"; INDEF "en hund" → "ein Hund" (NOT "der Hund"). BARE source → "ein Hund". For abstract / mass / uncountable nouns (freedom, equality, respect, water, information) whose natural dictionary form in German goes bare, emit bare — do NOT force an indefinite article where it would read as stilted (e.g. do not force "un'uguaglianza" when "uguaglianza" is conventional).
+Scandi INDEF source ("en"/"ett"/"ei"/"et" prefix, e.g. "en hund") MUST map to the German INDEFINITE category — NEVER the definite. DEF source ("hunden") maps to German definite. Examples: DEF "hunden" → "der Hund"; INDEF "en hund" → "ein Hund" (NOT "der Hund"). BARE source → "ein Hund".
+
+TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
+  If the German dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in German. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
 
 "type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
 
@@ -840,7 +855,7 @@ Scandi languages mark definiteness as a SUFFIX (sv/no/da). Extract each noun in 
   (a) SUFFIX-DEFINITE in text (e.g. "hunden", "bogen", "folket") → emit as-is, source_cat="def".
   (b) INDEF-PREFIX in text (e.g. "en hund", "ett språk", "ei bok", "et år") → emit with prefix, source_cat="indef".
   (c) BARE in text (recipes, legal, after adjectives) → prepend indefinite by gender: "en" (common sg/pl), "ett" (sv neuter), "et" (no/da neuter), "ei" (no feminine). source_cat="bare".
-Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix.
+Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix. ABSTRACT Scandi nouns (respekt, språk, ansvar, frihet, likestilling, demokrati, kompetanse) ARE STILL subject to this rule — there is NO exception for abstract meanings in the ORIGINAL field. A Slice-7b.4 sweep regression: the mass-noun exception only applies to the TRANSLATION target, never to the source-side lemma.
 
 VERB EXTRACTION (Swedish):
 Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. Swedish: "att springa" (never "sprang", never any tense / person / mood surface form). For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.

@@ -21,14 +21,22 @@ import { buildCriticalHeaderV2, buildJsonExampleV2 } from './v2';
 
 // ─── v3 canonical rule constants ──────────────────────────────────────
 
-/** v3 Scandi noun rule — same source-preserving logic as v2 but the
- *  prose is tightened: bare-source default to INDEF-prefix is mentioned
- *  once, not repeated. Neutrum/feminine gender rule kept. */
+/** v3 Scandi noun rule — source-preserving with anti-regression clause.
+ *
+ *  Slice 7c (2026-04-23): the v3 sweep exposed that v3's translation-side
+ *  mass-noun allowance ("abstract nouns may be bare in the target")
+ *  leaked into source extraction — 41% of Scandi nouns came out bare
+ *  instead of with the required en/ett/ei/et prefix, a 28 pp regression
+ *  vs v2. The fix is a tightly-scoped anti-regression sentence on the
+ *  ORIGINAL-field side of the rule: abstract meanings do NOT exempt
+ *  Scandi nouns from the prefix requirement. Mass-noun allowance is
+ *  strictly a translation-target concern, handled in
+ *  buildTranslationRuleV3 via a separate TARGET-SIDE EXCEPTION block. */
 export const SCANDINAVIAN_NOUN_RULE_V3 = `Scandi languages mark definiteness as a SUFFIX (sv/no/da). Extract each noun in the form matching its FIRST occurrence in the source:
   (a) SUFFIX-DEFINITE in text (e.g. "hunden", "bogen", "folket") → emit as-is, source_cat="def".
   (b) INDEF-PREFIX in text (e.g. "en hund", "ett språk", "ei bok", "et år") → emit with prefix, source_cat="indef".
   (c) BARE in text (recipes, legal, after adjectives) → prepend indefinite by gender: "en" (common sg/pl), "ett" (sv neuter), "et" (no/da neuter), "ei" (no feminine). source_cat="bare".
-Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix.`;
+Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix. ABSTRACT Scandi nouns (respekt, språk, ansvar, frihet, likestilling, demokrati, kompetanse) ARE STILL subject to this rule — there is NO exception for abstract meanings in the ORIGINAL field. A Slice-7b.4 sweep regression: the mass-noun exception only applies to the TRANSLATION target, never to the source-side lemma.`;
 
 /** v3 English noun rule — same source-preserving logic as v2, compact. */
 export const ENGLISH_NOUN_RULE_V3 = `English (en) nouns: preserve article category of the FIRST occurrence. DEF "the dog" (source_cat="def"), INDEF "a dog"/"an apple" (source_cat="indef"), bare source → default to "a"/"an" (source_cat="bare"). Never emit a bare English noun in the "original" field.`;
@@ -93,39 +101,47 @@ export function buildCriticalHeaderV3(learnCode: string): string {
   return buildCriticalHeaderV2(learnCode);
 }
 
-/** v3 translation rule — two fixes vs v2:
- *  (1) Scandi-INDEF source → articled-native INDEF (strict anti-drift
- *      against v2's observed "en makt → die Macht" dictionary-lemma
- *      leakage). The example explicitly names the wrong target.
- *  (2) Bare-source → articled-/Scandi-native INDEF BY DEFAULT, but
- *      abstract/mass nouns are permitted to stay bare in the target if
- *      that is the natural dictionary form. CAVEAT (Slice 7b.4 sweep):
- *      the mass-noun allowance leaks into source extraction behaviour
- *      for Scandi, which is why v3 is not yet the default. Slice 7c
- *      tightens the scope. */
+/** v3 translation rule — Slice 7c tightened version.
+ *
+ *  The mass-noun allowance that leaked into source extraction under the
+ *  Slice-7b.3 v3 sweep is now isolated into an explicit TARGET-SIDE
+ *  EXCEPTION block rendered SEPARATELY from the main mirror rule. The
+ *  wording is unambiguous: "translation-target only", "does not affect
+ *  the original field". This pairs with the anti-regression sentence
+ *  appended to SCANDINAVIAN_NOUN_RULE_V3 (both sides of the prompt
+ *  reinforce each other). The other two v3 wins (strict Scandi-INDEF
+ *  mirror + type-balance from the template structure) are unchanged. */
 export function buildTranslationRuleV3(learnCode: string, nativeCode: string): string {
   const learnEx = getLangExamples(learnCode);
   const nativeEx = getLangExamples(nativeCode);
 
   if (nativeEx.artCat === 'bare') {
+    // Articleless native (pl/cs) — bare translation, no exception needed.
     return `${nativeEx.name} has no articles. Translation is always bare regardless of source article category. Example: any ${learnEx.name} source → "${nativeEx.nounBare}".`;
   }
 
   const defTarget = matrixTranslationTarget('def', nativeCode);
   const indefTarget = matrixTranslationTarget('indef', nativeCode);
-  const massNounNote = ` For abstract / mass / uncountable nouns (freedom, equality, respect, water, information) whose natural dictionary form in ${nativeEx.name} goes bare, emit bare — do NOT force an indefinite article where it would read as stilted (e.g. do not force "un'uguaglianza" when "uguaglianza" is conventional).`;
+
+  // Slice 7c: mass-noun exception as a self-contained block that is
+  // explicitly scoped to the TRANSLATION field. The phrasing names the
+  // leak vector we observed in the Slice-7b.4 sweep.
+  const massNounExceptionBlock = `
+
+TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
+  If the ${nativeEx.name} dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in ${nativeEx.name}. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).`;
 
   if (learnEx.artCat === 'bare') {
-    return `${learnEx.name} has no articles (source is always bare). Translate to the ${nativeEx.name} INDEFINITE form by default. Example: "${learnEx.nounLemma}" → "${indefTarget}".${massNounNote}`;
+    return `${learnEx.name} has no articles (source is always bare). Translate to the ${nativeEx.name} INDEFINITE form by default. Example: "${learnEx.nounLemma}" → "${indefTarget}".${massNounExceptionBlock}`;
   }
 
   if (learnEx.artCat === 'indef') {
-    return `Scandi INDEF source ("en"/"ett"/"ei"/"et" prefix, e.g. "${learnEx.nounLemma}") MUST map to the ${nativeEx.name} INDEFINITE category — NEVER the definite. DEF source ("${learnEx.nounDef}") maps to ${nativeEx.name} definite. Examples: DEF "${learnEx.nounDef}" → "${defTarget}"; INDEF "${learnEx.nounLemma}" → "${indefTarget}" (NOT "${defTarget}"). BARE source → "${indefTarget}".${massNounNote}`;
+    return `Scandi INDEF source ("en"/"ett"/"ei"/"et" prefix, e.g. "${learnEx.nounLemma}") MUST map to the ${nativeEx.name} INDEFINITE category — NEVER the definite. DEF source ("${learnEx.nounDef}") maps to ${nativeEx.name} definite. Examples: DEF "${learnEx.nounDef}" → "${defTarget}"; INDEF "${learnEx.nounLemma}" → "${indefTarget}" (NOT "${defTarget}"). BARE source → "${indefTarget}".${massNounExceptionBlock}`;
   }
 
   const learnDef = learnEx.nounLemma;
   const learnIndef = learnEx.nounIndef!;
-  return `Mirror the source's article category into ${nativeEx.name}. DEF "${learnDef}" → "${defTarget}". INDEF "${learnIndef}" → "${indefTarget}". BARE source → "${indefTarget}".${massNounNote}`;
+  return `Mirror the source's article category into ${nativeEx.name}. DEF "${learnDef}" → "${defTarget}". INDEF "${learnIndef}" → "${indefTarget}". BARE source → "${indefTarget}".${massNounExceptionBlock}`;
 }
 
 /** v3 JSON example — identical shape to v2; delegates. */
