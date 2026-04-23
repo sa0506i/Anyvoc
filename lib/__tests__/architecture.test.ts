@@ -2367,13 +2367,17 @@ describe('Architecture: Rule 47 — Matrix-Regel v2 prompt-builder siblings exis
   });
 
   it('Scandi profiles carry a nounDef field for the suffix-definite form', () => {
-    // Used by matrixTranslationTarget when sourceCat==='def' and native is scandi.
-    // sv/no/da must have nounDef present; articled langs need none (nounLemma is DEF).
+    // Phase 2 Slice 2 (2026-04-23): per-language profiles moved to
+    // lib/claude/langs/{code}.ts. Each Scandi profile file must include
+    // artCat: 'indef' + nounDef: '…' for matrixTranslationTarget to
+    // pick the suffix-definite form when source_cat === 'def'.
     for (const code of ['sv', 'no', 'da']) {
-      const profileRe = new RegExp(
-        `${code}:\\s*\\{[\\s\\S]*?artCat:\\s*'indef'[\\s\\S]*?nounDef:\\s*'[^']+'[\\s\\S]*?\\}`,
+      const profileSrc = fs.readFileSync(
+        path.join(ROOT, 'lib', 'claude', 'langs', `${code}.ts`),
+        'utf8',
       );
-      expect(profileRe.test(src)).toBe(true);
+      expect(/artCat:\s*'indef'/.test(profileSrc)).toBe(true);
+      expect(/nounDef:\s*'[^']+'/.test(profileSrc)).toBe(true);
     }
   });
 });

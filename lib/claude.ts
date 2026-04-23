@@ -12,7 +12,9 @@ import type {
   TranslateSingleWordResult,
   ClaudeMessage,
   PromptVersion,
+  LangExamples,
 } from './claude/types';
+import { LANG_EXAMPLES, getLangExamples } from './claude/langs';
 
 export { callClaude, ClaudeAPIError } from './claude/transport';
 export { chunkText } from './claude/chunk';
@@ -22,6 +24,7 @@ export type {
   TranslateSingleWordResult,
   PromptVersion,
   ArticleCategory,
+  LangExamples,
 } from './claude/types';
 
 function defaultPromptVersion(): PromptVersion {
@@ -42,223 +45,10 @@ function defaultPromptVersion(): PromptVersion {
   return 'v2';
 }
 
-/**
- * Per-language example bank used by the prompt builders. Each entry
- * holds the concrete lemma / counter-example shapes the LLM needs in
- * order to follow the extraction rules for THAT language only.
- *
- * Rule 46 (F11, 2026-04-22): the prompt must only carry examples in
- * the learning language of the current extraction and, for the
- * translation-side rule, in the native language. The earlier shared
- * constants (NOUN_VERB_FORMATTING_RULES, TRANSLATION_MIRROR_RULE,
- * NOUN_SHAPE_RULE, ROMANCE_ADJ_RULE, SINGLE_FORM_ADJ_RULE, the CRITICAL
- * header) mixed examples from 4-7 languages in every single prompt,
- * which diluted the signal for small models (47% Portuguese-native
- * translations leaking into English in the 2026-04-22 sweep). This
- * dict + the builder functions below replace every cross-language
- * example with a learn-lang-only one.
- */
-interface LangExamples {
-  /** English name for template interpolation ("German", "Portuguese"). */
-  name: string;
-  /** Article category of the canonical "original" field per Rule 34/41. */
-  artCat: 'def' | 'indef' | 'bare';
-  /** Canonical lemma shape: "der Hund" (de), "en bild" (sv), "pies" (pl). */
-  nounLemma: string;
-  /** Bare form for the CRITICAL header counter ("not 'Hund'"). */
-  nounBare: string;
-  /** Indef counter for def-cat languages ("not 'ein Hund'"). */
-  nounIndef?: string;
-  /** Definite form used as translation target when the source category is DEF.
-   *  For articled langs this is identical to nounLemma (e.g. "der Hund") —
-   *  leave undefined; consumers fall back to nounLemma.
-   *  For Scandi langs this is the SUFFIX-DEFINITE form ("hunden" / "bogen" /
-   *  "bilden") which differs from nounLemma (the INDEF-prefix form "en hund").
-   *  For articleless langs (pl/cs) this is unused — they have no articles. */
-  nounDef?: string;
-  /** Example of a legit-looking attributive-adjective-plus-noun pair
-   *  that must be split into two entries — for NOUN_SHAPE_RULE. */
-  attrAdj?: { good: string; bad: string };
-  /** Verb infinitive + a common wrong form (past participle / conjugated). */
-  verbInf: string;
-  verbWrong: string;
-  /** Reflexive verb example if the language has a dedicated marker. */
-  verbReflexive?: string;
-  /** Single-form adjective example for non-Romance langs. */
-  adjSingle: string;
-  /** Inflected counter-form for non-Romance ("dünne" vs "dünn"). */
-  adjInflected?: string;
-  /** Legitimate m/f pair for Romance ("beau, belle"). */
-  adjMFPair?: string;
-  /** Two-line phrase example for the JSON block. */
-  phraseExample: string;
-  /** Translation of phraseExample — fallback if nativeLang phrase missing. */
-  phraseTranslation?: string;
-}
-
-const LANG_EXAMPLES: Record<string, LangExamples> = {
-  en: {
-    name: 'English',
-    artCat: 'def',
-    nounLemma: 'the dog',
-    nounBare: 'dog',
-    nounIndef: 'a dog',
-    attrAdj: { good: 'the power', bad: 'the political power' },
-    verbInf: 'to run',
-    verbWrong: 'ran',
-    adjSingle: 'small',
-    phraseExample: 'by the way',
-  },
-  de: {
-    name: 'German',
-    artCat: 'def',
-    nounLemma: 'der Hund',
-    nounBare: 'Hund',
-    nounIndef: 'ein Hund',
-    attrAdj: { good: 'die Gewalt', bad: 'die öffentliche Gewalt' },
-    verbInf: 'laufen',
-    verbWrong: 'lief',
-    verbReflexive: 'sich erinnern',
-    adjSingle: 'klein',
-    adjInflected: 'kleine',
-    phraseExample: 'im Grunde genommen',
-  },
-  fr: {
-    name: 'French',
-    artCat: 'def',
-    nounLemma: 'le chien',
-    nounBare: 'chien',
-    nounIndef: 'un chien',
-    attrAdj: { good: 'la cité', bad: 'la cité médiévale' },
-    verbInf: 'courir',
-    verbWrong: 'couru',
-    verbReflexive: 'se souvenir',
-    adjSingle: 'petit',
-    adjMFPair: 'petit, petite',
-    phraseExample: 'de toute façon',
-  },
-  es: {
-    name: 'Spanish',
-    artCat: 'def',
-    nounLemma: 'el perro',
-    nounBare: 'perro',
-    nounIndef: 'un perro',
-    attrAdj: { good: 'la lengua', bad: 'la lengua materna' },
-    verbInf: 'correr',
-    verbWrong: 'corrió',
-    verbReflexive: 'acordarse',
-    adjSingle: 'bonito',
-    adjMFPair: 'bonito, bonita',
-    phraseExample: 'de repente',
-  },
-  it: {
-    name: 'Italian',
-    artCat: 'def',
-    nounLemma: 'il cane',
-    nounBare: 'cane',
-    nounIndef: 'un cane',
-    attrAdj: { good: 'la città', bad: 'la città medievale' },
-    verbInf: 'correre',
-    verbWrong: 'corso',
-    verbReflexive: 'ricordarsi',
-    adjSingle: 'bello',
-    adjMFPair: 'bello, bella',
-    phraseExample: 'di solito',
-  },
-  pt: {
-    name: 'Portuguese',
-    artCat: 'def',
-    nounLemma: 'o cão',
-    nounBare: 'cão',
-    nounIndef: 'um cão',
-    attrAdj: { good: 'a cidade', bad: 'a cidade medieval' },
-    verbInf: 'correr',
-    verbWrong: 'correu',
-    verbReflexive: 'acordar-se',
-    adjSingle: 'bonito',
-    adjMFPair: 'bonito, bonita',
-    phraseExample: 'de repente',
-  },
-  nl: {
-    name: 'Dutch',
-    artCat: 'def',
-    nounLemma: 'de hond',
-    nounBare: 'hond',
-    nounIndef: 'een hond',
-    attrAdj: { good: 'de macht', bad: 'de politieke macht' },
-    verbInf: 'lopen',
-    verbWrong: 'liep',
-    verbReflexive: 'zich herinneren',
-    adjSingle: 'mooi',
-    adjInflected: 'mooie',
-    phraseExample: 'aan de slag',
-  },
-  sv: {
-    name: 'Swedish',
-    artCat: 'indef',
-    nounLemma: 'en hund',
-    nounBare: 'hund',
-    nounDef: 'hunden',
-    attrAdj: { good: 'en makt', bad: 'en politisk makt' },
-    verbInf: 'att springa',
-    verbWrong: 'sprang',
-    adjSingle: 'stor',
-    adjInflected: 'stora',
-    phraseExample: 'hur som helst',
-  },
-  no: {
-    name: 'Norwegian',
-    artCat: 'indef',
-    nounLemma: 'en hund',
-    nounBare: 'hund',
-    nounDef: 'hunden',
-    attrAdj: { good: 'en makt', bad: 'en politisk makt' },
-    verbInf: 'å springe',
-    verbWrong: 'sprang',
-    adjSingle: 'stor',
-    adjInflected: 'store',
-    phraseExample: 'for eksempel',
-  },
-  da: {
-    name: 'Danish',
-    artCat: 'indef',
-    nounLemma: 'en hund',
-    nounBare: 'hund',
-    nounDef: 'hunden',
-    attrAdj: { good: 'en magt', bad: 'en politisk magt' },
-    verbInf: 'at løbe',
-    verbWrong: 'løb',
-    adjSingle: 'stor',
-    adjInflected: 'store',
-    phraseExample: 'for eksempel',
-  },
-  pl: {
-    name: 'Polish',
-    artCat: 'bare',
-    nounLemma: 'pies',
-    nounBare: 'pies',
-    attrAdj: { good: 'państwo', bad: 'potężne państwo' },
-    verbInf: 'biegać',
-    verbWrong: 'biegł',
-    adjSingle: 'wysoki',
-    phraseExample: 'na przykład',
-  },
-  cs: {
-    name: 'Czech',
-    artCat: 'bare',
-    nounLemma: 'pes',
-    nounBare: 'pes',
-    attrAdj: { good: 'stát', bad: 'mocný stát' },
-    verbInf: 'běžet',
-    verbWrong: 'běžel',
-    adjSingle: 'vysoký',
-    phraseExample: 'na příklad',
-  },
-};
-
-function getLangExamples(code: string): LangExamples {
-  return LANG_EXAMPLES[code] ?? LANG_EXAMPLES.en!;
-}
+// LangExamples interface + LANG_EXAMPLES dict + getLangExamples all moved
+// to lib/claude/types.ts and lib/claude/langs/{code}.ts in Phase 2 Slice 2.
+// The 12 per-language profiles are aggregated by lib/claude/langs/index.ts
+// and imported at the top of this file.
 
 /** Builds the "- Nouns: …" + "- Verbs: …" pair using only learn-lang
  *  examples (F11 / Rule 46). For indef-category languages (sv/no/da)
