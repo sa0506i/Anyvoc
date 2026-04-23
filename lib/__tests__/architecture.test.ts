@@ -1158,13 +1158,12 @@ describe('Architecture: Rule 26 — default learning language differs from nativ
 // shared VOCAB_FORMATTING_RULES constant must both appear in the
 // translateSingleWord system prompt.
 describe('Architecture: Rule 27 — translateSingleWord prompt has CRITICAL FORMATTING RULE', () => {
-  it('translateSingleWord systemPrompt is built from per-language builders', () => {
-    // Phase 2 Slice 3 (2026-04-23): the per-language builder calls for
-    // translateSingleWord moved into lib/claude/prompt/v1.ts's
-    // buildSingleWordPromptV1 (and v2.ts's V2 equivalent). This sensor
-    // inspects the v1 template.
-    const v1Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v1.ts'), 'utf8');
-    const match = v1Src.match(/export function buildSingleWordPromptV1\b[\s\S]*?^\}/m);
+  it('buildTranslateSingleWordPrompt is built from per-language builders', () => {
+    // 2026-04-23: after the v1/v3 cleanup the single canonical
+    // template lives in lib/claude/prompt/index.ts as
+    // buildTranslateSingleWordPrompt.
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'index.ts'), 'utf8');
+    const match = src.match(/export function buildTranslateSingleWordPrompt\b[\s\S]*?^\}/m);
     expect(match).not.toBeNull();
     const body = match![0];
     expect(body).toMatch(/buildCriticalHeader\(fromLanguageCode\)/);
@@ -1714,40 +1713,35 @@ describe('Architecture: Rule 40 — extractVocabulary prompt shows every non-oth
   // Pin the prompt to show each non-"other" type so the model has
   // canonical anchors for all of them.
   it('extraction prompt includes noun/verb/adjective/phrase examples AND the type enum', () => {
-    // Phase 2 Slice 3 (2026-04-23): buildJsonExample now lives in
-    // lib/claude/prompt/v1.ts (as buildJsonExample) and v2.ts (as
-    // buildJsonExampleV2). Both must cover the full type enum.
-    const v1Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v1.ts'), 'utf8');
-    const v2Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v2.ts'), 'utf8');
+    // 2026-04-23 cleanup: buildJsonExample now lives in
+    // lib/claude/prompt/builders.ts (single canonical version; V2/V3
+    // variants removed). The JSON example body must cover the full
+    // type enum so temp=0 small models don't cargo-cult "noun".
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'builders.ts'), 'utf8');
+    const jsonFn = src.match(/function\s+buildJsonExample\b[\s\S]*?^\}/m);
+    expect(jsonFn).not.toBeNull();
+    const body = jsonFn![0];
 
     const REQUIRED_TYPE_LABELS = ['noun', 'verb', 'adjective', 'phrase'];
-
-    // Each version-specific file must carry a buildJsonExample(V1|V2)
-    // function whose body includes all four type labels.
-    for (const { label, src, fnName } of [
-      { label: 'v1', src: v1Src, fnName: 'buildJsonExample' },
-      { label: 'v2', src: v2Src, fnName: 'buildJsonExampleV2' },
-    ]) {
-      const jsonFn = src.match(new RegExp(`function\\s+${fnName}[\\s\\S]*?^\\}`, 'm'));
-      expect(jsonFn).not.toBeNull();
-      const body = jsonFn![0];
-      const missing = REQUIRED_TYPE_LABELS.filter((t) => !body.includes(`"type": "${t}"`));
-      if (missing.length > 0) {
-        throw new Error(
-          `EXTRACTION PROMPT BIAS in ${fnName} (${label}):\n` +
-            `must include one "type": "${REQUIRED_TYPE_LABELS.join('" / "type": "')}" example.\n` +
-            `Missing: ${missing.map((t) => `"type": "${t}"`).join(', ')}.\n` +
-            `Temperature-0 small models cargo-cult single-example prompts —\n` +
-            `without all four anchors, every entry comes back as "noun".`,
-        );
-      }
-      expect(missing).toEqual([]);
-      expect(body).toMatch(/"noun"[\s\S]*"verb"[\s\S]*"adjective"[\s\S]*"phrase"/);
+    const missing = REQUIRED_TYPE_LABELS.filter((t) => !body.includes(`"type": "${t}"`));
+    if (missing.length > 0) {
+      throw new Error(
+        `EXTRACTION PROMPT BIAS in buildJsonExample:\n` +
+          `must include one "type": "${REQUIRED_TYPE_LABELS.join('" / "type": "')}" example.\n` +
+          `Missing: ${missing.map((t) => `"type": "${t}"`).join(', ')}.\n` +
+          `Temperature-0 small models cargo-cult single-example prompts —\n` +
+          `without all four anchors, every entry comes back as "noun".`,
+      );
     }
+    expect(missing).toEqual([]);
+    expect(body).toMatch(/"noun"[\s\S]*"verb"[\s\S]*"adjective"[\s\S]*"phrase"/);
 
-    // Each top-level version builder must reference buildJsonExample.
-    expect(v1Src).toMatch(/buildJsonExample\(/);
-    expect(v2Src).toMatch(/buildJsonExampleV2\(/);
+    // The top-level bulk-extraction prompt (index.ts) must reference it.
+    const indexSrc = fs.readFileSync(
+      path.join(ROOT, 'lib', 'claude', 'prompt', 'index.ts'),
+      'utf8',
+    );
+    expect(indexSrc).toMatch(/buildJsonExample\(/);
   });
 });
 
@@ -2178,18 +2172,25 @@ describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
     expect(/no articles|bare|NEVER prepend/i.test(body)).toBe(true);
   });
 
-  it('ENGLISH_NOUN_RULE constant exists and requires "the" + singular', () => {
+  it('ENGLISH_NOUN_RULE constant exists and covers DEF / INDEF / bare categories', () => {
+    // 2026-04-23: the rule became source-preserving under the Matrix-
+    // Regel (no more "always the"). The English sensor now asserts the
+    // three source_cat branches are named and "never emit bare" is
+    // still enforced (a bare English noun in the original field is
+    // always wrong — must carry "the" or "a"/"an").
     const match = src.match(/const ENGLISH_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
     expect(match).not.toBeNull();
     const body = match![0];
     expect(/\benglish\b/i.test(body)).toBe(true);
-    // Must require "the" as the article (matches the Germanic/Romance
-    // pattern so vocab cards look consistent across languages).
-    expect(/prepend.*"the"|ALWAYS.*"the"/i.test(body)).toBe(true);
-    // Must forbid indef articles a / an on the lemma
-    expect(/never.*\b"?a"?\b|never.*\b"?an"?\b/i.test(body)).toBe(true);
-    // Concrete example present
-    expect(/the house|the book|the child/i.test(body)).toBe(true);
+    // Must mention the three source_cat branches.
+    expect(/DEF\b/.test(body)).toBe(true);
+    expect(/INDEF\b/.test(body)).toBe(true);
+    expect(/BARE\b/.test(body)).toBe(true);
+    // Concrete examples for DEF and INDEF present.
+    expect(/the dog/i.test(body)).toBe(true);
+    expect(/\ba dog\b/i.test(body)).toBe(true);
+    // Must forbid bare English nouns in the "original" field.
+    expect(/never emit a bare english noun|never.*bare.*original/i.test(body)).toBe(true);
   });
 
   it('CRITICAL_NOUN_RULE_BY_LANG maps pl, cs, en to the new rules', () => {
@@ -2238,10 +2239,10 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
   });
 
   it('buildVocabSystemPromptV1 references buildTranslationRule', () => {
-    // Phase 2 Slice 3 (2026-04-23): v1 template moved to
-    // lib/claude/prompt/v1.ts's buildVocabSystemPromptV1.
-    const v1Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v1.ts'), 'utf8');
-    const fnMatch = v1Src.match(/function buildVocabSystemPromptV1\b[\s\S]*?^\}/m);
+    // 2026-04-23 cleanup: the canonical bulk-extraction template lives
+    // in lib/claude/prompt/index.ts as buildVocabSystemPrompt.
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'index.ts'), 'utf8');
+    const fnMatch = src.match(/export function buildVocabSystemPrompt\b[\s\S]*?^\}/m);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
     expect(/buildTranslationRule\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(
@@ -2249,11 +2250,11 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
     );
   });
 
-  it('buildSingleWordPromptV1 references buildTranslationRule', () => {
-    // Phase 2 Slice 3: translateSingleWord's v1 template is now
-    // lib/claude/prompt/v1.ts's buildSingleWordPromptV1.
-    const v1Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v1.ts'), 'utf8');
-    const fnMatch = v1Src.match(/function buildSingleWordPromptV1\b[\s\S]*?^\}/m);
+  it('buildTranslateSingleWordPrompt references buildTranslationRule', () => {
+    // 2026-04-23 cleanup: the canonical single-word template lives
+    // in lib/claude/prompt/index.ts as buildTranslateSingleWordPrompt.
+    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'index.ts'), 'utf8');
+    const fnMatch = src.match(/export function buildTranslateSingleWordPrompt\b[\s\S]*?^\}/m);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
     expect(/buildTranslationRule\(fromLanguageCode,\s*nativeCode\)/.test(body)).toBe(true);
@@ -2267,20 +2268,15 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
   });
 });
 
-// ─── Rule 47: Matrix-Regel v2 prompt-builder siblings + toggle ───────
+// ─── Rule 47: Matrix-Regel canonical prompt shape ────────────────────
 //
-// Slice 2/3-of-7 (2026-04-23) introduces the user-approved Matrix-Regel
-// (source-preserving extraction + matrix-based translation targets) as
-// a v2 variant alongside the existing v1 builders. A PROMPT_VERSION
-// env toggle (`ANYVOC_PROMPT_VERSION=v2`) switches Production code
-// paths; v1 remains the default until the Slice-7 A/B sweep validates
-// v2 and flips the default. These sensors lock the v2 structure so
-// deletion or accidental rename surfaces in review.
-//
-// The v1 assertions live in Rules 34/41/42 above and stay green
-// regardless of the toggle — they protect the baseline until Phase 1
-// completes and v1 can be cleaned up.
-describe('Architecture: Rule 47 — Matrix-Regel v2 prompt-builder siblings exist', () => {
+// The Matrix-Regel (source-preserving extraction + matrix-based
+// translation targets per the 2026-04-23 user-approved 12×12 matrix)
+// is the single production prompt. The v1 pre-Matrix-Regel baseline
+// and the v3 re-balanced-type-emphasis variant were A/B-tested during
+// the 2026-04-23 rollout and removed from source once v2 proved
+// itself — this sensor set locks the final shape.
+describe('Architecture: Rule 47 — Matrix-Regel canonical prompt shape', () => {
   const src = readClaudeSource();
 
   it('exports matrixTranslationTarget(sourceCat, nativeCode) → string', () => {
@@ -2288,131 +2284,114 @@ describe('Architecture: Rule 47 — Matrix-Regel v2 prompt-builder siblings exis
     const fnMatch = src.match(/export function matrixTranslationTarget\b[\s\S]*?\n\}/);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
-    // Signature must accept the 3-valued sourceCat (inline union OR
-    // ArticleCategory alias — Slice 3 refactor introduced the alias)
-    // and a nativeCode string.
+    // Signature must accept the 3-valued sourceCat (inline union or
+    // the ArticleCategory alias) and a nativeCode string.
     const hasInlineEnum = /sourceCat:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body);
     const hasAliasForm = /sourceCat:\s*ArticleCategory/.test(body);
     expect(hasInlineEnum || hasAliasForm).toBe(true);
     expect(/nativeCode:\s*string/.test(body)).toBe(true);
   });
 
-  it('SCANDINAVIAN_NOUN_RULE_V2 exists and covers all three source categories', () => {
-    const m = src.match(/const SCANDINAVIAN_NOUN_RULE_V2\s*=\s*`[\s\S]*?`;/);
+  it('SCANDINAVIAN_NOUN_RULE covers all three source categories (source-preserving)', () => {
+    const m = src.match(/export const SCANDINAVIAN_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
     expect(m).not.toBeNull();
     const body = m![0];
-    // V2 scandi rule must name first-occurrence + all three categories.
     expect(/first occurrence/i.test(body)).toBe(true);
     expect(/SUFFIX-DEFINITE/i.test(body)).toBe(true);
     expect(/INDEFINITE-PREFIX/i.test(body)).toBe(true);
     expect(/BARE/i.test(body)).toBe(true);
-    // The old v1 "ALWAYS prepend" enforcement must NOT leak into the v2 rule.
+    // The pre-Matrix-Regel "ALWAYS prepend" enforcement must not come back.
     expect(/ALWAYS prepend the INDEFINITE article/.test(body)).toBe(false);
   });
 
-  it('ENGLISH_NOUN_RULE_V2 exists and is source-preserving (no "ALWAYS the")', () => {
-    const m = src.match(/const ENGLISH_NOUN_RULE_V2\s*=\s*`[\s\S]*?`;/);
+  it('ENGLISH_NOUN_RULE is source-preserving — no "ALWAYS the"', () => {
+    const m = src.match(/export const ENGLISH_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
     expect(m).not.toBeNull();
     const body = m![0];
     expect(/first occurrence/i.test(body)).toBe(true);
-    // Each of the three source categories must be named explicitly.
+    // Each of the three source categories named explicitly.
     expect(/DEF source/.test(body)).toBe(true);
     expect(/INDEF source/.test(body)).toBe(true);
     expect(/BARE source/.test(body)).toBe(true);
-    // The old v1 "ALWAYS prepend the definite article" enforcement must NOT leak.
+    // The pre-Matrix-Regel "ALWAYS prepend the definite article" enforcement
+    // must not come back.
     expect(/ALWAYS prepend the definite article/.test(body)).toBe(false);
   });
 
-  it('CRITICAL_NOUN_RULE_BY_LANG_V2 maps sv/no/da/en to V2 rules and pl/cs unchanged', () => {
-    const m = src.match(/const CRITICAL_NOUN_RULE_BY_LANG_V2[\s\S]*?\};/);
+  it('CRITICAL_NOUN_RULE_BY_LANG maps sv/no/da/en to the Matrix rules and pl/cs to SLAVIC', () => {
+    const m = src.match(/export const CRITICAL_NOUN_RULE_BY_LANG[\s\S]*?\};/);
     expect(m).not.toBeNull();
     const body = m![0];
-    expect(/\bsv\s*:\s*SCANDINAVIAN_NOUN_RULE_V2\b/.test(body)).toBe(true);
-    expect(/\bno\s*:\s*SCANDINAVIAN_NOUN_RULE_V2\b/.test(body)).toBe(true);
-    expect(/\bda\s*:\s*SCANDINAVIAN_NOUN_RULE_V2\b/.test(body)).toBe(true);
-    expect(/\ben\s*:\s*ENGLISH_NOUN_RULE_V2\b/.test(body)).toBe(true);
-    // pl/cs keep SLAVIC_NOUN_RULE because articleless languages have no
-    // articles to preserve.
+    expect(/\bsv\s*:\s*SCANDINAVIAN_NOUN_RULE\b/.test(body)).toBe(true);
+    expect(/\bno\s*:\s*SCANDINAVIAN_NOUN_RULE\b/.test(body)).toBe(true);
+    expect(/\bda\s*:\s*SCANDINAVIAN_NOUN_RULE\b/.test(body)).toBe(true);
+    expect(/\ben\s*:\s*ENGLISH_NOUN_RULE\b/.test(body)).toBe(true);
     expect(/\bpl\s*:\s*SLAVIC_NOUN_RULE\b/.test(body)).toBe(true);
     expect(/\bcs\s*:\s*SLAVIC_NOUN_RULE\b/.test(body)).toBe(true);
   });
 
-  it('v2 fragment builders exist: buildCriticalHeaderV2, buildNounVerbRulesV2, buildTranslationRuleV2, buildJsonExampleV2', () => {
-    expect(/function buildCriticalHeaderV2\b/.test(src)).toBe(true);
-    expect(/function buildNounVerbRulesV2\b/.test(src)).toBe(true);
-    expect(/function buildTranslationRuleV2\b/.test(src)).toBe(true);
-    expect(/function buildJsonExampleV2\b/.test(src)).toBe(true);
+  it('fragment builders exist (unsuffixed canonical names)', () => {
+    expect(/function buildCriticalHeader\b/.test(src)).toBe(true);
+    expect(/function buildNounVerbRules\b/.test(src)).toBe(true);
+    expect(/function buildTranslationRule\b/.test(src)).toBe(true);
+    expect(/function buildJsonExample\b/.test(src)).toBe(true);
   });
 
-  it('buildVocabSystemPrompt is exported and accepts an optional version parameter', () => {
+  it('buildVocabSystemPrompt is exported and has no version parameter after cleanup', () => {
     expect(/export function buildVocabSystemPrompt\b/.test(src)).toBe(true);
     const fnMatch = src.match(/export function buildVocabSystemPrompt\b[\s\S]*?\):\s*string/);
     expect(fnMatch).not.toBeNull();
     const sig = fnMatch![0];
-    expect(/version:\s*PromptVersion/.test(sig)).toBe(true);
-  });
-
-  it('defaultPromptVersion() reads ANYVOC_PROMPT_VERSION env; defaults to v2 with v1 + v3 as explicit opt-ins', () => {
-    const m = src.match(/function defaultPromptVersion\b[\s\S]*?\n\}/);
-    expect(m).not.toBeNull();
-    const body = m![0];
-    expect(/process\.env\.ANYVOC_PROMPT_VERSION/.test(body)).toBe(true);
-    // Post-Slice-7b (2026-04-23): three versions coexist. v2 is the
-    // Production default (Slice 7 flip). v1 remains available as
-    // emergency-rollback opt-in. v3 is the re-balanced prompt being
-    // validated in Slice 7b; opt-in via env until its sweep confirms
-    // Go/No-Go, after which it can become the default.
-    expect(/ANYVOC_PROMPT_VERSION\s*===\s*'v1'/.test(body)).toBe(true);
-    expect(/ANYVOC_PROMPT_VERSION\s*===\s*'v3'/.test(body)).toBe(true);
-    expect(/return\s+'v2'/.test(body)).toBe(true);
+    // Post-cleanup: no PromptVersion param.
+    expect(/version:\s*PromptVersion/.test(sig)).toBe(false);
+    // Takes the four language args.
+    expect(/nativeLanguageName:\s*string/.test(sig)).toBe(true);
+    expect(/learningLanguageName:\s*string/.test(sig)).toBe(true);
+    expect(/learningLanguageCode:\s*string/.test(sig)).toBe(true);
+    expect(/nativeLanguageCode:\s*string/.test(sig)).toBe(true);
   });
 
   it('ExtractedVocab carries an optional source_cat field', () => {
-    // Phase 2 Slice 1 (2026-04-23): ExtractedVocab moved to lib/claude/types.ts.
-    // lib/claude.ts re-exports it so external callers are unaffected.
     const typesSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'types.ts'), 'utf8');
     const m = typesSrc.match(/export interface ExtractedVocab\b[\s\S]*?\n\}/);
     expect(m).not.toBeNull();
     const body = m![0];
-    // source_cat uses ArticleCategory alias now, but pattern accepts both.
     const hasInlineEnum = /source_cat\?:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body);
     const hasAliasForm = /source_cat\?:\s*ArticleCategory/.test(body);
     expect(hasInlineEnum || hasAliasForm).toBe(true);
   });
 
-  it('buildVocabSystemPromptV2 wires all four v2 fragment builders', () => {
-    // Phase 2 Slice 3 (2026-04-23): the v2 template body moved from
-    // the inline switch in buildVocabSystemPrompt into a dedicated
-    // function buildVocabSystemPromptV2 in lib/claude/prompt/v2.ts.
-    const v2Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v2.ts'), 'utf8');
-    const m = v2Src.match(/export function buildVocabSystemPromptV2\b[\s\S]*?^\}/m);
+  it('buildVocabSystemPrompt wires all four fragment builders', () => {
+    const indexSrc = fs.readFileSync(
+      path.join(ROOT, 'lib', 'claude', 'prompt', 'index.ts'),
+      'utf8',
+    );
+    const m = indexSrc.match(/export function buildVocabSystemPrompt\b[\s\S]*?^\}/m);
     expect(m).not.toBeNull();
     const body = m![0];
-    expect(/buildCriticalHeaderV2\(learningLanguageCode\)/.test(body)).toBe(true);
-    expect(/buildNounVerbRulesV2\(learningLanguageCode\)/.test(body)).toBe(true);
-    expect(/buildTranslationRuleV2\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(
+    expect(/buildCriticalHeader\(learningLanguageCode\)/.test(body)).toBe(true);
+    expect(/buildNounVerbRules\(learningLanguageCode\)/.test(body)).toBe(true);
+    expect(/buildTranslationRule\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(
       true,
     );
-    expect(/buildJsonExampleV2\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(
-      true,
-    );
+    expect(/buildJsonExample\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(true);
   });
 
-  it('extractVocabulary strips source_cat when version === "v1"', () => {
-    const m = src.match(/export async function extractVocabulary\b[\s\S]*?^\}/m);
-    expect(m).not.toBeNull();
-    const body = m![0];
-    // The strip is gated by defaultPromptVersion() === 'v1' so v2 callers
-    // keep the field while v1 callers get a clean shape.
-    expect(/defaultPromptVersion\(\)\s*===\s*'v1'/.test(body)).toBe(true);
-    expect(/delete\s+\([^)]*\)\.source_cat/.test(body)).toBe(true);
+  it('legacy v1/v3 prompt symbols and PromptVersion type are gone', () => {
+    // Sanity: once cleaned, these must not come back without a fresh
+    // architecture discussion (they'd be a regression to the A/B-era
+    // coexistence pattern).
+    expect(/SCANDINAVIAN_NOUN_RULE_V[123]\b/.test(src)).toBe(false);
+    expect(/ENGLISH_NOUN_RULE_V[123]\b/.test(src)).toBe(false);
+    expect(/CRITICAL_NOUN_RULE_BY_LANG_V[123]\b/.test(src)).toBe(false);
+    expect(/buildVocabSystemPromptV[123]\b/.test(src)).toBe(false);
+    expect(/buildSingleWordPromptV[123]\b/.test(src)).toBe(false);
+    expect(/\bdefaultPromptVersion\b/.test(src)).toBe(false);
+    expect(/\btype\s+PromptVersion\b/.test(src)).toBe(false);
+    expect(/ANYVOC_PROMPT_VERSION/.test(src)).toBe(false);
   });
 
   it('Scandi profiles carry a nounDef field for the suffix-definite form', () => {
-    // Phase 2 Slice 2 (2026-04-23): per-language profiles moved to
-    // lib/claude/langs/{code}.ts. Each Scandi profile file must include
-    // artCat: 'indef' + nounDef: '…' for matrixTranslationTarget to
-    // pick the suffix-definite form when source_cat === 'def'.
     for (const code of ['sv', 'no', 'da']) {
       const profileSrc = fs.readFileSync(
         path.join(ROOT, 'lib', 'claude', 'langs', `${code}.ts`),

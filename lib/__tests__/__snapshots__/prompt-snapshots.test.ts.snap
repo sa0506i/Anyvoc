@@ -1,216 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v1 de→pl 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article. Example for German: "der Hund" (not "Hund").
-
-The learning language is German; the native language is Polish.
-
-Rules:
-- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
-- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
-- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
-- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
-- "original" field: the word in German. "translation" field: the translation in Polish.
-- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For German: write "die Gewalt" not "die öffentliche Gewalt" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
-
-- Nouns: ALWAYS include the DEFINITE article before the noun in singular form — never the indefinite. For German: write "der Hund" (not "ein Hund", not "Hund"). This is mandatory. If a distinct feminine form exists, add it after a comma.
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always the infinitive form — never conjugated, never a past participle. For German: "laufen" (not "lief"). Reflexive verbs carry the pronoun: "sich erinnern".
-- Adjectives: emit the SINGLE dictionary base form only (e.g. "klein" not "klein, kleine"). Never pair an adjective with its inflected form — German does NOT inflect adjectives by gender in the dictionary entry.
-- "translation" field for NOUN entries: Polish has no articles, so the translation is bare. Example: "der Hund" (German) → "pies" (Polish).
-- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
-Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "laufen"); phrases are multi-word fixed expressions.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "".
-The example below is shape only — the actual types in your output depend on what is in the source text:
-[
-  { "original": "der Hund", "translation": "pies", "level": "", "type": "noun", "source_forms": ["Hund"] },
-  { "original": "laufen", "translation": "biegać", "level": "", "type": "verb", "source_forms": ["lief"] },
-  { "original": "klein", "translation": "wysoki", "level": "", "type": "adjective", "source_forms": ["kleine"] },
-  { "original": "im Grunde genommen", "translation": "na przykład", "level": "", "type": "phrase", "source_forms": ["im Grunde genommen"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v1 de→sv 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article. Example for German: "der Hund" (not "Hund").
-
-The learning language is German; the native language is Swedish.
-
-Rules:
-- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
-- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
-- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
-- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
-- "original" field: the word in German. "translation" field: the translation in Swedish.
-- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For German: write "die Gewalt" not "die öffentliche Gewalt" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
-
-- Nouns: ALWAYS include the DEFINITE article before the noun in singular form — never the indefinite. For German: write "der Hund" (not "ein Hund", not "Hund"). This is mandatory. If a distinct feminine form exists, add it after a comma.
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always the infinitive form — never conjugated, never a past participle. For German: "laufen" (not "lief"). Reflexive verbs carry the pronoun: "sich erinnern".
-- Adjectives: emit the SINGLE dictionary base form only (e.g. "klein" not "klein, kleine"). Never pair an adjective with its inflected form — German does NOT inflect adjectives by gender in the dictionary entry.
-- "translation" field for NOUN entries: Use the Swedish dictionary form with its article, matching the definiteness category of the original. Example: "der Hund" (German) → "en hund" (Swedish).
-- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
-Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "laufen"); phrases are multi-word fixed expressions.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "".
-The example below is shape only — the actual types in your output depend on what is in the source text:
-[
-  { "original": "der Hund", "translation": "en hund", "level": "", "type": "noun", "source_forms": ["Hund"] },
-  { "original": "laufen", "translation": "att springa", "level": "", "type": "verb", "source_forms": ["lief"] },
-  { "original": "klein", "translation": "stor", "level": "", "type": "adjective", "source_forms": ["kleine"] },
-  { "original": "im Grunde genommen", "translation": "hur som helst", "level": "", "type": "phrase", "source_forms": ["im Grunde genommen"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v1 pl→de 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Extract each noun in its Polish dictionary base form. Example: "pies".
-
-The learning language is Polish; the native language is German.
-
-Rules:
-- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
-- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
-- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
-- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
-- "original" field: the word in Polish. "translation" field: the translation in German.
-- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For Polish: write "państwo" not "potężne państwo" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
-- IMPORTANT — for Polish (pl) and Czech (cs), these languages have NO articles at all. In the "original" field, emit nouns in the BARE singular nominative form — NEVER prepend any article or determiner. This applies to SINGLE entries AND to m/f pairs: write "Europejczyk, Europejka" (not "o Europejczyk, Europejka"), "mieszkaniec, mieszkanka" (not "o mieszkaniec, mieszkanka"), "tekst" (not "ten tekst"), "vedení" (not "to vedení"). Never borrow an article from another language (no Portuguese "o"/"a", no German "der"/"die", no English "the"). This OVERRIDES the generic "include article" rule above for these two languages.
-- Write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always the infinitive form — never conjugated, never a past participle. For Polish: "biegać" (not "biegł").
-- Adjectives: emit the SINGLE dictionary base form only (e.g. "wysoki"). Never pair an adjective with its inflected form — Polish does NOT inflect adjectives by gender in the dictionary entry.
-- "translation" field for NOUN entries: Use the German dictionary form with its article, matching the definiteness category of the original. Example: "pies" (Polish) → "der Hund" (German).
-- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
-Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "biegać"); phrases are multi-word fixed expressions.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "".
-The example below is shape only — the actual types in your output depend on what is in the source text:
-[
-  { "original": "pies", "translation": "der Hund", "level": "", "type": "noun", "source_forms": ["pies"] },
-  { "original": "biegać", "translation": "laufen", "level": "", "type": "verb", "source_forms": ["biegł"] },
-  { "original": "wysoki", "translation": "klein", "level": "", "type": "adjective", "source_forms": ["wysoki"] },
-  { "original": "na przykład", "translation": "im Grunde genommen", "level": "", "type": "phrase", "source_forms": ["na przykład"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v1 pl→sv 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Extract each noun in its Polish dictionary base form. Example: "pies".
-
-The learning language is Polish; the native language is Swedish.
-
-Rules:
-- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
-- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
-- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
-- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
-- "original" field: the word in Polish. "translation" field: the translation in Swedish.
-- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For Polish: write "państwo" not "potężne państwo" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
-- IMPORTANT — for Polish (pl) and Czech (cs), these languages have NO articles at all. In the "original" field, emit nouns in the BARE singular nominative form — NEVER prepend any article or determiner. This applies to SINGLE entries AND to m/f pairs: write "Europejczyk, Europejka" (not "o Europejczyk, Europejka"), "mieszkaniec, mieszkanka" (not "o mieszkaniec, mieszkanka"), "tekst" (not "ten tekst"), "vedení" (not "to vedení"). Never borrow an article from another language (no Portuguese "o"/"a", no German "der"/"die", no English "the"). This OVERRIDES the generic "include article" rule above for these two languages.
-- Write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always the infinitive form — never conjugated, never a past participle. For Polish: "biegać" (not "biegł").
-- Adjectives: emit the SINGLE dictionary base form only (e.g. "wysoki"). Never pair an adjective with its inflected form — Polish does NOT inflect adjectives by gender in the dictionary entry.
-- "translation" field for NOUN entries: Use the Swedish dictionary form with its article, matching the definiteness category of the original. Example: "pies" (Polish) → "en hund" (Swedish).
-- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
-Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "biegać"); phrases are multi-word fixed expressions.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "".
-The example below is shape only — the actual types in your output depend on what is in the source text:
-[
-  { "original": "pies", "translation": "en hund", "level": "", "type": "noun", "source_forms": ["pies"] },
-  { "original": "biegać", "translation": "att springa", "level": "", "type": "verb", "source_forms": ["biegł"] },
-  { "original": "wysoki", "translation": "stor", "level": "", "type": "adjective", "source_forms": ["wysoki"] },
-  { "original": "na przykład", "translation": "hur som helst", "level": "", "type": "phrase", "source_forms": ["na przykład"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v1 sv→de 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article. Example for Swedish: "en hund" (not "hund").
-
-The learning language is Swedish; the native language is German.
-
-Rules:
-- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
-- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
-- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
-- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
-- "original" field: the word in Swedish. "translation" field: the translation in German.
-- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For Swedish: write "en makt" not "en politisk makt" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
-- IMPORTANT — for Swedish (sv), Norwegian (no), and Danish (da), these languages mark definiteness as a noun SUFFIX, not a prepositive article. In the "original" field, ALWAYS prepend the INDEFINITE article based on grammatical gender: "en" (common gender, sv/no/da), "ett" (neuter, sv), "ei" (feminine, no). Examples: "en artikel", "ett språk" (sv), "ei bok" (no), "en bog" (da). This rule is UNCONDITIONAL — it applies regardless of the native language, regardless of text genre (recipes, news, legal, wikipedia), regardless of how the noun appears in the source text. If the source text has the DEFINITE-SUFFIX form, you MUST still extract the lemma with the indefinite prefix: source "folket" → extract "ett folk" (not "folket"), source "bilden" → extract "en bild" (not "bilden"), source "lagen" → extract "en lag" (not "lagen"), source "hjernen" → extract "en hjerne" (not "hjernen"), source "bogen" → extract "en bog" (not "bogen"). If the source text has the BARE form (common in running text after adjectives, in recipes, or in legal text), you MUST still add the indefinite article: source "respekt" → extract "en respekt", source "bostad" → extract "en bostad", source "utbildning" → extract "en utbildning", source "salt" → extract "ett salt", source "mjölk" → extract "en mjölk". A Scandi noun output WITHOUT "en"/"ett"/"ei" prefix is ALWAYS wrong. This applies even when you are translating into another Scandinavian language, into a Slavic language (pl, cs), into Italian/French/Romance, or into any other native — never, ever, drop the Scandi indefinite article from the "original" field.
-- Write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always the infinitive form — never conjugated, never a past participle. For Swedish: "att springa" (not "sprang").
-- Adjectives: emit the SINGLE dictionary base form only (e.g. "stor" not "stor, stora"). Never pair an adjective with its inflected form — Swedish does NOT inflect adjectives by gender in the dictionary entry.
-- "translation" field for NOUN entries: Use the German dictionary form with its article, matching the definiteness category of the original. Example: "en hund" (Swedish) → "ein Hund" (German).
-- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
-Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "att springa"); phrases are multi-word fixed expressions.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "".
-The example below is shape only — the actual types in your output depend on what is in the source text:
-[
-  { "original": "en hund", "translation": "ein Hund", "level": "", "type": "noun", "source_forms": ["hund"] },
-  { "original": "att springa", "translation": "laufen", "level": "", "type": "verb", "source_forms": ["sprang"] },
-  { "original": "stor", "translation": "klein", "level": "", "type": "adjective", "source_forms": ["stora"] },
-  { "original": "hur som helst", "translation": "im Grunde genommen", "level": "", "type": "phrase", "source_forms": ["hur som helst"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v1 sv→pl 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every noun MUST include its article. Never write a bare noun without an article. Example for Swedish: "en hund" (not "hund").
-
-The learning language is Swedish; the native language is Polish.
-
-Rules:
-- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
-- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
-- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
-- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
-- "original" field: the word in Swedish. "translation" field: the translation in Polish.
-- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For Swedish: write "en makt" not "en politisk makt" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
-- IMPORTANT — for Swedish (sv), Norwegian (no), and Danish (da), these languages mark definiteness as a noun SUFFIX, not a prepositive article. In the "original" field, ALWAYS prepend the INDEFINITE article based on grammatical gender: "en" (common gender, sv/no/da), "ett" (neuter, sv), "ei" (feminine, no). Examples: "en artikel", "ett språk" (sv), "ei bok" (no), "en bog" (da). This rule is UNCONDITIONAL — it applies regardless of the native language, regardless of text genre (recipes, news, legal, wikipedia), regardless of how the noun appears in the source text. If the source text has the DEFINITE-SUFFIX form, you MUST still extract the lemma with the indefinite prefix: source "folket" → extract "ett folk" (not "folket"), source "bilden" → extract "en bild" (not "bilden"), source "lagen" → extract "en lag" (not "lagen"), source "hjernen" → extract "en hjerne" (not "hjernen"), source "bogen" → extract "en bog" (not "bogen"). If the source text has the BARE form (common in running text after adjectives, in recipes, or in legal text), you MUST still add the indefinite article: source "respekt" → extract "en respekt", source "bostad" → extract "en bostad", source "utbildning" → extract "en utbildning", source "salt" → extract "ett salt", source "mjölk" → extract "en mjölk". A Scandi noun output WITHOUT "en"/"ett"/"ei" prefix is ALWAYS wrong. This applies even when you are translating into another Scandinavian language, into a Slavic language (pl, cs), into Italian/French/Romance, or into any other native — never, ever, drop the Scandi indefinite article from the "original" field.
-- Write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
-- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
-- Verbs: always the infinitive form — never conjugated, never a past participle. For Swedish: "att springa" (not "sprang").
-- Adjectives: emit the SINGLE dictionary base form only (e.g. "stor" not "stor, stora"). Never pair an adjective with its inflected form — Swedish does NOT inflect adjectives by gender in the dictionary entry.
-- "translation" field for NOUN entries: Polish has no articles, so the translation is bare. Example: "en hund" (Swedish) → "pies" (Polish).
-- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
-Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "att springa"); phrases are multi-word fixed expressions.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "".
-The example below is shape only — the actual types in your output depend on what is in the source text:
-[
-  { "original": "en hund", "translation": "pies", "level": "", "type": "noun", "source_forms": ["hund"] },
-  { "original": "att springa", "translation": "biegać", "level": "", "type": "verb", "source_forms": ["sprang"] },
-  { "original": "stor", "translation": "wysoki", "level": "", "type": "adjective", "source_forms": ["stora"] },
-  { "original": "hur som helst", "translation": "na przykład", "level": "", "type": "phrase", "source_forms": ["hur som helst"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v2 articled→articled canonical (de→en) 1`] = `
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape articled→articled canonical (de→en) 1`] = `
 "You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Every noun MUST include its article, matching the article used at its FIRST occurrence in the source text. Example for German: DEF "der Hund" or INDEF "ein Hund". Never emit a bare noun.
@@ -249,7 +39,47 @@ The example below is shape only — the actual types in your output depend on wh
 ]"
 `;
 
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v2 articleless→articled (cs→it, tests bare-source→indef-target w/ mass-noun note) 1`] = `
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape articled→scandi (fr→no, tests romance-adj + scandi-suffix translation) 1`] = `
+"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
+
+CRITICAL FORMATTING RULE: Every noun MUST include its article, matching the article used at its FIRST occurrence in the source text. Example for French: DEF "le chien" or INDEF "un chien". Never emit a bare noun.
+
+The learning language is French; the native language is Norwegian.
+
+Rules:
+- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
+- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
+- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
+- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence. If the source text contains a noun with both definite and indefinite articles, use the article category of the FIRST occurrence for the "original" lemma; all other occurrences go into "source_forms".
+- "original" field: the word in French. "translation" field: the translation in Norwegian.
+- "source_cat" field: one of "def" | "indef" | "bare" — the article category of the first occurrence (used to validate the translation target). For non-noun entries (verb/adjective/phrase) set source_cat="bare".
+- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For French: write "la cité" not "la cité médiévale" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
+
+- Nouns: extract each noun in singular form with the article matching its FIRST occurrence in the source. For French: DEF source → "le chien" (source_cat="def"); INDEF source → "un chien" (source_cat="indef"); bare source (rare, e.g. headlines) → default to "un chien" with source_cat="bare". If a distinct feminine form exists, add it after a comma.
+- Write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
+- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
+- Verbs: always the infinitive form — never conjugated, never a past participle. For French: "courir" (not "couru"). Reflexive verbs carry the pronoun: "se souvenir". For non-noun entries (verb/adjective/phrase) set source_cat="bare".
+- Adjectives: give both masculine and feminine forms when they differ (e.g. "petit, petite" in French).
+- "translation" field for NOUN entries: mirror the source's article category into Norwegian:
+  • DEF source ("le chien") → "hunden" (Norwegian def).
+  • INDEF source ("un chien") → "en hund" (Norwegian indef).
+  • BARE source → "en hund" (Norwegian indef — bare mirrors to indef).
+- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
+
+"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
+Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "courir"); phrases are multi-word fixed expressions.
+
+Respond exclusively as a JSON array, no additional text. Leave "level" as "".
+The example below is shape only — the actual types in your output depend on what is in the source text:
+[
+  { "original": "le chien", "translation": "hunden", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["chien"] },
+  { "original": "courir", "translation": "å springe", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["couru"] },
+  { "original": "petit, petite", "translation": "stor", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["petit"] },
+  { "original": "de toute façon", "translation": "for eksempel", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["de toute façon"] }
+]"
+`;
+
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape articleless→articled (cs→it, tests bare-source→indef-target) 1`] = `
 "You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Extract each noun in its Czech dictionary base form. Example: "pes".
@@ -285,7 +115,7 @@ The example below is shape only — the actual types in your output depend on wh
 ]"
 `;
 
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v2 de→pl 1`] = `
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape de→pl 1`] = `
 "You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Every noun MUST include its article, matching the article used at its FIRST occurrence in the source text. Example for German: DEF "der Hund" or INDEF "ein Hund". Never emit a bare noun.
@@ -321,7 +151,7 @@ The example below is shape only — the actual types in your output depend on wh
 ]"
 `;
 
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v2 de→sv 1`] = `
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape de→sv 1`] = `
 "You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Every noun MUST include its article, matching the article used at its FIRST occurrence in the source text. Example for German: DEF "der Hund" or INDEF "ein Hund". Never emit a bare noun.
@@ -360,7 +190,7 @@ The example below is shape only — the actual types in your output depend on wh
 ]"
 `;
 
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v2 pl→de 1`] = `
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape pl→de 1`] = `
 "You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Extract each noun in its Polish dictionary base form. Example: "pies".
@@ -396,7 +226,7 @@ The example below is shape only — the actual types in your output depend on wh
 ]"
 `;
 
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v2 pl→sv 1`] = `
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape pl→sv 1`] = `
 "You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Extract each noun in its Polish dictionary base form. Example: "pies".
@@ -432,7 +262,47 @@ The example below is shape only — the actual types in your output depend on wh
 ]"
 `;
 
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v2 sv→de 1`] = `
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape scandi→articleless (da→cs, tests scandi-extract + bare-target) 1`] = `
+"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
+
+CRITICAL FORMATTING RULE: Every Danish noun MUST be extracted in the form matching its FIRST occurrence in the source — suffix-definite (e.g. "hunden") or indefinite-prefix (e.g. "en hund"). Bare source forms default to the indefinite prefix.
+
+The learning language is Danish; the native language is Czech.
+
+Rules:
+- Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
+- Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
+- Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
+- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence. If the source text contains a noun with both definite and indefinite articles, use the article category of the FIRST occurrence for the "original" lemma; all other occurrences go into "source_forms".
+- "original" field: the word in Danish. "translation" field: the translation in Czech.
+- "source_cat" field: one of "def" | "indef" | "bare" — the article category of the first occurrence (used to validate the translation target). For non-noun entries (verb/adjective/phrase) set source_cat="bare".
+- For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For Danish: write "en magt" not "en politisk magt" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
+- IMPORTANT — for Swedish (sv), Norwegian (no), and Danish (da), definiteness is marked as a noun SUFFIX, not a prepositive article. Preserve the article category of the FIRST occurrence of each noun:
+  • SUFFIX-DEFINITE source (text shows e.g. "hunden", "bogen", "bilden", "folket"): emit as-is with source_cat="def".
+  • INDEFINITE-PREFIX source (text shows "en hund", "ett språk", "ei bok"): emit with the prefix, source_cat="indef".
+  • BARE source (text shows just "hund", "salt", "mjölk" — typical in recipes, legal text, or after adjectives): prepend the indefinite article by grammatical gender ("en" common / "ett" neuter sv / "ei" feminine no), source_cat="bare".
+Never emit a Scandi noun that is bare of BOTH a suffix-definite marker AND an indefinite prefix. Apply this regardless of native language and text genre.
+- Write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
+- Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
+- Verbs: always the infinitive form — never conjugated, never a past participle. For Danish: "at løbe" (not "løb"). For non-noun entries (verb/adjective/phrase) set source_cat="bare".
+- Adjectives: emit the SINGLE dictionary base form only (e.g. "stor" not "stor, store"). Never pair an adjective with its inflected form — Danish does NOT inflect adjectives by gender in the dictionary entry.
+- "translation" field for NOUN entries: Czech has no articles — translation is always bare. Example: any Danish source → "pes".
+- List every exact word form from the source text (inflected forms, plurals, conjugations) in "source_forms".
+
+"type" must be one of: "noun", "verb", "adjective", "phrase", "other".
+Pick the type that matches each extracted word — DO NOT label every entry "noun". Verbs are infinitives (e.g. "at løbe"); phrases are multi-word fixed expressions.
+
+Respond exclusively as a JSON array, no additional text. Leave "level" as "".
+The example below is shape only — the actual types in your output depend on what is in the source text:
+[
+  { "original": "hunden", "translation": "pes", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["hund"] },
+  { "original": "at løbe", "translation": "běžet", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["løb"] },
+  { "original": "stor", "translation": "vysoký", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["store"] },
+  { "original": "for eksempel", "translation": "na příklad", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["for eksempel"] }
+]"
+`;
+
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape sv→de 1`] = `
 "You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Every Swedish noun MUST be extracted in the form matching its FIRST occurrence in the source — suffix-definite (e.g. "hunden") or indefinite-prefix (e.g. "en hund"). Bare source forms default to the indefinite prefix.
@@ -475,7 +345,7 @@ The example below is shape only — the actual types in your output depend on wh
 ]"
 `;
 
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v2 sv→pl 1`] = `
+exports[`Prompt-output parity snapshots — canonical Matrix-Regel shape sv→pl 1`] = `
 "You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
 
 CRITICAL FORMATTING RULE: Every Swedish noun MUST be extracted in the form matching its FIRST occurrence in the source — suffix-definite (e.g. "hunden") or indefinite-prefix (e.g. "en hund"). Bare source forms default to the indefinite prefix.
@@ -507,371 +377,6 @@ Pick the type that matches each extracted word — DO NOT label every entry "nou
 
 Respond exclusively as a JSON array, no additional text. Leave "level" as "".
 The example below is shape only — the actual types in your output depend on what is in the source text:
-[
-  { "original": "hunden", "translation": "pies", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["hund"] },
-  { "original": "att springa", "translation": "biegać", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["sprang"] },
-  { "original": "stor", "translation": "wysoki", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["stora"] },
-  { "original": "hur som helst", "translation": "na przykład", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["hur som helst"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v3 articled→scandi (fr→no, tests romance-adj + scandi-suffix translation) 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every noun MUST include its article, matching the article used at its FIRST occurrence in the source text. Example for French: DEF "le chien" or INDEF "un chien". Never emit a bare noun.
-
-LEARNING LANGUAGE: French · NATIVE LANGUAGE: Norwegian
-
-General rules (apply to every extracted entry regardless of type):
-- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
-- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
-- "original" field: the word in French. "translation" field: the translation in Norwegian.
-- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
-
-TYPE RULES — extract FOUR equally-weighted categories:
-
-NOUN EXTRACTION (French):
-Preserve the article category of the FIRST occurrence. French: DEF "le chien" (source_cat="def"), INDEF "un chien" (source_cat="indef"), or bare source → default to "un chien" (source_cat="bare"). If a distinct feminine form exists, add it after a comma.
-
-VERB EXTRACTION (French):
-Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. French: "courir" (never "couru", never any tense / person / mood surface form). Reflexive verbs carry the pronoun: "se souvenir". For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
-
-ADJECTIVE EXTRACTION (French):
-Give BOTH masculine AND feminine forms when they differ in French (e.g. "petit, petite"). Romance languages inflect by gender; never drop one form. For every adjective entry set source_cat="bare".
-
-PHRASE EXTRACTION:
-Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for French: "de toute façon". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
-
-TRANSLATION RULE (Norwegian target):
-Mirror the source's article category into Norwegian. DEF "le chien" → "hunden". INDEF "un chien" → "en hund". BARE source → "en hund".
-
-TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
-  If the Norwegian dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in Norwegian. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
-[
-  { "original": "le chien", "translation": "hunden", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["chien"] },
-  { "original": "courir", "translation": "å springe", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["couru"] },
-  { "original": "petit, petite", "translation": "stor", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["petit"] },
-  { "original": "de toute façon", "translation": "for eksempel", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["de toute façon"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v3 de→pl 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every noun MUST include its article, matching the article used at its FIRST occurrence in the source text. Example for German: DEF "der Hund" or INDEF "ein Hund". Never emit a bare noun.
-
-LEARNING LANGUAGE: German · NATIVE LANGUAGE: Polish
-
-General rules (apply to every extracted entry regardless of type):
-- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
-- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
-- "original" field: the word in German. "translation" field: the translation in Polish.
-- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
-
-TYPE RULES — extract FOUR equally-weighted categories:
-
-NOUN EXTRACTION (German):
-Preserve the article category of the FIRST occurrence. German: DEF "der Hund" (source_cat="def"), INDEF "ein Hund" (source_cat="indef"), or bare source → default to "ein Hund" (source_cat="bare"). If a distinct feminine form exists, add it after a comma.
-
-VERB EXTRACTION (German):
-Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. German: "laufen" (never "lief", never any tense / person / mood surface form). Reflexive verbs carry the pronoun: "sich erinnern". For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
-
-ADJECTIVE EXTRACTION (German):
-Emit the SINGLE dictionary base form only (e.g. "klein" not "klein, kleine" — inflected forms belong in source_forms). German does not inflect adjectives by gender at the lexeme level. For every adjective entry set source_cat="bare".
-
-PHRASE EXTRACTION:
-Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for German: "im Grunde genommen". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
-
-TRANSLATION RULE (Polish target):
-Polish has no articles. Translation is always bare regardless of source article category. Example: any German source → "pies".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
-[
-  { "original": "der Hund", "translation": "pies", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["Hund"] },
-  { "original": "laufen", "translation": "biegać", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["lief"] },
-  { "original": "klein", "translation": "wysoki", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["kleine"] },
-  { "original": "im Grunde genommen", "translation": "na przykład", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["im Grunde genommen"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v3 de→sv 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every noun MUST include its article, matching the article used at its FIRST occurrence in the source text. Example for German: DEF "der Hund" or INDEF "ein Hund". Never emit a bare noun.
-
-LEARNING LANGUAGE: German · NATIVE LANGUAGE: Swedish
-
-General rules (apply to every extracted entry regardless of type):
-- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
-- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
-- "original" field: the word in German. "translation" field: the translation in Swedish.
-- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
-
-TYPE RULES — extract FOUR equally-weighted categories:
-
-NOUN EXTRACTION (German):
-Preserve the article category of the FIRST occurrence. German: DEF "der Hund" (source_cat="def"), INDEF "ein Hund" (source_cat="indef"), or bare source → default to "ein Hund" (source_cat="bare"). If a distinct feminine form exists, add it after a comma.
-
-VERB EXTRACTION (German):
-Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. German: "laufen" (never "lief", never any tense / person / mood surface form). Reflexive verbs carry the pronoun: "sich erinnern". For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
-
-ADJECTIVE EXTRACTION (German):
-Emit the SINGLE dictionary base form only (e.g. "klein" not "klein, kleine" — inflected forms belong in source_forms). German does not inflect adjectives by gender at the lexeme level. For every adjective entry set source_cat="bare".
-
-PHRASE EXTRACTION:
-Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for German: "im Grunde genommen". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
-
-TRANSLATION RULE (Swedish target):
-Mirror the source's article category into Swedish. DEF "der Hund" → "hunden". INDEF "ein Hund" → "en hund". BARE source → "en hund".
-
-TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
-  If the Swedish dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in Swedish. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
-[
-  { "original": "der Hund", "translation": "hunden", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["Hund"] },
-  { "original": "laufen", "translation": "att springa", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["lief"] },
-  { "original": "klein", "translation": "stor", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["kleine"] },
-  { "original": "im Grunde genommen", "translation": "hur som helst", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["im Grunde genommen"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v3 pl→de 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Extract each noun in its Polish dictionary base form. Example: "pies".
-
-LEARNING LANGUAGE: Polish · NATIVE LANGUAGE: German
-
-General rules (apply to every extracted entry regardless of type):
-- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
-- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
-- "original" field: the word in Polish. "translation" field: the translation in German.
-- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
-
-TYPE RULES — extract FOUR equally-weighted categories:
-
-NOUN EXTRACTION (Polish):
-Emit each noun in its Polish bare singular nominative base form (e.g. "pies"). Polish has no articles.
-
-- IMPORTANT — for Polish (pl) and Czech (cs), these languages have NO articles at all. In the "original" field, emit nouns in the BARE singular nominative form — NEVER prepend any article or determiner. This applies to SINGLE entries AND to m/f pairs: write "Europejczyk, Europejka" (not "o Europejczyk, Europejka"), "mieszkaniec, mieszkanka" (not "o mieszkaniec, mieszkanka"), "tekst" (not "ten tekst"), "vedení" (not "to vedení"). Never borrow an article from another language (no Portuguese "o"/"a", no German "der"/"die", no English "the"). This OVERRIDES the generic "include article" rule above for these two languages.
-
-VERB EXTRACTION (Polish):
-Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. Polish: "biegać" (never "biegł", never any tense / person / mood surface form). For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
-
-ADJECTIVE EXTRACTION (Polish):
-Emit the SINGLE dictionary base form only (e.g. "wysoki"). Polish does not inflect adjectives by gender at the lexeme level. For every adjective entry set source_cat="bare".
-
-PHRASE EXTRACTION:
-Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for Polish: "na przykład". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
-
-TRANSLATION RULE (German target):
-Polish has no articles (source is always bare). Translate to the German INDEFINITE form by default. Example: "pies" → "ein Hund".
-
-TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
-  If the German dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in German. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
-[
-  { "original": "pies", "translation": "ein Hund", "level": "", "type": "noun", "source_cat": "bare", "source_forms": ["pies"] },
-  { "original": "biegać", "translation": "laufen", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["biegł"] },
-  { "original": "wysoki", "translation": "klein", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["wysoki"] },
-  { "original": "na przykład", "translation": "im Grunde genommen", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["na przykład"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v3 pl→sv 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Extract each noun in its Polish dictionary base form. Example: "pies".
-
-LEARNING LANGUAGE: Polish · NATIVE LANGUAGE: Swedish
-
-General rules (apply to every extracted entry regardless of type):
-- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
-- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
-- "original" field: the word in Polish. "translation" field: the translation in Swedish.
-- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
-
-TYPE RULES — extract FOUR equally-weighted categories:
-
-NOUN EXTRACTION (Polish):
-Emit each noun in its Polish bare singular nominative base form (e.g. "pies"). Polish has no articles.
-
-- IMPORTANT — for Polish (pl) and Czech (cs), these languages have NO articles at all. In the "original" field, emit nouns in the BARE singular nominative form — NEVER prepend any article or determiner. This applies to SINGLE entries AND to m/f pairs: write "Europejczyk, Europejka" (not "o Europejczyk, Europejka"), "mieszkaniec, mieszkanka" (not "o mieszkaniec, mieszkanka"), "tekst" (not "ten tekst"), "vedení" (not "to vedení"). Never borrow an article from another language (no Portuguese "o"/"a", no German "der"/"die", no English "the"). This OVERRIDES the generic "include article" rule above for these two languages.
-
-VERB EXTRACTION (Polish):
-Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. Polish: "biegać" (never "biegł", never any tense / person / mood surface form). For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
-
-ADJECTIVE EXTRACTION (Polish):
-Emit the SINGLE dictionary base form only (e.g. "wysoki"). Polish does not inflect adjectives by gender at the lexeme level. For every adjective entry set source_cat="bare".
-
-PHRASE EXTRACTION:
-Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for Polish: "na przykład". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
-
-TRANSLATION RULE (Swedish target):
-Polish has no articles (source is always bare). Translate to the Swedish INDEFINITE form by default. Example: "pies" → "en hund".
-
-TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
-  If the Swedish dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in Swedish. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
-[
-  { "original": "pies", "translation": "en hund", "level": "", "type": "noun", "source_cat": "bare", "source_forms": ["pies"] },
-  { "original": "biegać", "translation": "att springa", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["biegł"] },
-  { "original": "wysoki", "translation": "stor", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["wysoki"] },
-  { "original": "na przykład", "translation": "hur som helst", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["na przykład"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v3 scandi→articleless (da→cs, tests scandi-extract + bare-target) 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every Danish noun MUST be extracted in the form matching its FIRST occurrence in the source — suffix-definite (e.g. "hunden") or indefinite-prefix (e.g. "en hund"). Bare source forms default to the indefinite prefix.
-
-LEARNING LANGUAGE: Danish · NATIVE LANGUAGE: Czech
-
-General rules (apply to every extracted entry regardless of type):
-- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
-- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
-- "original" field: the word in Danish. "translation" field: the translation in Czech.
-- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
-
-TYPE RULES — extract FOUR equally-weighted categories:
-
-NOUN EXTRACTION (Danish):
-Preserve the article category of the FIRST occurrence: suffix-definite (e.g. "hunden" = source_cat="def"), indefinite-prefix (e.g. "en hund" = source_cat="indef"), or bare source → prepend indefinite (source_cat="bare"). See Scandi-specific rule block below for the full suffix / prefix / gender detail.
-
-Scandi languages mark definiteness as a SUFFIX (sv/no/da). Extract each noun in the form matching its FIRST occurrence in the source:
-  (a) SUFFIX-DEFINITE in text (e.g. "hunden", "bogen", "folket") → emit as-is, source_cat="def".
-  (b) INDEF-PREFIX in text (e.g. "en hund", "ett språk", "ei bok", "et år") → emit with prefix, source_cat="indef".
-  (c) BARE in text (recipes, legal, after adjectives) → prepend indefinite by gender: "en" (common sg/pl), "ett" (sv neuter), "et" (no/da neuter), "ei" (no feminine). source_cat="bare".
-Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix. ABSTRACT Scandi nouns (respekt, språk, ansvar, frihet, likestilling, demokrati, kompetanse) ARE STILL subject to this rule — there is NO exception for abstract meanings in the ORIGINAL field. A Slice-7b.4 sweep regression: the mass-noun exception only applies to the TRANSLATION target, never to the source-side lemma.
-
-VERB EXTRACTION (Danish):
-Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. Danish: "at løbe" (never "løb", never any tense / person / mood surface form). For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
-
-ADJECTIVE EXTRACTION (Danish):
-Emit the SINGLE dictionary base form only (e.g. "stor" not "stor, store" — inflected forms belong in source_forms). Danish does not inflect adjectives by gender at the lexeme level. For every adjective entry set source_cat="bare".
-
-PHRASE EXTRACTION:
-Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for Danish: "for eksempel". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
-
-TRANSLATION RULE (Czech target):
-Czech has no articles. Translation is always bare regardless of source article category. Example: any Danish source → "pes".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
-[
-  { "original": "hunden", "translation": "pes", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["hund"] },
-  { "original": "at løbe", "translation": "běžet", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["løb"] },
-  { "original": "stor", "translation": "vysoký", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["store"] },
-  { "original": "for eksempel", "translation": "na příklad", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["for eksempel"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v3 sv→de 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every Swedish noun MUST be extracted in the form matching its FIRST occurrence in the source — suffix-definite (e.g. "hunden") or indefinite-prefix (e.g. "en hund"). Bare source forms default to the indefinite prefix.
-
-LEARNING LANGUAGE: Swedish · NATIVE LANGUAGE: German
-
-General rules (apply to every extracted entry regardless of type):
-- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
-- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
-- "original" field: the word in Swedish. "translation" field: the translation in German.
-- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
-
-TYPE RULES — extract FOUR equally-weighted categories:
-
-NOUN EXTRACTION (Swedish):
-Preserve the article category of the FIRST occurrence: suffix-definite (e.g. "hunden" = source_cat="def"), indefinite-prefix (e.g. "en hund" = source_cat="indef"), or bare source → prepend indefinite (source_cat="bare"). See Scandi-specific rule block below for the full suffix / prefix / gender detail.
-
-Scandi languages mark definiteness as a SUFFIX (sv/no/da). Extract each noun in the form matching its FIRST occurrence in the source:
-  (a) SUFFIX-DEFINITE in text (e.g. "hunden", "bogen", "folket") → emit as-is, source_cat="def".
-  (b) INDEF-PREFIX in text (e.g. "en hund", "ett språk", "ei bok", "et år") → emit with prefix, source_cat="indef".
-  (c) BARE in text (recipes, legal, after adjectives) → prepend indefinite by gender: "en" (common sg/pl), "ett" (sv neuter), "et" (no/da neuter), "ei" (no feminine). source_cat="bare".
-Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix. ABSTRACT Scandi nouns (respekt, språk, ansvar, frihet, likestilling, demokrati, kompetanse) ARE STILL subject to this rule — there is NO exception for abstract meanings in the ORIGINAL field. A Slice-7b.4 sweep regression: the mass-noun exception only applies to the TRANSLATION target, never to the source-side lemma.
-
-VERB EXTRACTION (Swedish):
-Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. Swedish: "att springa" (never "sprang", never any tense / person / mood surface form). For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
-
-ADJECTIVE EXTRACTION (Swedish):
-Emit the SINGLE dictionary base form only (e.g. "stor" not "stor, stora" — inflected forms belong in source_forms). Swedish does not inflect adjectives by gender at the lexeme level. For every adjective entry set source_cat="bare".
-
-PHRASE EXTRACTION:
-Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for Swedish: "hur som helst". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
-
-TRANSLATION RULE (German target):
-Scandi INDEF source ("en"/"ett"/"ei"/"et" prefix, e.g. "en hund") MUST map to the German INDEFINITE category — NEVER the definite. DEF source ("hunden") maps to German definite. Examples: DEF "hunden" → "der Hund"; INDEF "en hund" → "ein Hund" (NOT "der Hund"). BARE source → "ein Hund".
-
-TARGET-SIDE EXCEPTION (translation only, NEVER affects the "original" field):
-  If the German dictionary form of an abstract / mass / uncountable noun is bare (e.g. "freedom", "equality", "respect", "water", "information"), the "translation" value MAY be bare — do NOT force an indefinite article where it would read as stilted. Example: avoid "un'uguaglianza" when "uguaglianza" is conventional in German. This exception applies ONLY to the translation value; the source-side lemma in the "original" field still follows its extraction rule without exception (Scandi MUST carry en/ett/ei/et or a suffix-definite marker, articled langs MUST carry their article).
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
-[
-  { "original": "hunden", "translation": "der Hund", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["hund"] },
-  { "original": "att springa", "translation": "laufen", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["sprang"] },
-  { "original": "stor", "translation": "klein", "level": "", "type": "adjective", "source_cat": "bare", "source_forms": ["stora"] },
-  { "original": "hur som helst", "translation": "im Grunde genommen", "level": "", "type": "phrase", "source_cat": "bare", "source_forms": ["hur som helst"] }
-]"
-`;
-
-exports[`Prompt-output parity snapshots — locked for Phase 2 refactor v3 sv→pl 1`] = `
-"You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
-
-CRITICAL FORMATTING RULE: Every Swedish noun MUST be extracted in the form matching its FIRST occurrence in the source — suffix-definite (e.g. "hunden") or indefinite-prefix (e.g. "en hund"). Bare source forms default to the indefinite prefix.
-
-LEARNING LANGUAGE: Swedish · NATIVE LANGUAGE: Polish
-
-General rules (apply to every extracted entry regardless of type):
-- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
-- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
-- "original" field: the word in Swedish. "translation" field: the translation in Polish.
-- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
-
-TYPE RULES — extract FOUR equally-weighted categories:
-
-NOUN EXTRACTION (Swedish):
-Preserve the article category of the FIRST occurrence: suffix-definite (e.g. "hunden" = source_cat="def"), indefinite-prefix (e.g. "en hund" = source_cat="indef"), or bare source → prepend indefinite (source_cat="bare"). See Scandi-specific rule block below for the full suffix / prefix / gender detail.
-
-Scandi languages mark definiteness as a SUFFIX (sv/no/da). Extract each noun in the form matching its FIRST occurrence in the source:
-  (a) SUFFIX-DEFINITE in text (e.g. "hunden", "bogen", "folket") → emit as-is, source_cat="def".
-  (b) INDEF-PREFIX in text (e.g. "en hund", "ett språk", "ei bok", "et år") → emit with prefix, source_cat="indef".
-  (c) BARE in text (recipes, legal, after adjectives) → prepend indefinite by gender: "en" (common sg/pl), "ett" (sv neuter), "et" (no/da neuter), "ei" (no feminine). source_cat="bare".
-Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix. ABSTRACT Scandi nouns (respekt, språk, ansvar, frihet, likestilling, demokrati, kompetanse) ARE STILL subject to this rule — there is NO exception for abstract meanings in the ORIGINAL field. A Slice-7b.4 sweep regression: the mass-noun exception only applies to the TRANSLATION target, never to the source-side lemma.
-
-VERB EXTRACTION (Swedish):
-Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. Swedish: "att springa" (never "sprang", never any tense / person / mood surface form). For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.
-
-ADJECTIVE EXTRACTION (Swedish):
-Emit the SINGLE dictionary base form only (e.g. "stor" not "stor, stora" — inflected forms belong in source_forms). Swedish does not inflect adjectives by gender at the lexeme level. For every adjective entry set source_cat="bare".
-
-PHRASE EXTRACTION:
-Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for Swedish: "hur som helst". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".
-
-TRANSLATION RULE (Polish target):
-Polish has no articles. Translation is always bare regardless of source article category. Example: any Swedish source → "pies".
-
-"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
-
-Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
 [
   { "original": "hunden", "translation": "pies", "level": "", "type": "noun", "source_cat": "def", "source_forms": ["hund"] },
   { "original": "att springa", "translation": "biegać", "level": "", "type": "verb", "source_cat": "bare", "source_forms": ["sprang"] },

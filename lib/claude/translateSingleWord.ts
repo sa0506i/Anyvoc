@@ -3,15 +3,11 @@
  * translate flow in the content-detail screen. Takes one word in the
  * learning language, returns the dictionary-base-form translation plus
  * word type and CEFR level.
- *
- * Phase 2 Slice 4 extracted from lib/claude.ts. Behaviour unchanged.
- * Single-word extraction routes v3 → v2 internally because the v3
- * re-balanced-type-emphasis motivation doesn't apply to one-word input.
  */
 import { classifyWord, type SupportedLanguage } from '../classifier';
 import { postProcessExtractedVocab } from '../vocabFilters';
 import { callClaude } from './transport';
-import { buildTranslateSingleWordPrompt, defaultPromptVersion } from './prompt';
+import { buildTranslateSingleWordPrompt } from './prompt';
 import type { TranslateSingleWordResult } from './types';
 
 export async function translateSingleWord(
@@ -24,13 +20,11 @@ export async function translateSingleWord(
   // CEFR level is determined locally after the translation comes back —
   // the LLM is only responsible for formatting + translation.
   const nativeCode = toLanguageCode ?? 'en';
-  const version = defaultPromptVersion();
   const systemPrompt = buildTranslateSingleWordPrompt(
     fromLanguageName,
     toLanguageName,
     fromLanguageCode,
     nativeCode,
-    version,
   );
 
   const result = await callClaude([{ role: 'user', content: word }], systemPrompt, 4096, {
@@ -56,12 +50,6 @@ export async function translateSingleWord(
     }
   } catch {
     // fallback to default above
-  }
-
-  // Slice 3/7: under v1 the LLM isn't asked for source_cat — strip any
-  // incidental field so v1 callers get a clean shape.
-  if (version === 'v1') {
-    delete parsed.source_cat;
   }
 
   // Post-processing: drop abbreviations / proper nouns and apply German

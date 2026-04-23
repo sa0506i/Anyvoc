@@ -6,19 +6,6 @@
  * boundary moved.
  */
 
-/**
- * Prompt-version toggle for the Matrix-Regel A/B.
- *
- * v1 = pre-Matrix-Regel baseline (always force DEF for articled langs,
- * always force INDEF-prefix for Scandi). Kept for emergency rollback.
- * v2 = Matrix-Regel (source-preserving extraction + matrix translation
- * targets). Production default since Slice 7 / 2026-04-23.
- * v3 = Re-balanced prompt with symmetric NOUN/VERB/ADJ/PHRASE blocks.
- * Opt-in via env; has a known regression on Scandi prefix compliance
- * so not merged as default (see Slice 7b.4 report).
- */
-export type PromptVersion = 'v1' | 'v2' | 'v3';
-
 /** Article category of the source occurrence per the Matrix-Regel.
  *  Only meaningful for noun entries; verb/adj/phrase entries always
  *  carry "bare". */

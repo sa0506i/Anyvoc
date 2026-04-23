@@ -450,97 +450,72 @@ Rule 27 / Rule 38 / Rule 39 / Rule 40 architecture tests validate
 that each builder emits the required structural vocabulary
 (article / infinitive / reflexive / type-enum coverage).
 
-**Rule 47 (2026-04-23 — Matrix-Regel v2 prompt path + `PROMPT_VERSION` A/B toggle)**
-enforces the source-preserving extraction + matrix translation
-targets the user approved via the two 12×12 matrices of 2026-04-23.
-Delivered in Phase 1, Slices 1–4 of the "Matrix-Regel" rollout plan
-(`~/.claude/plans/b-scheint-mir-das-keen-pike.md`).
+**Rule 47 (2026-04-23 — Matrix-Regel canonical prompt)** enforces the
+source-preserving extraction + matrix translation targets that the
+user approved via the two 12×12 matrices of 2026-04-23. This is now
+the single production prompt; the pre-Matrix-Regel baseline (briefly
+carried as "v1") and the Slice-7b re-balanced-type-emphasis variant
+(briefly carried as "v3") have been removed from source. See the
+historical reports under `docs/superpowers/specs/` for the A/B data
+that led to this decision.
 
-**What the v2 path changes semantically:**
+**What the Matrix-Regel mandates:**
 
-1. **Source-preserving noun extraction.** Rule 34's "always prepend
-   `en`/`ett`/`ei` to Scandi nouns" and Rule 41's "always prepend `the`
-   to English nouns" and the generic "ALWAYS include the DEFINITE
-   article" for articled langs are all REVERSED in v2. Each noun is
-   extracted with the article category matching its **first occurrence
-   in the source text** — suffix-definite Scandi `hunden` stays
-   `hunden`, English `a dog` stays `a dog`, German `ein Hund` stays
-   `ein Hund`. Bare occurrences default to indefinite. All other
-   article-form occurrences of the same lexeme go into `source_forms`.
+1. **Source-preserving noun extraction.** Each noun is extracted with
+   the article category matching its **first occurrence in the source
+   text** — suffix-definite Scandi `hunden` stays `hunden`, English
+   `a dog` stays `a dog`, German `ein Hund` stays `ein Hund`. Bare
+   occurrences default to indefinite (prefix `en`/`ett`/`ei`/`et` for
+   Scandi, `a`/`an` for English, `ein`/`une`/… for other articled
+   langs). All other article-form occurrences of the same lexeme go
+   into `source_forms`.
 2. **Matrix translation target.** `matrixTranslationTarget(sourceCat,
-   nativeCode)` replaces Rule 42's three-branch `pickTranslationTarget`
-   at runtime. Rule: articleless natives (pl/cs) always receive the
+   nativeCode)` maps each extracted noun's `source_cat` to the
+   translation target: articleless natives (pl/cs) always receive the
    bare form; DEF-source → native's `nounDef` (articled natives use
-   `nounLemma`, Scandi natives use the new `nounDef` field carrying
-   the suffix-definite form `hunden`); INDEF-source or BARE-source →
+   `nounLemma`, Scandi natives use the `nounDef` field carrying the
+   suffix-definite form `hunden`); INDEF-source or BARE-source →
    native's indefinite form (`nounIndef` for articled, `nounLemma` for
    Scandi). BARE mirrors to INDEF per the user's matrix comment.
-3. **`source_cat` metadata.** The v2 JSON schema carries a per-entry
+3. **`source_cat` metadata.** The JSON schema carries a per-entry
    `source_cat: "def"|"indef"|"bare"` field. Pipeline-only — not
-   persisted. Consumed by the Translation-Target Match Rate metric
-   in the Slice-7 A/B sweep.
+   persisted to SQLite. Consumed by the Translation-Target Match Rate
+   metric in sweep reports.
 
-**How the A/B coexistence works:**
+**Module layout** (`lib/claude/`):
 
-- `PromptVersion = 'v1' | 'v2'` toggle lives in `lib/claude.ts` as an
-  exported type. `defaultPromptVersion()` reads
-  `process.env.ANYVOC_PROMPT_VERSION`; unset defaults to `'v1'` during
-  the A/B phase.
-- v1 fragment builders (`buildNounVerbRules`, `SCANDINAVIAN_NOUN_RULE`,
-  `ENGLISH_NOUN_RULE`, `buildTranslationRule`, `buildJsonExample`,
-  `pickTranslationTarget`) stay byte-identical to the pre-Matrix-Regel
-  baseline so Rules 34/41/42/46 architecture tests continue to pass
-  unmodified.
-- v2 siblings (`buildNounVerbRulesV2`, `SCANDINAVIAN_NOUN_RULE_V2`,
-  `ENGLISH_NOUN_RULE_V2`, `CRITICAL_NOUN_RULE_BY_LANG_V2`,
-  `buildTranslationRuleV2`, `buildJsonExampleV2`,
-  `buildCriticalHeaderV2`, `matrixTranslationTarget`) live alongside;
-  `buildVocabSystemPrompt` branches on the `version` parameter.
-- `translateSingleWord` composes both v1 and v2 prompt strings and
-  picks one by version — the single-line return type alias
-  `TranslateSingleWordResult` keeps the function signature
-  regex-matchable by the Rule-27 / Rule-42 non-greedy capture.
-- `extractVocabulary` and `translateSingleWord` strip `source_cat`
-  from their output when `defaultPromptVersion() === 'v1'`, so v1
-  callers get the clean legacy shape regardless of whether the LLM
-  happens to emit the field.
+- `prompt/shared.ts` — `matrixTranslationTarget`, `buildNounShapeRule`,
+  `buildAdjRule`.
+- `prompt/builders.ts` — `SCANDINAVIAN_NOUN_RULE`, `SLAVIC_NOUN_RULE`,
+  `ENGLISH_NOUN_RULE`, `CRITICAL_NOUN_RULE_BY_LANG`,
+  `buildCriticalHeader`, `buildNounVerbRules`, `buildTranslationRule`,
+  `buildJsonExample`.
+- `prompt/index.ts` — `buildVocabSystemPrompt` (bulk extraction) and
+  `buildTranslateSingleWordPrompt` (Pro long-press translate flow).
+- `extract.ts`, `translateText.ts`, `translateSingleWord.ts` —
+  orchestrators that call the prompt builders and post-process.
 
-**Scandi `nounDef` field:** sv/no/da profiles gain `nounDef: 'hunden'`
-(suffix-definite common-gender form). Used only by
-`matrixTranslationTarget` when a Scandi native receives a DEF-source
-translation. The existing `nounLemma: 'en hund'` (INDEF-prefix) stays
-as-is since it's still the canonical dictionary lemma in the Scandi
-article system. Neutrum (`ett språk` / `språket`) and feminine (no
-`ei bok` / `boka`) forms are NOT currently in the profile — the
-Slice-7 sweep will measure Article-Category Match Rate per genus;
-if sub-85%, Slice 7b adds `nounDefNeuter` + `nounDefFeminine`.
+**Scandi `nounDef` field:** sv/no/da profiles carry `nounDef: 'hunden'`
+(suffix-definite common-gender form). Used by `matrixTranslationTarget`
+when a Scandi native receives a DEF-source translation. The existing
+`nounLemma: 'en hund'` (INDEF-prefix) stays as the canonical dictionary
+lemma in the Scandi article system. Neutrum (`ett språk` / `språket`)
+and feminine (no `ei bok` / `boka`) forms are not currently encoded —
+empirically the LLM handles gender on its own at acceptable rates.
 
-**Rule 47 architecture test** (in `lib/__tests__/architecture.test.ts`)
-asserts: `matrixTranslationTarget` is exported with the 3-valued
-`sourceCat` signature; both `SCANDINAVIAN_NOUN_RULE_V2` and
-`ENGLISH_NOUN_RULE_V2` cover all three source categories and do NOT
-carry the v1 "ALWAYS prepend" enforcement; `CRITICAL_NOUN_RULE_BY_LANG_V2`
-maps sv/no/da/en to the V2 rules with pl/cs on the unchanged
-`SLAVIC_NOUN_RULE`; all four V2 fragment builders are defined;
-`buildVocabSystemPrompt` is exported with optional `version`
-parameter; `defaultPromptVersion` reads the env var and defaults to
-v1; `ExtractedVocab` carries optional `source_cat`; the v2 builder
-calls appear in `buildVocabSystemPrompt`; `extractVocabulary` strips
-`source_cat` in v1 mode; sv/no/da profiles carry `nounDef`.
-
-**Go/No-Go for flipping `defaultPromptVersion` to v2** (Slice 7):
-see the plan file for the full Go/No-Go metric table. Summary: merge
-to v2-default blocked if any quality metric except Cross-Native
-Jaccard regresses; Cross-Native Jaccard drop ≤ 10 pp acceptable since
-source-preservation inherently increases cross-native divergence.
-
-**Once v2 is the default and stable:** the v1 builders, the
-`CRITICAL_NOUN_RULE_BY_LANG` (v1) lookup, `SCANDINAVIAN_NOUN_RULE`
-(v1), `ENGLISH_NOUN_RULE` (v1), and `pickTranslationTarget` are
-deleted; Rules 34/41/42 in this file are rewritten around the v2
-behaviour; Rule 47 collapses into a shorter "Matrix-Regel" invariant;
-the Rule-34/41/42 architecture tests are updated to assert only the
-v2 shape. That cleanup is Phase-1 exit work, not Phase-1 work.
+**Rule 47 architecture sensor** locks the single-path shape:
+`matrixTranslationTarget` is exported with the 3-valued `sourceCat`
+signature; `SCANDINAVIAN_NOUN_RULE` and `ENGLISH_NOUN_RULE` cover all
+three source categories and do NOT carry any "ALWAYS prepend"
+wording; `CRITICAL_NOUN_RULE_BY_LANG` maps sv/no/da to
+`SCANDINAVIAN_NOUN_RULE`, en to `ENGLISH_NOUN_RULE`, pl/cs to
+`SLAVIC_NOUN_RULE`; `buildVocabSystemPrompt` has no `version`
+parameter; `ExtractedVocab` carries optional `source_cat`; sv/no/da
+profiles carry `nounDef`. Additional guard: legacy suffixed names
+(`SCANDINAVIAN_NOUN_RULE_V2`, `buildVocabSystemPromptV1`, …) must not
+re-appear — a regression to the A/B-era coexistence pattern would be
+caught by the "legacy v1/v3 prompt symbols and PromptVersion type are
+gone" assertion.
 
 ## Leitner System
 

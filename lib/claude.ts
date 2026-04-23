@@ -26,7 +26,6 @@ export { detectLanguage } from './claude/detectLanguage';
 export type {
   ExtractedVocab,
   TranslateSingleWordResult,
-  PromptVersion,
   ArticleCategory,
   LangExamples,
 } from './claude/types';

@@ -12,7 +12,7 @@ import { classifyWord, type SupportedLanguage } from '../classifier';
 import { postProcessExtractedVocab } from '../vocabFilters';
 import { callClaude } from './transport';
 import { chunkText } from './chunk';
-import { buildVocabSystemPrompt, defaultPromptVersion } from './prompt';
+import { buildVocabSystemPrompt } from './prompt';
 import type { ExtractedVocab } from './types';
 
 export async function extractVocabulary(
@@ -128,15 +128,6 @@ export async function extractVocabulary(
   );
   allVocabs.length = 0;
   allVocabs.push(...filtered);
-
-  // Slice 3/7: under v1 the LLM isn't asked for source_cat — strip any
-  // incidental field so v1 callers get a clean shape. Under v2/v3 keep
-  // it; it's consumed by the sweep's Translation-Target Match Rate metric.
-  if (defaultPromptVersion() === 'v1') {
-    for (const vocab of allVocabs) {
-      delete (vocab as { source_cat?: unknown }).source_cat;
-    }
-  }
 
   // Deterministic CEFR classification via lib/classifier — the LLM no longer
   // assigns levels. High/medium-confidence words resolve synchronously.
