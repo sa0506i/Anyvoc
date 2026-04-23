@@ -34,6 +34,27 @@ function collectSourceFiles(dir: string, ext = /\.(ts|tsx)$/): string[] {
   return results;
 }
 
+/** Phase 2 (2026-04-23): lib/claude.ts was split into a module under
+ *  lib/claude/. Sensors that scanned the old monolith now read the
+ *  concatenation of lib/claude.ts + every file under lib/claude/ so
+ *  existing regex patterns still find symbols wherever they moved.
+ *  File boundaries are preserved with headers to keep line-number-aware
+ *  output useful on debugging. */
+function readClaudeSource(): string {
+  const files: string[] = [path.join(ROOT, 'lib', 'claude.ts')];
+  const dir = path.join(ROOT, 'lib', 'claude');
+  if (fs.existsSync(dir)) {
+    files.push(...collectSourceFiles(dir));
+  }
+  return files
+    .filter((f) => fs.existsSync(f))
+    .map(
+      (f) =>
+        `// === FILE: ${path.relative(ROOT, f).replace(/\\/g, '/')} ===\n${fs.readFileSync(f, 'utf8')}`,
+    )
+    .join('\n\n');
+}
+
 // ─── Rule 1: No Node-only imports in lib/ ───────────────────────────
 // CLAUDE.md: "nothing under lib/ may import axios, tar, node:fs,
 // node:path, node:https, better-sqlite3, or any Node-only API"
@@ -827,7 +848,7 @@ describe('Architecture: Rule 20 — vocab views apply level filter', () => {
 // abbreviation / proper-noun / German-capitalisation guards cannot be
 // silently bypassed by a future refactor.
 describe('Architecture: Rule 21 — claude.ts wires postProcessExtractedVocab', () => {
-  const claudeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const claudeSrc = readClaudeSource();
 
   it('imports postProcessExtractedVocab from ./vocabFilters', () => {
     expect(claudeSrc).toMatch(/postProcessExtractedVocab.*from\s+['"]\.\/vocabFilters['"]/s);
@@ -1130,20 +1151,20 @@ describe('Architecture: Rule 26 — default learning language differs from nativ
 // shared VOCAB_FORMATTING_RULES constant must both appear in the
 // translateSingleWord system prompt.
 describe('Architecture: Rule 27 — translateSingleWord prompt has CRITICAL FORMATTING RULE', () => {
-  it('lib/claude.ts translateSingleWord systemPrompt is built from per-language builders', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
-    const match = src.match(/export async function translateSingleWord\b[\s\S]*?\n\}/);
+  it('translateSingleWord systemPrompt is built from per-language builders', () => {
+    // Phase 2 Slice 3 (2026-04-23): the per-language builder calls for
+    // translateSingleWord moved into lib/claude/prompt/v1.ts's
+    // buildSingleWordPromptV1 (and v2.ts's V2 equivalent). This sensor
+    // inspects the v1 template.
+    const v1Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v1.ts'), 'utf8');
+    const match = v1Src.match(/export function buildSingleWordPromptV1\b[\s\S]*?^\}/m);
     expect(match).not.toBeNull();
     const body = match![0];
-    // Must emit the CRITICAL header via the per-lang builder (post-F11
-    // 2026-04-22 refactor — the cross-language literal was removed).
     expect(body).toMatch(/buildCriticalHeader\(fromLanguageCode\)/);
-    // Must wire all shared rule builders
     expect(body).toMatch(/buildNounShapeRule\(fromLanguageCode\)/);
     expect(body).toMatch(/buildNounVerbRules\(fromLanguageCode\)/);
     expect(body).toMatch(/buildAdjRule\(fromLanguageCode\)/);
     expect(body).toMatch(/buildTranslationRule\(fromLanguageCode,/);
-    // Must instruct about base form / inflected input
     expect(body).toMatch(/inflect|conjugat|base form|dictionary/i);
   });
 
@@ -1151,7 +1172,7 @@ describe('Architecture: Rule 27 — translateSingleWord prompt has CRITICAL FORM
     // buildNounVerbRules is a function now, not a const. Parse its body
     // and assert the article / infinitive / reflexive vocabulary is still
     // present so the per-lang output still carries the three concepts.
-    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+    const src = readClaudeSource();
     const match = src.match(/function buildNounVerbRules[\s\S]*?\n\}/);
     expect(match).not.toBeNull();
     const body = match![0];
@@ -1686,38 +1707,40 @@ describe('Architecture: Rule 40 — extractVocabulary prompt shows every non-oth
   // Pin the prompt to show each non-"other" type so the model has
   // canonical anchors for all of them.
   it('extraction prompt includes noun/verb/adjective/phrase examples AND the type enum', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
-
-    // Post-F11 (2026-04-22): the JSON example was moved out of
-    // buildVocabSystemPrompt into its own builder `buildJsonExample(learnCode,
-    // nativeCode)` so the entries can be per-language. Check that
-    // builder emits the full type-enum cover, and that the prompt
-    // shell references it.
-    const promptFn = src.match(/function\s+buildVocabSystemPrompt[\s\S]*?^}/m);
-    expect(promptFn).not.toBeNull();
-    expect(promptFn![0]).toMatch(/buildJsonExample\(/);
-
-    const jsonFn = src.match(/function\s+buildJsonExample[\s\S]*?^}/m);
-    expect(jsonFn).not.toBeNull();
-    const body = jsonFn![0];
+    // Phase 2 Slice 3 (2026-04-23): buildJsonExample now lives in
+    // lib/claude/prompt/v1.ts (as buildJsonExample) and v2.ts (as
+    // buildJsonExampleV2). Both must cover the full type enum.
+    const v1Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v1.ts'), 'utf8');
+    const v2Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v2.ts'), 'utf8');
 
     const REQUIRED_TYPE_LABELS = ['noun', 'verb', 'adjective', 'phrase'];
-    const missing = REQUIRED_TYPE_LABELS.filter((t) => !body.includes(`"type": "${t}"`));
-    if (missing.length > 0) {
-      throw new Error(
-        `EXTRACTION PROMPT BIAS in lib/claude.ts: buildJsonExample\n` +
-          `must include one "type": "${REQUIRED_TYPE_LABELS.join('" / "type": "')}" example.\n` +
-          `Missing: ${missing.map((t) => `"type": "${t}"`).join(', ')}.\n` +
-          `Temperature-0 small models cargo-cult single-example prompts —\n` +
-          `without all four anchors, every entry comes back as "noun".\n` +
-          `See arch-review-2 Phase 2.H.`,
-      );
-    }
-    expect(missing).toEqual([]);
 
-    // The JSON example must cover all four types in order so the
-    // model treats the field as a choice, not a cargo-culted constant.
-    expect(body).toMatch(/"noun"[\s\S]*"verb"[\s\S]*"adjective"[\s\S]*"phrase"/);
+    // Each version-specific file must carry a buildJsonExample(V1|V2)
+    // function whose body includes all four type labels.
+    for (const { label, src, fnName } of [
+      { label: 'v1', src: v1Src, fnName: 'buildJsonExample' },
+      { label: 'v2', src: v2Src, fnName: 'buildJsonExampleV2' },
+    ]) {
+      const jsonFn = src.match(new RegExp(`function\\s+${fnName}[\\s\\S]*?^\\}`, 'm'));
+      expect(jsonFn).not.toBeNull();
+      const body = jsonFn![0];
+      const missing = REQUIRED_TYPE_LABELS.filter((t) => !body.includes(`"type": "${t}"`));
+      if (missing.length > 0) {
+        throw new Error(
+          `EXTRACTION PROMPT BIAS in ${fnName} (${label}):\n` +
+            `must include one "type": "${REQUIRED_TYPE_LABELS.join('" / "type": "')}" example.\n` +
+            `Missing: ${missing.map((t) => `"type": "${t}"`).join(', ')}.\n` +
+            `Temperature-0 small models cargo-cult single-example prompts —\n` +
+            `without all four anchors, every entry comes back as "noun".`,
+        );
+      }
+      expect(missing).toEqual([]);
+      expect(body).toMatch(/"noun"[\s\S]*"verb"[\s\S]*"adjective"[\s\S]*"phrase"/);
+    }
+
+    // Each top-level version builder must reference buildJsonExample.
+    expect(v1Src).toMatch(/buildJsonExample\(/);
+    expect(v2Src).toMatch(/buildJsonExampleV2\(/);
   });
 });
 
@@ -1789,7 +1812,7 @@ describe('Architecture: Rule 33 — postProcessExtractedVocab applies full filte
 // extractVocabulary must additionally log a warning when ≥3 consecutive
 // identical entries are parsed (post-hoc loop detection).
 describe('Architecture: Rule 34 — extraction prompt has Scandi + anti-dup rules', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const src = readClaudeSource();
   const fnMatch = src.match(/function buildVocabSystemPrompt\b[\s\S]*?\n\}/);
 
   it('buildVocabSystemPrompt exists and accepts learningLanguageCode', () => {
@@ -1992,7 +2015,7 @@ describe('Architecture: Rule 37 — isMultiWordNounLeak covers "other" type too'
 // language; post-filter must collapse leaked pairs. See CLAUDE.md
 // §"Vocabulary Formatting Rules" Rule 38.
 describe('Architecture: Rule 38 — adjective rule is language-scoped', () => {
-  const claudeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const claudeSrc = readClaudeSource();
   const filtersSrc = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
 
   it('lib/claude.ts has a Romance vs single-form adjective branch', () => {
@@ -2051,7 +2074,7 @@ describe('Architecture: Rule 38 — adjective rule is language-scoped', () => {
 // and postProcessExtractedVocab must call isNonInfinitiveVerb to drop
 // leaks that slip past the prompt. See CLAUDE.md Rule 39.
 describe('Architecture: Rule 39 — non-infinitive verbs dropped', () => {
-  const claudeSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const claudeSrc = readClaudeSource();
   const filtersSrc = fs.readFileSync(path.join(ROOT, 'lib', 'vocabFilters.ts'), 'utf8');
 
   it('extraction prompt names the verb-infinitive mistake explicitly', () => {
@@ -2136,7 +2159,7 @@ describe('Architecture: Rule 40 — curly apostrophes normalised', () => {
 // learning was never exercised — this rule closes the gap before a
 // future sweep with EN-as-learning or a PL-native hits it.
 describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const src = readClaudeSource();
 
   it('SLAVIC_NOUN_RULE constant exists and names pl + cs', () => {
     const match = src.match(/const SLAVIC_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
@@ -2188,7 +2211,7 @@ describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
 // translation, indefinite → indefinite, bare → bare. One rule, no
 // lookup table, no per-native code paths. See CLAUDE.md Rule 42.
 describe('Architecture: Rule 42 — translation mirrors original definiteness', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const src = readClaudeSource();
 
   it('buildTranslationRule function exists and uses LANG_EXAMPLES per learn+native', () => {
     // Post-F11 (2026-04-22): the TRANSLATION_MIRROR_RULE literal was
@@ -2207,8 +2230,11 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
     expect(/"translation" field for NOUN/.test(body)).toBe(true);
   });
 
-  it('buildVocabSystemPrompt references buildTranslationRule', () => {
-    const fnMatch = src.match(/function buildVocabSystemPrompt\b[\s\S]*?^\}/m);
+  it('buildVocabSystemPromptV1 references buildTranslationRule', () => {
+    // Phase 2 Slice 3 (2026-04-23): v1 template moved to
+    // lib/claude/prompt/v1.ts's buildVocabSystemPromptV1.
+    const v1Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v1.ts'), 'utf8');
+    const fnMatch = v1Src.match(/function buildVocabSystemPromptV1\b[\s\S]*?^\}/m);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
     expect(/buildTranslationRule\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(
@@ -2216,8 +2242,11 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
     );
   });
 
-  it('translateSingleWord prompt references buildTranslationRule', () => {
-    const fnMatch = src.match(/export async function translateSingleWord\b[\s\S]*?^\}/m);
+  it('buildSingleWordPromptV1 references buildTranslationRule', () => {
+    // Phase 2 Slice 3: translateSingleWord's v1 template is now
+    // lib/claude/prompt/v1.ts's buildSingleWordPromptV1.
+    const v1Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v1.ts'), 'utf8');
+    const fnMatch = v1Src.match(/function buildSingleWordPromptV1\b[\s\S]*?^\}/m);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
     expect(/buildTranslationRule\(fromLanguageCode,\s*nativeCode\)/.test(body)).toBe(true);
@@ -2245,15 +2274,19 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
 // regardless of the toggle — they protect the baseline until Phase 1
 // completes and v1 can be cleaned up.
 describe('Architecture: Rule 47 — Matrix-Regel v2 prompt-builder siblings exist', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+  const src = readClaudeSource();
 
   it('exports matrixTranslationTarget(sourceCat, nativeCode) → string', () => {
     expect(/export function matrixTranslationTarget\(/.test(src)).toBe(true);
     const fnMatch = src.match(/export function matrixTranslationTarget\b[\s\S]*?\n\}/);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
-    // Signature must accept the 3-valued sourceCat and a nativeCode string.
-    expect(/sourceCat:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body)).toBe(true);
+    // Signature must accept the 3-valued sourceCat (inline union OR
+    // ArticleCategory alias — Slice 3 refactor introduced the alias)
+    // and a nativeCode string.
+    const hasInlineEnum = /sourceCat:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body);
+    const hasAliasForm = /sourceCat:\s*ArticleCategory/.test(body);
+    expect(hasInlineEnum || hasAliasForm).toBe(true);
     expect(/nativeCode:\s*string/.test(body)).toBe(true);
   });
 
@@ -2340,10 +2373,12 @@ describe('Architecture: Rule 47 — Matrix-Regel v2 prompt-builder siblings exis
     expect(hasInlineEnum || hasAliasForm).toBe(true);
   });
 
-  it('buildVocabSystemPrompt body wires v2 fragment builders when version === "v2"', () => {
-    // Non-greedy match to first `\n}` lands inside the v2 template literal —
-    // it must contain the v2 builder calls.
-    const m = src.match(/export function buildVocabSystemPrompt\b[\s\S]*?\n\}/);
+  it('buildVocabSystemPromptV2 wires all four v2 fragment builders', () => {
+    // Phase 2 Slice 3 (2026-04-23): the v2 template body moved from
+    // the inline switch in buildVocabSystemPrompt into a dedicated
+    // function buildVocabSystemPromptV2 in lib/claude/prompt/v2.ts.
+    const v2Src = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'prompt', 'v2.ts'), 'utf8');
+    const m = v2Src.match(/export function buildVocabSystemPromptV2\b[\s\S]*?^\}/m);
     expect(m).not.toBeNull();
     const body = m![0];
     expect(/buildCriticalHeaderV2\(learningLanguageCode\)/.test(body)).toBe(true);
