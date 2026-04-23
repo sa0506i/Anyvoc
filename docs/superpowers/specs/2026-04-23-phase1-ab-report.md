@@ -11,7 +11,7 @@
 | Cross-Native Median Jaccard | 0.600 | **0.504** | ✗ -0.096 (-16.0%) | ≥0.75 |
 | Core-Vocab Stability (in-all-natives) | 22.3% | **16.1%** | ✗ -6.2pp (-27.8%) | ≥40% |
 | Multi-Word-Noun Violations | 0 | **0** | = 0 | <30 |
-| Scandinavian Nouns with Article | 99.5% | **81.6%** | ✗ -17.9pp (-18.0%) | ≥90% |
+| Scandinavian Nouns with Article | 99.5% | **87.1%** | ✗ -12.4pp (-12.4%) | ≥90% |
 | Verb Infinitive Compliance | 100.0% | **99.9%** | = -0.1pp (-0.1%) | ≥99.5% |
 | DE Translation Case Errors | 2 | **1** | ✓ -1 (-50.0%) | <5 |
 | p95 Latency per Combo | 39.291 ms | **45.363 ms** | ✗ +6.072 (+15.5%) | ≤22000 |
@@ -20,4 +20,4 @@
 | Proper-Noun Leak Count | 0 | **0** | = 0 | <5 |
 | Source-Cat Coverage (v2 only) | 0.0% | **100.0%** | = +100.0pp | ≥95% in v2 |
 | Translation-Target Match Rate (v2 only) | 0.0% | **87.5%** | = +87.5pp | ≥92% in v2 |
-| Scandi Def-Suffix Recognition (v2 only) | 0.0% | **89.5%** | = +89.5pp | ≥85% in v2 |
+| Scandi Def-Suffix Recognition (v2 only) | 0.0% | **92.1%** | = +92.1pp | ≥85% in v2 |

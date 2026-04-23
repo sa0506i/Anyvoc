@@ -227,11 +227,47 @@ const ARTICLES: Record<string, string[]> = {
 };
 const SCANDI = new Set(['sv', 'no', 'da']);
 
+/** Scandi definite-suffix detector — a Scandi noun carries a definiteness
+ *  marker as a SUFFIX on the base form (hunden, bilden, folket, bogen,
+ *  hjernen), plural-def (barnen, bøgerne, böckerna, universiteta), or
+ *  genitive-def (demokratins, husets). These were miscounted as "no
+ *  article" by the v1-era prefix-only check, which inflated the "Scandi
+ *  Nouns with Article" regression under v2 semantics where suffix-def is
+ *  legitimate (source-preserving extraction per CLAUDE.md Rule 47).
+ *
+ *  Regex list — calibrated 2026-04-23 against the full sweep:
+ *    -a     no feminine sg def (boka, jenta) + no neuter plural def
+ *           (universiteta, forliksråda) — highest false-positive risk
+ *           (bare "pizza", "drama"); see context caveat below.
+ *    -en    common singular def  (hunden, bilden)
+ *    -et    neuter singular def  (folket, huset)
+ *    -ens   common singular genitive def  (demokratins)
+ *    -ets   neuter singular genitive def  (husets)
+ *    -na    sv plural def of some classes  (böckerna, barna)
+ *    -ne    no plural def common  (husene)
+ *    -ene   no/da plural def  (husene, bøgerne when spelled -ene)
+ *    -erne  da plural def common  (bøgerne)
+ *    -nas   sv plural genitive def  (böckernas)
+ *
+ *  Context caveat: this detector is only used where the denominator is
+ *  already narrowed — (a) hasArticle() on type==='noun' entries whose
+ *  prefix check already failed (suggests suffix form present); (b)
+ *  scandiDefSuffixHits which only runs on entries already tagged
+ *  `source_cat: 'def'` by the LLM. Under those filters the -a branch's
+ *  false-positive risk is acceptable (a word the LLM already flagged
+ *  'def' ending in -a is much more likely a true def-suffix than a
+ *  random bare lemma). Never use this detector on unfiltered vocab. */
+const SCANDI_DEF_SUFFIX = /(a|en|et|ens|ets|na|nas|ne|ene|erne|ernas)$/i;
+
 function hasArticle(lang: string, original: string): boolean {
   const arts = ARTICLES[lang];
   if (!arts) return false;
   const low = normalize(original);
-  return arts.some((a) => low.startsWith(a));
+  if (arts.some((a) => low.startsWith(a))) return true;
+  // For Scandi, also accept suffix-definite / genitive-definite forms as
+  // legitimate article markers (v2-aware per Slice 7b.1).
+  if (SCANDI.has(lang) && SCANDI_DEF_SUFFIX.test(low)) return true;
+  return false;
 }
 
 /** Language-specific infinitive endings (rough but robust enough). */
@@ -490,7 +526,9 @@ function kpis(dump: PipelineDump): Kpi[] {
       // match (which would need the original HTML to verify).
       if (SCANDI.has(r.lang) && v.source_cat === 'def') {
         scandiDefNouns++;
-        if (/(en|et|na|ne|a)$/i.test(v.original.trim())) scandiDefSuffixHits++;
+        // Use the same suffix-def detector as hasArticle() (Slice 7b.1),
+        // now including genitive-def patterns so "demokratins" counts.
+        if (SCANDI_DEF_SUFFIX.test(v.original.trim())) scandiDefSuffixHits++;
       }
     }
   }
