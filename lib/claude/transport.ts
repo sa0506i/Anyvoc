@@ -82,7 +82,15 @@ async function callClaudeOnce(
   options?: CallClaudeOptions,
 ): Promise<string> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  // 240s client-side abort cap. Was 120s pre-2026-04-23 but the
+  // Phase-2 parity sweep hit the 120s cliff 9× out of 132 combos
+  // on a slow-Mistral day (all failures elapsed at exactly 120.000 ms,
+  // and 50+ successful combos took over 60s). 240s gives generous
+  // headroom for Mistral peak-load windows + Fly cold-start latency
+  // without making a genuinely-stuck request wait obscenely long.
+  // If p99 sweeps start exceeding this, there's a real backend
+  // problem worth investigating — don't blindly bump further.
+  const timeoutId = setTimeout(() => controller.abort(), 240_000);
 
   try {
     const response = await fetch(API_URL, {
