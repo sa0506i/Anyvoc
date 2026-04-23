@@ -2227,3 +2227,140 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
     expect(/export function nounArticleHintFor\b/.test(src)).toBe(false);
   });
 });
+
+// ─── Rule 47: Matrix-Regel v2 prompt-builder siblings + toggle ───────
+//
+// Slice 2/3-of-7 (2026-04-23) introduces the user-approved Matrix-Regel
+// (source-preserving extraction + matrix-based translation targets) as
+// a v2 variant alongside the existing v1 builders. A PROMPT_VERSION
+// env toggle (`ANYVOC_PROMPT_VERSION=v2`) switches Production code
+// paths; v1 remains the default until the Slice-7 A/B sweep validates
+// v2 and flips the default. These sensors lock the v2 structure so
+// deletion or accidental rename surfaces in review.
+//
+// The v1 assertions live in Rules 34/41/42 above and stay green
+// regardless of the toggle — they protect the baseline until Phase 1
+// completes and v1 can be cleaned up.
+describe('Architecture: Rule 47 — Matrix-Regel v2 prompt-builder siblings exist', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'lib', 'claude.ts'), 'utf8');
+
+  it('exports matrixTranslationTarget(sourceCat, nativeCode) → string', () => {
+    expect(/export function matrixTranslationTarget\(/.test(src)).toBe(true);
+    const fnMatch = src.match(/export function matrixTranslationTarget\b[\s\S]*?\n\}/);
+    expect(fnMatch).not.toBeNull();
+    const body = fnMatch![0];
+    // Signature must accept the 3-valued sourceCat and a nativeCode string.
+    expect(/sourceCat:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body)).toBe(true);
+    expect(/nativeCode:\s*string/.test(body)).toBe(true);
+  });
+
+  it('SCANDINAVIAN_NOUN_RULE_V2 exists and covers all three source categories', () => {
+    const m = src.match(/const SCANDINAVIAN_NOUN_RULE_V2\s*=\s*`[\s\S]*?`;/);
+    expect(m).not.toBeNull();
+    const body = m![0];
+    // V2 scandi rule must name first-occurrence + all three categories.
+    expect(/first occurrence/i.test(body)).toBe(true);
+    expect(/SUFFIX-DEFINITE/i.test(body)).toBe(true);
+    expect(/INDEFINITE-PREFIX/i.test(body)).toBe(true);
+    expect(/BARE/i.test(body)).toBe(true);
+    // The old v1 "ALWAYS prepend" enforcement must NOT leak into the v2 rule.
+    expect(/ALWAYS prepend the INDEFINITE article/.test(body)).toBe(false);
+  });
+
+  it('ENGLISH_NOUN_RULE_V2 exists and is source-preserving (no "ALWAYS the")', () => {
+    const m = src.match(/const ENGLISH_NOUN_RULE_V2\s*=\s*`[\s\S]*?`;/);
+    expect(m).not.toBeNull();
+    const body = m![0];
+    expect(/first occurrence/i.test(body)).toBe(true);
+    // Each of the three source categories must be named explicitly.
+    expect(/DEF source/.test(body)).toBe(true);
+    expect(/INDEF source/.test(body)).toBe(true);
+    expect(/BARE source/.test(body)).toBe(true);
+    // The old v1 "ALWAYS prepend the definite article" enforcement must NOT leak.
+    expect(/ALWAYS prepend the definite article/.test(body)).toBe(false);
+  });
+
+  it('CRITICAL_NOUN_RULE_BY_LANG_V2 maps sv/no/da/en to V2 rules and pl/cs unchanged', () => {
+    const m = src.match(/const CRITICAL_NOUN_RULE_BY_LANG_V2[\s\S]*?\};/);
+    expect(m).not.toBeNull();
+    const body = m![0];
+    expect(/\bsv\s*:\s*SCANDINAVIAN_NOUN_RULE_V2\b/.test(body)).toBe(true);
+    expect(/\bno\s*:\s*SCANDINAVIAN_NOUN_RULE_V2\b/.test(body)).toBe(true);
+    expect(/\bda\s*:\s*SCANDINAVIAN_NOUN_RULE_V2\b/.test(body)).toBe(true);
+    expect(/\ben\s*:\s*ENGLISH_NOUN_RULE_V2\b/.test(body)).toBe(true);
+    // pl/cs keep SLAVIC_NOUN_RULE because articleless languages have no
+    // articles to preserve.
+    expect(/\bpl\s*:\s*SLAVIC_NOUN_RULE\b/.test(body)).toBe(true);
+    expect(/\bcs\s*:\s*SLAVIC_NOUN_RULE\b/.test(body)).toBe(true);
+  });
+
+  it('v2 fragment builders exist: buildCriticalHeaderV2, buildNounVerbRulesV2, buildTranslationRuleV2, buildJsonExampleV2', () => {
+    expect(/function buildCriticalHeaderV2\b/.test(src)).toBe(true);
+    expect(/function buildNounVerbRulesV2\b/.test(src)).toBe(true);
+    expect(/function buildTranslationRuleV2\b/.test(src)).toBe(true);
+    expect(/function buildJsonExampleV2\b/.test(src)).toBe(true);
+  });
+
+  it('buildVocabSystemPrompt is exported and accepts an optional version parameter', () => {
+    expect(/export function buildVocabSystemPrompt\b/.test(src)).toBe(true);
+    const fnMatch = src.match(/export function buildVocabSystemPrompt\b[\s\S]*?\):\s*string/);
+    expect(fnMatch).not.toBeNull();
+    const sig = fnMatch![0];
+    expect(/version:\s*PromptVersion/.test(sig)).toBe(true);
+  });
+
+  it('defaultPromptVersion() reads ANYVOC_PROMPT_VERSION env and defaults to v1', () => {
+    const m = src.match(/function defaultPromptVersion\b[\s\S]*?\n\}/);
+    expect(m).not.toBeNull();
+    const body = m![0];
+    expect(/process\.env\.ANYVOC_PROMPT_VERSION/.test(body)).toBe(true);
+    // Default is v1 during A/B phase (Slice 7 will flip to v2 after sweep).
+    expect(
+      /return\s+process\.env\.ANYVOC_PROMPT_VERSION\s*===\s*'v2'\s*\?\s*'v2'\s*:\s*'v1'/.test(body),
+    ).toBe(true);
+  });
+
+  it('ExtractedVocab carries an optional source_cat field', () => {
+    const m = src.match(/export interface ExtractedVocab\b[\s\S]*?\n\}/);
+    expect(m).not.toBeNull();
+    const body = m![0];
+    expect(/source_cat\?:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body)).toBe(true);
+  });
+
+  it('buildVocabSystemPrompt body wires v2 fragment builders when version === "v2"', () => {
+    // Non-greedy match to first `\n}` lands inside the v2 template literal —
+    // it must contain the v2 builder calls.
+    const m = src.match(/export function buildVocabSystemPrompt\b[\s\S]*?\n\}/);
+    expect(m).not.toBeNull();
+    const body = m![0];
+    expect(/buildCriticalHeaderV2\(learningLanguageCode\)/.test(body)).toBe(true);
+    expect(/buildNounVerbRulesV2\(learningLanguageCode\)/.test(body)).toBe(true);
+    expect(/buildTranslationRuleV2\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(
+      true,
+    );
+    expect(/buildJsonExampleV2\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(
+      true,
+    );
+  });
+
+  it('extractVocabulary strips source_cat when version === "v1"', () => {
+    const m = src.match(/export async function extractVocabulary\b[\s\S]*?^\}/m);
+    expect(m).not.toBeNull();
+    const body = m![0];
+    // The strip is gated by defaultPromptVersion() === 'v1' so v2 callers
+    // keep the field while v1 callers get a clean shape.
+    expect(/defaultPromptVersion\(\)\s*===\s*'v1'/.test(body)).toBe(true);
+    expect(/delete\s+\([^)]*\)\.source_cat/.test(body)).toBe(true);
+  });
+
+  it('Scandi profiles carry a nounDef field for the suffix-definite form', () => {
+    // Used by matrixTranslationTarget when sourceCat==='def' and native is scandi.
+    // sv/no/da must have nounDef present; articled langs need none (nounLemma is DEF).
+    for (const code of ['sv', 'no', 'da']) {
+      const profileRe = new RegExp(
+        `${code}:\\s*\\{[\\s\\S]*?artCat:\\s*'indef'[\\s\\S]*?nounDef:\\s*'[^']+'[\\s\\S]*?\\}`,
+      );
+      expect(profileRe.test(src)).toBe(true);
+    }
+  });
+});
