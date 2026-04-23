@@ -447,6 +447,12 @@ export interface ExtractedVocab {
   level: string;
   type: 'noun' | 'verb' | 'adjective' | 'phrase' | 'other';
   source_forms: string[];
+  /** v2 Matrix-Regel: article category of the first occurrence in the
+   *  source text, as reported by the LLM. Present only when PROMPT_VERSION
+   *  is 'v2'; stripped in v1 mode. Not persisted to SQLite — strictly
+   *  pipeline metadata used by the A/B sweep to compute Translation-Target
+   *  Match Rate (LLM translation vs matrixTranslationTarget expectation). */
+  source_cat?: 'def' | 'indef' | 'bare';
 }
 
 interface CallClaudeOptions {
@@ -1005,6 +1011,15 @@ export async function extractVocabulary(
   allVocabs.length = 0;
   allVocabs.push(...filtered);
 
+  // Slice 3/7: under v1 the LLM isn't asked for source_cat — strip any
+  // incidental field so v1 callers get a clean shape. Under v2 keep it;
+  // it's consumed by the sweep's Translation-Target Match Rate metric.
+  if (defaultPromptVersion() === 'v1') {
+    for (const vocab of allVocabs) {
+      delete (vocab as { source_cat?: unknown }).source_cat;
+    }
+  }
+
   // Deterministic CEFR classification via lib/classifier — the LLM no longer
   // assigns levels. High/medium-confidence words resolve synchronously.
   for (const vocab of allVocabs) {
@@ -1039,13 +1054,25 @@ export async function translateText(
   return translations.join('\n\n');
 }
 
+// NB: extracted to a type alias so the translateSingleWord function signature
+// stays a single line — the Rule-27/42 architecture-test regex non-greedily
+// captures up to the first `\n}` and would otherwise stop at the type brace
+// before reaching the function body.
+export type TranslateSingleWordResult = {
+  original: string;
+  translation: string;
+  level: string;
+  type: string;
+  source_cat?: 'def' | 'indef' | 'bare';
+};
+
 export async function translateSingleWord(
   word: string,
   fromLanguageName: string,
   toLanguageName: string,
   fromLanguageCode: SupportedLanguage,
   toLanguageCode?: string,
-): Promise<{ original: string; translation: string; level: string; type: string }> {
+): Promise<TranslateSingleWordResult> {
   // CEFR level is determined locally after the translation comes back —
   // the LLM is only responsible for formatting + translation.
   const nativeCode = toLanguageCode ?? 'en';
@@ -1098,7 +1125,13 @@ Respond exclusively as a JSON object, with no additional text. Leave the level f
     temperature: 0,
   });
 
-  let parsed: { original: string; translation: string; level: string; type: string } = {
+  let parsed: {
+    original: string;
+    translation: string;
+    level: string;
+    type: string;
+    source_cat?: 'def' | 'indef' | 'bare';
+  } = {
     original: word,
     translation: '',
     level: 'B1',
@@ -1111,6 +1144,12 @@ Respond exclusively as a JSON object, with no additional text. Leave the level f
     }
   } catch {
     // fallback to default above
+  }
+
+  // Slice 3/7: under v1 the LLM isn't asked for source_cat — strip any
+  // incidental field so v1 callers get a clean shape.
+  if (version === 'v1') {
+    delete parsed.source_cat;
   }
 
   // Post-processing: drop abbreviations / proper nouns and apply German
