@@ -2309,18 +2309,19 @@ describe('Architecture: Rule 47 — Matrix-Regel v2 prompt-builder siblings exis
     expect(/version:\s*PromptVersion/.test(sig)).toBe(true);
   });
 
-  it('defaultPromptVersion() reads ANYVOC_PROMPT_VERSION env and defaults to v2 (post-Slice-7)', () => {
+  it('defaultPromptVersion() reads ANYVOC_PROMPT_VERSION env; defaults to v2 with v1 + v3 as explicit opt-ins', () => {
     const m = src.match(/function defaultPromptVersion\b[\s\S]*?\n\}/);
     expect(m).not.toBeNull();
     const body = m![0];
     expect(/process\.env\.ANYVOC_PROMPT_VERSION/.test(body)).toBe(true);
-    // Post-Slice-7 (2026-04-23): default flipped v1 → v2 after the full
-    // sweep confirmed the Go/No-Go criteria. Emergency rollback lever is
-    // `ANYVOC_PROMPT_VERSION=v1`, so the v2 return must be the default
-    // (unset-env) branch and v1 the explicit-env-override branch.
-    expect(
-      /return\s+process\.env\.ANYVOC_PROMPT_VERSION\s*===\s*'v1'\s*\?\s*'v1'\s*:\s*'v2'/.test(body),
-    ).toBe(true);
+    // Post-Slice-7b (2026-04-23): three versions coexist. v2 is the
+    // Production default (Slice 7 flip). v1 remains available as
+    // emergency-rollback opt-in. v3 is the re-balanced prompt being
+    // validated in Slice 7b; opt-in via env until its sweep confirms
+    // Go/No-Go, after which it can become the default.
+    expect(/ANYVOC_PROMPT_VERSION\s*===\s*'v1'/.test(body)).toBe(true);
+    expect(/ANYVOC_PROMPT_VERSION\s*===\s*'v3'/.test(body)).toBe(true);
+    expect(/return\s+'v2'/.test(body)).toBe(true);
   });
 
   it('ExtractedVocab carries an optional source_cat field', () => {

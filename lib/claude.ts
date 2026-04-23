@@ -25,7 +25,7 @@ const MAX_CHARS_PER_CHUNK = 5000;
  * `ANYVOC_PROMPT_VERSION=v2` is used by the sweep scripts to switch Production
  * code paths without modifying source.
  */
-export type PromptVersion = 'v1' | 'v2';
+export type PromptVersion = 'v1' | 'v2' | 'v3';
 
 function defaultPromptVersion(): PromptVersion {
   // Slice 7/7 (2026-04-23): flipped from v1 → v2 after the full sweep
@@ -33,7 +33,16 @@ function defaultPromptVersion(): PromptVersion {
   // docs/superpowers/specs/2026-04-23-phase1-go-nogo.md for the full
   // KPI diff. Env override ANYVOC_PROMPT_VERSION=v1 remains available
   // for emergency rollback without code change.
-  return process.env.ANYVOC_PROMPT_VERSION === 'v1' ? 'v1' : 'v2';
+  //
+  // Slice 7b (2026-04-23): v3 added as an opt-in variant while its sweep
+  // runs; once validated it will take over as the default. v3 rebalances
+  // type emphasis (NOUN/VERB/ADJECTIVE/PHRASE as symmetric blocks),
+  // strengthens the Scandi-INDEF → articled-INDEF mirror against the
+  // dictionary-lemma drift observed in the v2 full sweep, and allows
+  // bare-to-bare translation for abstract/mass nouns.
+  if (process.env.ANYVOC_PROMPT_VERSION === 'v1') return 'v1';
+  if (process.env.ANYVOC_PROMPT_VERSION === 'v3') return 'v3';
+  return 'v2';
 }
 
 /**
@@ -811,6 +820,139 @@ function buildJsonExampleV2(learnCode: string, nativeCode: string): string {
 ]`;
 }
 
+// ─── v3 fragment builders ─────────────────────────────────────────────
+// Slice 7b.3 — v3 re-balances type emphasis after the v2 sweep revealed
+// noun-over-classification (Italian carbonara: 36/36 typed 'noun', 0
+// verbs). v3's type rules live in 4 CAPS-headed symmetric blocks so the
+// LLM sees noun/verb/adjective/phrase as equal-weight categories. v2
+// semantics (source-preserving extraction + matrix translation) are
+// carried over unchanged.
+
+/** v3 noun rule — matches v2's source-preserving logic but shorter,
+ *  moved into its own NOUN EXTRACTION block. For articled learn langs
+ *  it compactly lists the three source_cat cases; for Scandi and
+ *  articleless it defers to SCANDINAVIAN_NOUN_RULE_V3 / SLAVIC_NOUN_RULE
+ *  rendered separately in buildVocabSystemPrompt so the NOUN block
+ *  stays focused. */
+function buildNounRuleV3(learnCode: string): string {
+  const ex = getLangExamples(learnCode);
+  if (ex.artCat === 'bare') {
+    // pl/cs — SLAVIC_NOUN_RULE handles it; the NOUN block stays bare.
+    return `Emit each noun in its ${ex.name} bare singular nominative base form (e.g. "${ex.nounLemma}"). ${ex.name} has no articles.`;
+  }
+  if (ex.artCat === 'indef') {
+    // Scandi — defer to the scandi-specific block; summarise here.
+    return `Preserve the article category of the FIRST occurrence: suffix-definite (e.g. "${ex.nounDef}" = source_cat="def"), indefinite-prefix (e.g. "${ex.nounLemma}" = source_cat="indef"), or bare source → prepend indefinite (source_cat="bare"). See Scandi-specific rule block below for the full suffix / prefix / gender detail.`;
+  }
+  // Articled — compact 3-case rule.
+  return `Preserve the article category of the FIRST occurrence. ${ex.name}: DEF "${ex.nounLemma}" (source_cat="def"), INDEF "${ex.nounIndef}" (source_cat="indef"), or bare source → default to "${ex.nounIndef}" (source_cat="bare"). If a distinct feminine form exists, add it after a comma.`;
+}
+
+/** v3 verb rule — promoted to its own VERB EXTRACTION block, no longer
+ *  a trailing bullet on the noun rule. The Slice-7b.2 investigation
+ *  showed that v2's noun-heavy prose caused the LLM to drop verb
+ *  extraction entirely on noun-dense text. Making the verb rule a
+ *  peer-level block restores balance. The "normalise to infinitive"
+ *  wording is intentional — v2's "never conjugated" phrasing was
+ *  observed on the carbonara sweep to trigger skip-the-verb instead
+ *  of normalise-to-infinitive behaviour on imperative-heavy recipe
+ *  text (zero verbs extracted from "aggiungi/taglia/..."). */
+function buildVerbRuleV3(learnCode: string): string {
+  const ex = getLangExamples(learnCode);
+  const reflexive = ex.verbReflexive
+    ? ` Reflexive verbs carry the pronoun: "${ex.verbReflexive}".`
+    : '';
+  return `Every verb that appears in the source — regardless of its surface form (conjugated, past participle, imperative, gerund, subjunctive, …) — MUST be extracted as its INFINITIVE lemma in the "original" field. Do NOT skip verbs because they appear in a non-infinitive form; normalise them. ${ex.name}: "${ex.verbInf}" (never "${ex.verbWrong}", never any tense / person / mood surface form).${reflexive} For every verb entry set source_cat="bare". Imperatives in recipes, instructions, and directives count as verbs — extract their infinitive lemma.`;
+}
+
+/** v3 adjective rule — mirror of v2 logic but promoted to its own block. */
+function buildAdjRuleV3(learnCode: string): string {
+  const ex = getLangExamples(learnCode);
+  if (ex.adjMFPair) {
+    return `Give BOTH masculine AND feminine forms when they differ in ${ex.name} (e.g. "${ex.adjMFPair}"). Romance languages inflect by gender; never drop one form. For every adjective entry set source_cat="bare".`;
+  }
+  const counter = ex.adjInflected
+    ? ` (e.g. "${ex.adjSingle}" not "${ex.adjSingle}, ${ex.adjInflected}" — inflected forms belong in source_forms)`
+    : ` (e.g. "${ex.adjSingle}")`;
+  return `Emit the SINGLE dictionary base form only${counter}. ${ex.name} does not inflect adjectives by gender at the lexeme level. For every adjective entry set source_cat="bare".`;
+}
+
+/** v3 phrase rule — new dedicated block, briefly gates on "multi-word
+ *  fixed expression" so the LLM doesn't dump full sentences. */
+function buildPhraseRuleV3(learnCode: string): string {
+  const ex = getLangExamples(learnCode);
+  return `Extract multi-word fixed expressions (idioms, collocations, set phrases) only. Example for ${ex.name}: "${ex.phraseExample}". Do NOT emit full sentences or clauses. For every phrase entry set source_cat="bare".`;
+}
+
+/** v3 Scandi noun rule — same source-preserving logic as v2 but the
+ *  prose is tightened: bare-source default to INDEF-prefix is mentioned
+ *  once, not repeated. Neutrum/feminine gender rule kept. */
+const SCANDINAVIAN_NOUN_RULE_V3 = `Scandi languages mark definiteness as a SUFFIX (sv/no/da). Extract each noun in the form matching its FIRST occurrence in the source:
+  (a) SUFFIX-DEFINITE in text (e.g. "hunden", "bogen", "folket") → emit as-is, source_cat="def".
+  (b) INDEF-PREFIX in text (e.g. "en hund", "ett språk", "ei bok", "et år") → emit with prefix, source_cat="indef".
+  (c) BARE in text (recipes, legal, after adjectives) → prepend indefinite by gender: "en" (common sg/pl), "ett" (sv neuter), "et" (no/da neuter), "ei" (no feminine). source_cat="bare".
+Never emit a Scandi noun that carries neither a suffix-definite marker nor an indefinite prefix.`;
+
+/** v3 English noun rule — same source-preserving logic as v2, compact. */
+const ENGLISH_NOUN_RULE_V3 = `English (en) nouns: preserve article category of the FIRST occurrence. DEF "the dog" (source_cat="def"), INDEF "a dog"/"an apple" (source_cat="indef"), bare source → default to "a"/"an" (source_cat="bare"). Never emit a bare English noun in the "original" field.`;
+
+const CRITICAL_NOUN_RULE_BY_LANG_V3: Record<string, string> = {
+  sv: SCANDINAVIAN_NOUN_RULE_V3,
+  no: SCANDINAVIAN_NOUN_RULE_V3,
+  da: SCANDINAVIAN_NOUN_RULE_V3,
+  pl: SLAVIC_NOUN_RULE,
+  cs: SLAVIC_NOUN_RULE,
+  en: ENGLISH_NOUN_RULE_V3,
+};
+
+/** v3 CRITICAL header — identical to v2 logic but renamed for consistency. */
+function buildCriticalHeaderV3(learnCode: string): string {
+  return buildCriticalHeaderV2(learnCode);
+}
+
+/** v3 translation rule — two fixes vs v2:
+ *  (1) Scandi-INDEF source → articled-native INDEF (strict anti-drift
+ *      against v2's observed "en makt → die Macht" dictionary-lemma
+ *      leakage). The example explicitly names the wrong target.
+ *  (2) Bare-source → articled-/Scandi-native INDEF BY DEFAULT, but
+ *      abstract/mass nouns are permitted to stay bare in the target if
+ *      that is the natural dictionary form ("likestilling → equality"
+ *      not forced to "un'equaglianza"). Prevents stilted translations
+ *      for abstract vocabulary. */
+function buildTranslationRuleV3(learnCode: string, nativeCode: string): string {
+  const learnEx = getLangExamples(learnCode);
+  const nativeEx = getLangExamples(nativeCode);
+
+  if (nativeEx.artCat === 'bare') {
+    // Articleless native (pl/cs) — always bare, unchanged from v2.
+    return `${nativeEx.name} has no articles. Translation is always bare regardless of source article category. Example: any ${learnEx.name} source → "${nativeEx.nounBare}".`;
+  }
+
+  const defTarget = matrixTranslationTarget('def', nativeCode);
+  const indefTarget = matrixTranslationTarget('indef', nativeCode);
+  const massNounNote = ` For abstract / mass / uncountable nouns (freedom, equality, respect, water, information) whose natural dictionary form in ${nativeEx.name} goes bare, emit bare — do NOT force an indefinite article where it would read as stilted (e.g. do not force "un'uguaglianza" when "uguaglianza" is conventional).`;
+
+  if (learnEx.artCat === 'bare') {
+    // pl/cs source → default INDEF in articled/scandi native, with mass-noun allowance.
+    return `${learnEx.name} has no articles (source is always bare). Translate to the ${nativeEx.name} INDEFINITE form by default. Example: "${learnEx.nounLemma}" → "${indefTarget}".${massNounNote}`;
+  }
+
+  if (learnEx.artCat === 'indef') {
+    // Scandi source — critical strict-mirror block with anti-example.
+    return `Scandi INDEF source ("en"/"ett"/"ei"/"et" prefix, e.g. "${learnEx.nounLemma}") MUST map to the ${nativeEx.name} INDEFINITE category — NEVER the definite. DEF source ("${learnEx.nounDef}") maps to ${nativeEx.name} definite. Examples: DEF "${learnEx.nounDef}" → "${defTarget}"; INDEF "${learnEx.nounLemma}" → "${indefTarget}" (NOT "${defTarget}"). BARE source → "${indefTarget}".${massNounNote}`;
+  }
+
+  // Articled learn (de/fr/es/it/pt/nl/en) — standard mirror, with mass-noun allowance.
+  const learnDef = learnEx.nounLemma;
+  const learnIndef = learnEx.nounIndef!;
+  return `Mirror the source's article category into ${nativeEx.name}. DEF "${learnDef}" → "${defTarget}". INDEF "${learnIndef}" → "${indefTarget}". BARE source → "${indefTarget}".${massNounNote}`;
+}
+
+/** v3 JSON example — identical shape to v2. */
+function buildJsonExampleV3(learnCode: string, nativeCode: string): string {
+  return buildJsonExampleV2(learnCode, nativeCode);
+}
+
 /**
  * Rule 42: translation article category follows the original's
  * grammatical definiteness, mapped onto the native language's own
@@ -871,6 +1013,42 @@ Pick the type that matches each extracted word — DO NOT label every entry "nou
 Respond exclusively as a JSON array, no additional text. Leave "level" as "".
 The example below is shape only — the actual types in your output depend on what is in the source text:
 ${buildJsonExampleV2(learningLanguageCode, nativeLanguageCode)}`;
+  }
+  if (version === 'v3') {
+    const scandiRuleV3 = CRITICAL_NOUN_RULE_BY_LANG_V3[learningLanguageCode] ?? '';
+    return `You are a language teacher assistant. Extract all meaningful vocabulary from a given text.
+
+${buildCriticalHeaderV3(learningLanguageCode)}
+
+LEARNING LANGUAGE: ${learningLanguageName} · NATIVE LANGUAGE: ${nativeLanguageName}
+
+General rules (apply to every extracted entry regardless of type):
+- Ignore function words, standalone articles, pronouns, proper nouns (people / cities / countries / brands / works / clubs / broadcasters), abbreviations (any all-uppercase token of 2+ letters), and numbers.
+- Each distinct word appears AT MOST ONCE. Further occurrences of the same lexeme (different article / tense / inflection) go into "source_forms".
+- "original" field: the word in ${learningLanguageName}. "translation" field: the translation in ${nativeLanguageName}.
+- "source_cat" field: one of "def" | "indef" | "bare" — marks the article category of the first occurrence of NOUN entries. For verb / adjective / phrase / other entries always set source_cat="bare".
+
+TYPE RULES — extract FOUR equally-weighted categories:
+
+NOUN EXTRACTION (${learningLanguageName}):
+${buildNounRuleV3(learningLanguageCode)}
+${scandiRuleV3 ? '\n' + scandiRuleV3 + '\n' : ''}
+VERB EXTRACTION (${learningLanguageName}):
+${buildVerbRuleV3(learningLanguageCode)}
+
+ADJECTIVE EXTRACTION (${learningLanguageName}):
+${buildAdjRuleV3(learningLanguageCode)}
+
+PHRASE EXTRACTION:
+${buildPhraseRuleV3(learningLanguageCode)}
+
+TRANSLATION RULE (${nativeLanguageName} target):
+${buildTranslationRuleV3(learningLanguageCode, nativeLanguageCode)}
+
+"type" must be one of: "noun", "verb", "adjective", "phrase", "other". Pick the type that matches each extracted word — DO NOT default to "noun" for everything. A balanced text typically contains roughly 40-60% nouns, 15-30% verbs, 10-20% adjectives, and a handful of phrases.
+
+Respond exclusively as a JSON array, no additional text. Leave "level" as "". Shape:
+${buildJsonExampleV3(learningLanguageCode, nativeLanguageCode)}`;
   }
   // v1 path — unchanged baseline, byte-identical to pre-Slice-2.
   const scandiRule = CRITICAL_NOUN_RULE_BY_LANG[learningLanguageCode] ?? '';
@@ -1124,7 +1302,11 @@ Respond exclusively as a JSON object, with no additional text. Leave the level f
   "type": "noun|verb|adjective|phrase|other",
   "source_cat": "def|indef|bare"
 }`;
-  const systemPrompt = version === 'v2' ? systemPromptV2 : systemPromptV1;
+  // Single-word extraction doesn't suffer from the type-classification
+  // drift that motivated v3 (there's only one input word). Route v3 →
+  // v2 here so the Pro long-press translate flow stays on stable v2
+  // semantics. v3 is a bulk-extraction-specific variant.
+  const systemPrompt = version === 'v1' ? systemPromptV1 : systemPromptV2;
 
   const result = await callClaude([{ role: 'user', content: word }], systemPrompt, 4096, {
     temperature: 0,

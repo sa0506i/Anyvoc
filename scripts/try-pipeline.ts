@@ -123,10 +123,12 @@ interface CliArgs {
   sweep: boolean;
   natives?: SupportedLanguage[];
   mode: ExtractionMode;
-  /** Prompt-version toggle for the Matrix-Regel A/B (Slice 7/7).
+  /** Prompt-version toggle for the Matrix-Regel A/B.
    *  Sets ANYVOC_PROMPT_VERSION at runtime so lib/claude's
-   *  defaultPromptVersion() picks up the chosen path. */
-  prompt: 'v1' | 'v2';
+   *  defaultPromptVersion() picks up the chosen path.
+   *  v1 = legacy baseline. v2 = Matrix-Regel (current Production default).
+   *  v3 = Slice 7b re-balanced prompt with strict Scandi-indef mirror. */
+  prompt: 'v1' | 'v2' | 'v3';
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -203,8 +205,8 @@ function parseArgs(argv: string[]): CliArgs {
         break;
       }
       case 'prompt': {
-        if (value !== 'v1' && value !== 'v2') {
-          console.error(`Invalid --prompt value "${value}". Use "v1" or "v2".`);
+        if (value !== 'v1' && value !== 'v2' && value !== 'v3') {
+          console.error(`Invalid --prompt value "${value}". Use "v1", "v2", or "v3".`);
           process.exit(2);
         }
         args.prompt = value;
@@ -284,11 +286,14 @@ Options:
                           native-agnostic Phase 1 + per-native Phase 2).
                           Two-phase is dev-only; the production app is
                           unaffected (enforced by architecture Rule 35).
-  --prompt=<v1|v2>        Prompt-version toggle for the Matrix-Regel A/B
+  --prompt=<v1|v2|v3>     Prompt-version toggle for the Matrix-Regel A/B
                           (default v1). v2 = source-preserving extraction
-                          + matrix translation targets per the 2026-04-23
-                          user-approved matrices. Sets
-                          ANYVOC_PROMPT_VERSION; see CLAUDE.md Rule 47.
+                          + matrix translation targets. v3 = Slice 7b
+                          re-balanced prompt (strict Scandi-INDEF mirror,
+                          mass-noun bare allowance, symmetric type blocks
+                          to prevent v2's noun-over-classification drift
+                          on noun-dense text). Sets ANYVOC_PROMPT_VERSION;
+                          see CLAUDE.md Rule 47.
   --out=<path>            Write full JSON summary to <path>.
   --help                  Show this message.
 
