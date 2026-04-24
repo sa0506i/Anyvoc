@@ -459,7 +459,10 @@ export default function ContentsScreen() {
 
       {/* Text Input Modal */}
       <Modal visible={showTextModal} animationType="slide">
-        <View style={styles.modalContainer}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
           <View style={styles.modalHeader}>
             <Pressable onPress={handleCancelText}>
               <Text style={styles.cancelText}>Cancel</Text>
@@ -503,7 +506,7 @@ export default function ContentsScreen() {
             {proMode ? 'Pro Mode' : 'Basic Mode'}: {textInput.length} /{' '}
             {proMode ? PRO_MODE_CHAR_LIMIT : BASIC_MODE_CHAR_LIMIT}
           </Text>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Link Input Modal — centered card, not full-screen.
