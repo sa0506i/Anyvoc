@@ -845,6 +845,7 @@ adb logcat -c                                        # clear before repro
 - Add any form of API key to client code (see Security in Tech Stack)
 - Switch the LLM model without updating both `lib/claude.ts` (MODEL constant) and `backend/server.js` (MISTRAL_MODEL constant)
 - Use `android/` or `ios/` folder paths — managed workflow, those folders are gitignored build caches
+- **Push, merge, or delete a branch without an explicit user request.** The previous turn establishing a similar workflow (e.g. "commit, push, merge, delete") does NOT extend permission to the next feature. Each commit-push-merge-delete cycle requires a fresh "yes". This is enforced computationally by `.claude/settings.json` `permissions.ask` rules covering `git push`, `git push --force`, `git merge`, `git branch -d`, `git branch -D`, and `git branch --delete` — the harness will prompt the user, but you should also not propose these actions on your own initiative when the user only asked for code changes. Local commits (`git commit`, `git add`) remain in `allow` and are fine without asking.
 
 ### Harness: keeping architecture rules enforced
 
