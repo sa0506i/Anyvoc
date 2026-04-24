@@ -119,12 +119,40 @@ describe('callClaude', () => {
     expect((global.fetch as jest.Mock).mock.calls.length).toBe(3);
   });
 
-  it('does NOT retry 4xx client errors (401/429)', async () => {
+  it('does NOT retry 4xx client errors except 429 (401 aborts immediately)', async () => {
     global.fetch = mockFetchError(401);
     await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toThrow(
       ClaudeAPIError,
     );
     expect((global.fetch as jest.Mock).mock.calls.length).toBe(1);
+  });
+
+  it('retries 429 rate-limit errors (3 total attempts) to survive parallel burst', async () => {
+    // 429 must retry so parallel Promise.all of chunk extractions doesn't
+    // abort the whole pipeline on a single rate-limit hit. See plan file
+    // "Parallele Vokabelextraktion für lange Pro-Mode-Texte" + transport.ts.
+    global.fetch = mockFetchError(429);
+    await expect(callClaude([{ role: 'user', content: 'x' }], 'sys')).rejects.toMatchObject({
+      statusCode: 429,
+    });
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(3);
+  });
+
+  it('429 → 429 → 200 succeeds on third attempt', async () => {
+    const okResponse = {
+      ok: true,
+      status: 200,
+      json: async () => ({ content: [{ type: 'text', text: 'recovered' }] }),
+    };
+    const errResponse = { ok: false, status: 429, text: async () => '' };
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce(errResponse)
+      .mockResolvedValueOnce(errResponse)
+      .mockResolvedValueOnce(okResponse);
+    const result = await callClaude([{ role: 'user', content: 'x' }], 'sys');
+    expect(result).toBe('recovered');
+    expect((global.fetch as jest.Mock).mock.calls.length).toBe(3);
   });
 
   it('throws ClaudeAPIError when response has error field', async () => {

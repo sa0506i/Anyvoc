@@ -13,8 +13,18 @@ import { postProcessExtractedVocab } from '../vocabFilters';
 import { ensureIndefArticle } from '../articleEnforcer';
 import { callClaude } from './transport';
 import { chunkText } from './chunk';
+import { EXTRACTION_MODE } from './extractionMode';
 import { buildVocabSystemPrompt } from './prompt';
 import type { ExtractedVocab } from './types';
+
+// Halved from the default 5000-char chunk size so Pro-Mode texts (capped at
+// PRO_MODE_CHAR_LIMIT = 5000 in lib/truncate.ts) split into up to 2 chunks
+// we can fire in parallel. Shorter per-chunk output also shortens LLM
+// generation time, compounding the concurrency win.
+const PARALLEL_EXTRACT_CHUNK_CHARS = 2500;
+// Pre-2026-04-24 chunk size. Keeps Pro-Mode texts as exactly 1 chunk so
+// the 'serial' kill-switch path replicates the old single-call behaviour.
+const SERIAL_EXTRACT_CHUNK_CHARS = 5000;
 
 export async function extractVocabulary(
   text: string,
@@ -23,16 +33,18 @@ export async function extractVocabulary(
   learningLanguageCode: SupportedLanguage,
   nativeLanguageCode?: string,
 ): Promise<ExtractedVocab[]> {
-  const chunks = chunkText(text);
-  const allVocabs: ExtractedVocab[] = [];
+  const mode = EXTRACTION_MODE;
+  const chunkSize = mode === 'parallel' ? PARALLEL_EXTRACT_CHUNK_CHARS : SERIAL_EXTRACT_CHUNK_CHARS;
+  const chunks = chunkText(text, chunkSize);
 
-  for (const chunk of chunks) {
-    const systemPrompt = buildVocabSystemPrompt(
-      nativeLanguageName,
-      learningLanguageName,
-      learningLanguageCode,
-      nativeLanguageCode ?? 'en',
-    );
+  const systemPrompt = buildVocabSystemPrompt(
+    nativeLanguageName,
+    learningLanguageName,
+    learningLanguageCode,
+    nativeLanguageCode ?? 'en',
+  );
+
+  async function parseChunk(chunk: string): Promise<ExtractedVocab[]> {
     const responseText = await callClaude([{ role: 'user', content: chunk }], systemPrompt, 8192, {
       temperature: 0,
     });
@@ -40,7 +52,7 @@ export async function extractVocabulary(
     const arrayStart = responseText.indexOf('[');
     if (arrayStart === -1) {
       console.warn('No JSON array in vocabulary response:', responseText.substring(0, 200));
-      continue;
+      return [];
     }
 
     // First try: parse from first '[' to last ']' (handles complete responses)
@@ -93,41 +105,63 @@ export async function extractVocabulary(
       }
     }
 
-    if (parsed && Array.isArray(parsed)) {
-      // Diagnostic: warn when the parsed array contains ≥3 consecutive
-      // identical (original, type) entries — the hallmark of the repetition
-      // loop failure mode observed in the 2026-04-20 sweep (être × 37,
-      // la perfetta × 39). postProcessExtractedVocab collapses them to one
-      // entry; the log surfaces prompt drift in production.
-      let run = 0;
-      let runKey = '';
-      for (const v of parsed) {
-        const key = (v as { original?: string }).original + '|' + (v as { type?: string }).type;
-        if (key === runKey) {
-          run++;
-          if (run === 3) {
-            console.warn(
-              `[extractVocabulary] repetition loop detected for "${(v as { original?: string }).original}" (${learningLanguageCode} → ${nativeLanguageCode ?? '?'}); dedup will collapse it to one entry`,
-            );
-          }
-        } else {
-          run = 1;
-          runKey = key;
+    if (!parsed || !Array.isArray(parsed)) return [];
+
+    // Diagnostic: warn when the parsed array contains ≥3 consecutive
+    // identical (original, type) entries — the hallmark of the repetition
+    // loop failure mode observed in the 2026-04-20 sweep (être × 37,
+    // la perfetta × 39). postProcessExtractedVocab collapses them to one
+    // entry; the log surfaces prompt drift in production. Runs are
+    // scoped per chunk so parallel chunks can't create cross-chunk
+    // false positives.
+    let run = 0;
+    let runKey = '';
+    for (const v of parsed) {
+      const key = (v as { original?: string }).original + '|' + (v as { type?: string }).type;
+      if (key === runKey) {
+        run++;
+        if (run === 3) {
+          console.warn(
+            `[extractVocabulary] repetition loop detected for "${(v as { original?: string }).original}" (${learningLanguageCode} → ${nativeLanguageCode ?? '?'}); dedup will collapse it to one entry`,
+          );
         }
-      }
-      // Explicit field pick — strips any legacy source_cat the LLM may
-      // still emit, keeping the runtime shape aligned with ExtractedVocab.
-      for (const raw of parsed as Array<Partial<ExtractedVocab>>) {
-        allVocabs.push({
-          original: raw.original ?? '',
-          translation: raw.translation ?? '',
-          level: raw.level ?? '',
-          type: (raw.type ?? 'other') as ExtractedVocab['type'],
-          source_forms: raw.source_forms ?? [],
-        });
+      } else {
+        run = 1;
+        runKey = key;
       }
     }
+    // Explicit field pick — strips any legacy source_cat the LLM may
+    // still emit, keeping the runtime shape aligned with ExtractedVocab.
+    const out: ExtractedVocab[] = [];
+    for (const raw of parsed as Array<Partial<ExtractedVocab>>) {
+      out.push({
+        original: raw.original ?? '',
+        translation: raw.translation ?? '',
+        level: raw.level ?? '',
+        type: (raw.type ?? 'other') as ExtractedVocab['type'],
+        source_forms: raw.source_forms ?? [],
+      });
+    }
+    return out;
   }
+
+  // 'parallel': fan out with Promise.all — Array.prototype.flat() preserves
+  // the chunks' Promise.all ordering so extract output stays deterministic
+  // for equivalent inputs. Post-processing (dedup on (original, type))
+  // collapses any cross-chunk duplicates further down.
+  // 'serial': run chunks one at a time with for-await, matching the
+  // pre-2026-04-24 behaviour. Kill-switch path toggled via EXTRACTION_MODE
+  // in lib/claude/extractionMode.ts.
+  let perChunk: ExtractedVocab[][];
+  if (mode === 'parallel') {
+    perChunk = await Promise.all(chunks.map(parseChunk));
+  } else {
+    perChunk = [];
+    for (const chunk of chunks) {
+      perChunk.push(await parseChunk(chunk));
+    }
+  }
+  const allVocabs: ExtractedVocab[] = perChunk.flat();
 
   // Post-processing: drop abbreviations, likely proper nouns, multi-word
   // noun leaks; deduplicate on (original, type); capitalise German noun
