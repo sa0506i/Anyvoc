@@ -1,9 +1,9 @@
 /**
  * Top-level prompt builders for bulk extraction + single-word translation.
  *
- * This is the single code path — the A/B variants (v1 pre-Matrix-Regel,
- * v3 re-balanced type emphasis) that lived here during the 2026-04-23
- * rollout are gone; the Matrix-Regel is now _the_ prompt.
+ * Pure-INDEF extraction (Rule 47, revised 2026-04-24): every noun emits
+ * in its indefinite form (article-tagged / indef-prefixed / bare by
+ * native-lang convention) regardless of source-text article category.
  *
  * Consumers:
  *   - `lib/claude/extract.ts` (bulk URL-to-vocab pipeline)
@@ -11,7 +11,7 @@
  *   - test fixtures / snapshots / scripts
  */
 import { getLangExamples } from '../langs';
-import { matrixTranslationTarget, buildNounShapeRule, buildAdjRule } from './shared';
+import { nativeIndefTarget, buildNounShapeRule, buildAdjRule } from './shared';
 import {
   CRITICAL_NOUN_RULE_BY_LANG,
   buildCriticalHeader,
@@ -20,7 +20,7 @@ import {
   buildJsonExample,
 } from './builders';
 
-export { matrixTranslationTarget } from './shared';
+export { nativeIndefTarget } from './shared';
 export {
   SCANDINAVIAN_NOUN_RULE,
   SLAVIC_NOUN_RULE,
@@ -51,9 +51,8 @@ Rules:
 - Extract nouns, verbs, adjectives, and fixed expressions. Ignore function words, standalone articles, pronouns, proper nouns, abbreviations, and numbers.
 - Proper nouns to ignore include: people's names, cities, countries, brand or product names, titles of works, sports clubs, and broadcaster names. Never include any of these in the output.
 - Abbreviations and acronyms to ignore: any all-uppercase token of 2+ letters (e.g. "GNR", "DLRG", "EU"). Never include these in the output.
-- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence. If the source text contains a noun with both definite and indefinite articles, use the article category of the FIRST occurrence for the "original" lemma; all other occurrences go into "source_forms".
+- Each distinct word may appear AT MOST ONCE in the output array. Never emit the same entry multiple times even if the source text contains it many times — use "source_forms" to record every occurrence.
 - "original" field: the word in ${learningLanguageName}. "translation" field: the translation in ${nativeLanguageName}.
-- "source_cat" field: one of "def" | "indef" | "bare" — the article category of the first occurrence (used to validate the translation target). For non-noun entries (verb/adjective/phrase) set source_cat="bare".
 ${buildNounShapeRule(learningLanguageCode)}
 ${scandiRule}
 ${buildNounVerbRules(learningLanguageCode)}
@@ -77,7 +76,7 @@ export function buildTranslateSingleWordPrompt(
   nativeCode: string,
 ): string {
   const scandiRule = CRITICAL_NOUN_RULE_BY_LANG[fromLanguageCode] ?? '';
-  return `You are a language teacher assistant. The user sends a word or phrase in ${fromLanguageName} — it may be inflected, conjugated, or in plural form. Your job: determine the dictionary base form, translate it into ${toLanguageName}, identify its word type, and record the article category of the input.
+  return `You are a language teacher assistant. The user sends a word or phrase in ${fromLanguageName} — it may be inflected, conjugated, or in plural form. Your job: determine the dictionary base form, translate it into ${toLanguageName}, and identify its word type.
 
 ${buildCriticalHeader(fromLanguageCode)}
 
@@ -93,7 +92,6 @@ Respond exclusively as a JSON object, with no additional text. Leave the level f
   "original": "... (formatted base form in ${fromLanguageName})",
   "translation": "... (formatted translation in ${toLanguageName})",
   "level": "",
-  "type": "noun|verb|adjective|phrase|other",
-  "source_cat": "def|indef|bare"
+  "type": "noun|verb|adjective|phrase|other"
 }`;
 }

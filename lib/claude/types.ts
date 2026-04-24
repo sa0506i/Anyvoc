@@ -6,34 +6,27 @@
  * boundary moved.
  */
 
-/** Article category of the source occurrence per the Matrix-Regel.
- *  Only meaningful for noun entries; verb/adj/phrase entries always
- *  carry "bare". */
-export type ArticleCategory = 'def' | 'indef' | 'bare';
-
 /** A single extracted vocabulary entry as returned by `extractVocabulary`
- *  and consumed by post-processing + DB insertion. source_cat is
- *  pipeline-only metadata (not persisted to SQLite). */
+ *  and consumed by post-processing + DB insertion.
+ *
+ *  Pure-INDEF extraction (Rule 47, revised): every noun is emitted in its
+ *  INDEFINITE form (article-tagged for articled langs, indef-prefixed for
+ *  Scandi, bare for pl/cs) regardless of how it appeared in the source.
+ *  The prior `source_cat` metadata field has been removed. */
 export interface ExtractedVocab {
   original: string;
   translation: string;
   level: string;
   type: 'noun' | 'verb' | 'adjective' | 'phrase' | 'other';
   source_forms: string[];
-  /** Matrix-Regel: article category of the first occurrence in the
-   *  source text, as reported by the LLM. Present only under v2/v3;
-   *  stripped in v1 mode. */
-  source_cat?: ArticleCategory;
 }
 
-/** Return shape of `translateSingleWord`. Carries the same source_cat
- *  metadata as bulk extraction. */
+/** Return shape of `translateSingleWord`. */
 export type TranslateSingleWordResult = {
   original: string;
   translation: string;
   level: string;
   type: string;
-  source_cat?: ArticleCategory;
 };
 
 /** Transport message shape — Claude Messages API format (translated by

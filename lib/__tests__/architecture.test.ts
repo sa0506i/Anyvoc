@@ -2192,25 +2192,23 @@ describe('Architecture: Rule 41 — pl/cs/en carry explicit noun rules', () => {
     expect(/no articles|bare|NEVER prepend/i.test(body)).toBe(true);
   });
 
-  it('ENGLISH_NOUN_RULE constant exists and covers DEF / INDEF / bare categories', () => {
-    // 2026-04-23: the rule became source-preserving under the Matrix-
-    // Regel (no more "always the"). The English sensor now asserts the
-    // three source_cat branches are named and "never emit bare" is
-    // still enforced (a bare English noun in the original field is
-    // always wrong — must carry "the" or "a"/"an").
+  it('ENGLISH_NOUN_RULE constant exists and enforces INDEF with a/an phonetics', () => {
+    // 2026-04-24 (Rule 47 revised, pure-INDEF): every English noun goes
+    // out with "a"/"an" chosen by phonetics. The first sweep showed the
+    // LLM mechanically prepending "a" (→ "a ancestor", "a octopus") in
+    // 8% of EN-learn nouns; explicit phonetic examples fix that.
     const match = src.match(/const ENGLISH_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
     expect(match).not.toBeNull();
     const body = match![0];
     expect(/\benglish\b/i.test(body)).toBe(true);
-    // Must mention the three source_cat branches.
-    expect(/DEF\b/.test(body)).toBe(true);
-    expect(/INDEF\b/.test(body)).toBe(true);
-    expect(/BARE\b/.test(body)).toBe(true);
-    // Concrete examples for DEF and INDEF present.
-    expect(/the dog/i.test(body)).toBe(true);
     expect(/\ba dog\b/i.test(body)).toBe(true);
-    // Must forbid bare English nouns in the "original" field.
-    expect(/never emit a bare english noun|never.*bare.*original/i.test(body)).toBe(true);
+    expect(/never emit a bare english noun/i.test(body)).toBe(true);
+    expect(/INDEFINITE article/i.test(body)).toBe(true);
+    // a/an phonetics — must name at least two "an"-before-vowel examples
+    // and call out a counter-form that would be wrong.
+    expect(/\ban apple\b/i.test(body)).toBe(true);
+    expect(/\ban ancestor\b/i.test(body)).toBe(true);
+    expect(/\bphonolog/i.test(body)).toBe(true);
   });
 
   it('CRITICAL_NOUN_RULE_BY_LANG maps pl, cs, en to the new rules', () => {
@@ -2288,57 +2286,79 @@ describe('Architecture: Rule 42 — translation mirrors original definiteness', 
   });
 });
 
-// ─── Rule 47: Matrix-Regel canonical prompt shape ────────────────────
+// ─── Rule 47: Pure-INDEF extraction canonical prompt shape ─────────────
 //
-// The Matrix-Regel (source-preserving extraction + matrix-based
-// translation targets per the 2026-04-23 user-approved 12×12 matrix)
-// is the single production prompt. The v1 pre-Matrix-Regel baseline
-// and the v3 re-balanced-type-emphasis variant were A/B-tested during
-// the 2026-04-23 rollout and removed from source once v2 proved
-// itself — this sensor set locks the final shape.
-describe('Architecture: Rule 47 — Matrix-Regel canonical prompt shape', () => {
+// Pure-INDEF (revised 2026-04-24): every noun is emitted in its
+// INDEFINITE form regardless of source-text article category.
+// `source_cat` as a concept (field, prompt mention, LLM output, sweep
+// metric input) has been removed; the prior three-branch
+// `matrixTranslationTarget(sourceCat, native)` collapsed into a single
+// native-indef target lookup `nativeIndefTarget(native)`.
+//
+// Error message on violation: "Rule 47: pure-INDEF extraction —
+// `source_cat` / `matrixTranslationTarget` / SUFFIX-DEFINITE must not
+// appear. See CLAUDE.md §Vocabulary Formatting Rules."
+describe('Architecture: Rule 47 — pure-INDEF extraction canonical prompt shape', () => {
   const src = readClaudeSource();
 
-  it('exports matrixTranslationTarget(sourceCat, nativeCode) → string', () => {
-    expect(/export function matrixTranslationTarget\(/.test(src)).toBe(true);
-    const fnMatch = src.match(/export function matrixTranslationTarget\b[\s\S]*?\n\}/);
+  it('exports nativeIndefTarget(nativeCode) → string (replaces matrixTranslationTarget)', () => {
+    expect(/export function nativeIndefTarget\(/.test(src)).toBe(true);
+    const fnMatch = src.match(/export function nativeIndefTarget\b[\s\S]*?\n\}/);
     expect(fnMatch).not.toBeNull();
     const body = fnMatch![0];
-    // Signature must accept the 3-valued sourceCat (inline union or
-    // the ArticleCategory alias) and a nativeCode string.
-    const hasInlineEnum = /sourceCat:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body);
-    const hasAliasForm = /sourceCat:\s*ArticleCategory/.test(body);
-    expect(hasInlineEnum || hasAliasForm).toBe(true);
     expect(/nativeCode:\s*string/.test(body)).toBe(true);
   });
 
-  it('SCANDINAVIAN_NOUN_RULE covers all three source categories (source-preserving)', () => {
+  it('matrixTranslationTarget no longer exists', () => {
+    // Regression guard — reintroducing the three-branch function would
+    // be a rollback to the Matrix-Regel source-preserving shape that was
+    // replaced 2026-04-24 because the per-lang variance in source-article
+    // classification was driving prompt dilution.
+    expect(/export function matrixTranslationTarget\b/.test(src)).toBe(false);
+    expect(/\bmatrixTranslationTarget\s*\(/.test(src)).toBe(false);
+  });
+
+  it('ArticleCategory type no longer exists', () => {
+    const typesSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'types.ts'), 'utf8');
+    expect(/export\s+type\s+ArticleCategory\b/.test(typesSrc)).toBe(false);
+  });
+
+  it('ExtractedVocab has no source_cat field', () => {
+    const typesSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'types.ts'), 'utf8');
+    const m = typesSrc.match(/export interface ExtractedVocab\b[\s\S]*?\n\}/);
+    expect(m).not.toBeNull();
+    const body = m![0];
+    expect(/source_cat/.test(body)).toBe(false);
+  });
+
+  it('SCANDINAVIAN_NOUN_RULE enforces INDEFINITE prefix unconditionally', () => {
     const m = src.match(/export const SCANDINAVIAN_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
     expect(m).not.toBeNull();
     const body = m![0];
-    expect(/first occurrence/i.test(body)).toBe(true);
-    expect(/SUFFIX-DEFINITE/i.test(body)).toBe(true);
-    expect(/INDEFINITE-PREFIX/i.test(body)).toBe(true);
-    expect(/BARE/i.test(body)).toBe(true);
-    // The pre-Matrix-Regel "ALWAYS prepend" enforcement must not come back.
-    expect(/ALWAYS prepend the INDEFINITE article/.test(body)).toBe(false);
+    expect(/INDEFINITE prefix/i.test(body)).toBe(true);
+    // Case-sensitive — only the uppercase taxonomy keyword is forbidden.
+    // Lowercase "suffix-definite" is allowed as a grammatical descriptor
+    // in a negative counter-example ("as 'hunden' (suffix-definite), …").
+    expect(/SUFFIX-DEFINITE/.test(body)).toBe(false);
+    expect(/source_cat/.test(body)).toBe(false);
   });
 
-  it('ENGLISH_NOUN_RULE is source-preserving — no "ALWAYS the"', () => {
+  it('ENGLISH_NOUN_RULE enforces INDEFINITE article unconditionally', () => {
     const m = src.match(/export const ENGLISH_NOUN_RULE\s*=\s*`[\s\S]*?`;/);
     expect(m).not.toBeNull();
     const body = m![0];
-    expect(/first occurrence/i.test(body)).toBe(true);
-    // Each of the three source categories named explicitly.
-    expect(/DEF source/.test(body)).toBe(true);
-    expect(/INDEF source/.test(body)).toBe(true);
-    expect(/BARE source/.test(body)).toBe(true);
-    // The pre-Matrix-Regel "ALWAYS prepend the definite article" enforcement
-    // must not come back.
-    expect(/ALWAYS prepend the definite article/.test(body)).toBe(false);
+    expect(/INDEFINITE article/i.test(body)).toBe(true);
+    // "a dog" is the canonical target; "the dog" may only appear as a
+    // negative counter-example ("Regardless of … 'the dog' …, output 'a dog'").
+    expect(/"a dog"/.test(body)).toBe(true);
+    expect(/source_cat/.test(body)).toBe(false);
+    // No three-branch source-preserving language.
+    expect(/DEF source/.test(body)).toBe(false);
+    expect(/INDEF source/.test(body)).toBe(false);
+    expect(/BARE source/.test(body)).toBe(false);
   });
 
-  it('CRITICAL_NOUN_RULE_BY_LANG maps sv/no/da/en to the Matrix rules and pl/cs to SLAVIC', () => {
+  it('CRITICAL_NOUN_RULE_BY_LANG maps sv/no/da to SCANDI, en to ENGLISH, pl/cs to SLAVIC', () => {
     const m = src.match(/export const CRITICAL_NOUN_RULE_BY_LANG[\s\S]*?\};/);
     expect(m).not.toBeNull();
     const body = m![0];
@@ -2357,28 +2377,16 @@ describe('Architecture: Rule 47 — Matrix-Regel canonical prompt shape', () => 
     expect(/function buildJsonExample\b/.test(src)).toBe(true);
   });
 
-  it('buildVocabSystemPrompt is exported and has no version parameter after cleanup', () => {
+  it('buildVocabSystemPrompt is exported with the four language args', () => {
     expect(/export function buildVocabSystemPrompt\b/.test(src)).toBe(true);
     const fnMatch = src.match(/export function buildVocabSystemPrompt\b[\s\S]*?\):\s*string/);
     expect(fnMatch).not.toBeNull();
     const sig = fnMatch![0];
-    // Post-cleanup: no PromptVersion param.
     expect(/version:\s*PromptVersion/.test(sig)).toBe(false);
-    // Takes the four language args.
     expect(/nativeLanguageName:\s*string/.test(sig)).toBe(true);
     expect(/learningLanguageName:\s*string/.test(sig)).toBe(true);
     expect(/learningLanguageCode:\s*string/.test(sig)).toBe(true);
     expect(/nativeLanguageCode:\s*string/.test(sig)).toBe(true);
-  });
-
-  it('ExtractedVocab carries an optional source_cat field', () => {
-    const typesSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'types.ts'), 'utf8');
-    const m = typesSrc.match(/export interface ExtractedVocab\b[\s\S]*?\n\}/);
-    expect(m).not.toBeNull();
-    const body = m![0];
-    const hasInlineEnum = /source_cat\?:\s*'def'\s*\|\s*'indef'\s*\|\s*'bare'/.test(body);
-    const hasAliasForm = /source_cat\?:\s*ArticleCategory/.test(body);
-    expect(hasInlineEnum || hasAliasForm).toBe(true);
   });
 
   it('buildVocabSystemPrompt wires all four fragment builders', () => {
@@ -2397,10 +2405,57 @@ describe('Architecture: Rule 47 — Matrix-Regel canonical prompt shape', () => 
     expect(/buildJsonExample\(learningLanguageCode,\s*nativeLanguageCode\)/.test(body)).toBe(true);
   });
 
-  it('legacy v1/v3 prompt symbols and PromptVersion type are gone', () => {
-    // Sanity: once cleaned, these must not come back without a fresh
-    // architecture discussion (they'd be a regression to the A/B-era
-    // coexistence pattern).
+  it('buildTranslationRule emits "abstract/mass/institutional" INDEF reinforcement for articled/scandi natives', () => {
+    // Added 2026-04-24 after the first pure-INDEF sweep showed the LLM
+    // defaulting to definite articles for abstract DE/NL nouns
+    // ("die Macht", "het zuiden") and bare forms for Scandi concepts
+    // ("person", "område"). The reinforcement clause is a deterministic
+    // push-back with per-native negative examples.
+    const { buildVocabSystemPrompt } = require('../claude');
+    const articledNatives = ['de', 'fr', 'es', 'it', 'pt', 'nl', 'en'];
+    const scandiNatives = ['sv', 'no', 'da'];
+    for (const native of [...articledNatives, ...scandiNatives]) {
+      const p = buildVocabSystemPrompt('X', 'Polish', 'pl', native);
+      expect(p).toMatch(/abstract, mass, institutional, and geographic/);
+    }
+    // Articleless natives (pl/cs) don't need the clause — they're bare anyway.
+    for (const native of ['pl', 'cs']) {
+      const p = buildVocabSystemPrompt('X', 'German', 'de', native);
+      expect(p).not.toMatch(/abstract, mass, institutional/);
+    }
+  });
+
+  it('buildVocabSystemPrompt output contains no source_cat mention for any combo', () => {
+    // Runtime check across the 132 non-diagonal (learn × native) pairs —
+    // catches any fragment reintroducing the field in prompt text.
+    const { buildVocabSystemPrompt } = require('../claude');
+    const LANGS = ['de', 'fr', 'es', 'it', 'pt', 'nl', 'en', 'sv', 'no', 'da', 'pl', 'cs'];
+    const NAMES: Record<string, string> = {
+      de: 'German',
+      fr: 'French',
+      es: 'Spanish',
+      it: 'Italian',
+      pt: 'Portuguese',
+      nl: 'Dutch',
+      en: 'English',
+      sv: 'Swedish',
+      no: 'Norwegian',
+      da: 'Danish',
+      pl: 'Polish',
+      cs: 'Czech',
+    };
+    for (const learn of LANGS) {
+      for (const native of LANGS) {
+        if (learn === native) continue;
+        const p = buildVocabSystemPrompt(NAMES[native], NAMES[learn], learn, native);
+        expect(p).not.toMatch(/source_cat/);
+        // Case-sensitive — see SCANDINAVIAN_NOUN_RULE test above.
+        expect(p).not.toMatch(/SUFFIX-DEFINITE/);
+      }
+    }
+  });
+
+  it('legacy prompt-version and matrix symbols are gone', () => {
     expect(/SCANDINAVIAN_NOUN_RULE_V[123]\b/.test(src)).toBe(false);
     expect(/ENGLISH_NOUN_RULE_V[123]\b/.test(src)).toBe(false);
     expect(/CRITICAL_NOUN_RULE_BY_LANG_V[123]\b/.test(src)).toBe(false);
@@ -2409,16 +2464,8 @@ describe('Architecture: Rule 47 — Matrix-Regel canonical prompt shape', () => 
     expect(/\bdefaultPromptVersion\b/.test(src)).toBe(false);
     expect(/\btype\s+PromptVersion\b/.test(src)).toBe(false);
     expect(/ANYVOC_PROMPT_VERSION/.test(src)).toBe(false);
-  });
-
-  it('Scandi profiles carry a nounDef field for the suffix-definite form', () => {
-    for (const code of ['sv', 'no', 'da']) {
-      const profileSrc = fs.readFileSync(
-        path.join(ROOT, 'lib', 'claude', 'langs', `${code}.ts`),
-        'utf8',
-      );
-      expect(/artCat:\s*'indef'/.test(profileSrc)).toBe(true);
-      expect(/nounDef:\s*'[^']+'/.test(profileSrc)).toBe(true);
-    }
+    // Pure-INDEF added: the matrix-target symbol + article-category type.
+    expect(/\bArticleCategory\b/.test(src)).toBe(false);
+    expect(/matrixTranslationTarget/.test(src)).toBe(false);
   });
 });

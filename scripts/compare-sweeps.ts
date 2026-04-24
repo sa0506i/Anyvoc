@@ -35,8 +35,9 @@ interface VocabItem {
   level: string;
   type: string;
   source_forms?: string[];
-  /** Slice 3/7 — v2 only. "def" | "indef" | "bare" per the LLM's
-   *  source-category extraction. Absent in v1 dumps. */
+  /** Legacy Matrix-Regel metadata (pre-2026-04-24). Kept optional so old
+   *  sweep-JSON dumps still deserialise, but no new dump emits this and
+   *  the KPI pipeline below does not consume it. */
   source_cat?: 'def' | 'indef' | 'bare';
 }
 
@@ -70,10 +71,10 @@ interface PipelineDump {
   results: PipelineResult[];
 }
 
-// ---- Matrix-Regel translation-shape checkers (Slice 6/7) -----------
-// Per-native regexes mirroring matrixTranslationTarget's behaviour:
-// given a source_cat, does the LLM translation carry the expected
-// article pattern? Lexeme-independent — only checks prefix/suffix shape.
+// ---- Pure-INDEF translation-shape checker --------------------------
+// Lexeme-independent: does the LLM translation carry the expected
+// indefinite-article pattern per native convention? Replaces the prior
+// three-branch Matrix-Regel check (Rule 47 revised, 2026-04-24).
 
 const NATIVE_SYSTEM: Record<string, 'articled' | 'scandi' | 'articleless'> = {
   de: 'articled',
@@ -90,16 +91,6 @@ const NATIVE_SYSTEM: Record<string, 'articled' | 'scandi' | 'articleless'> = {
   cs: 'articleless',
 };
 
-const DEF_PREFIX: Record<string, RegExp> = {
-  de: /^(der|die|das)\s/i,
-  fr: /^(le\s|la\s|les\s|l')/i,
-  es: /^(el|la|los|las)\s/i,
-  it: /^(il\s|lo\s|la\s|i\s|gli\s|le\s|l')/i,
-  pt: /^(o|a|os|as)\s/i,
-  nl: /^(de|het)\s/i,
-  en: /^the\s/i,
-};
-
 const INDEF_PREFIX: Record<string, RegExp> = {
   de: /^(ein|eine)\s/i,
   fr: /^(un\s|une\s|un'|une')/i,
@@ -110,34 +101,27 @@ const INDEF_PREFIX: Record<string, RegExp> = {
   en: /^(a|an)\s/i,
 };
 
-const SCANDI_INDEF = /^(en|ett|ei)\s/i;
+const SCANDI_INDEF = /^(en|ett|ei|et)\s/i;
 
-/** True when `translation` matches the matrix's expected article shape
- *  for the given source_cat + native. Returns true for unsupported natives
- *  or empty input (no false positives from the "skip" path). */
-function translationMatchesMatrix(
-  sourceCat: 'def' | 'indef' | 'bare',
-  native: string,
-  translation: string,
-): boolean {
+/** True when `translation` carries the expected INDEFINITE shape for the
+ *  native language. Articleless natives must be bare (no article prefix);
+ *  Scandi natives must carry en/ett/ei/et; articled natives must carry
+ *  the native's indefinite determiner. Returns true for unsupported
+ *  natives or empty input. */
+function translationMatchesIndef(native: string, translation: string): boolean {
   const sys = NATIVE_SYSTEM[native];
   if (!sys) return true;
   const t = translation.trim();
   if (!t) return true;
   if (sys === 'articleless') {
-    // pl/cs: should be bare — shouldn't carry ANY article prefix.
     const anyArt =
-      /^(der|die|das|ein|eine|le|la|les|l'|un|une|el|los|las|il|lo|gli|i|o|a|os|as|de|het|een|the|a|an|en|ett|ei)\s/i;
+      /^(der|die|das|ein|eine|le|la|les|l'|un|une|el|los|las|il|lo|gli|i|o|a|os|as|de|het|een|the|a|an|en|ett|ei|et)\s/i;
     return !anyArt.test(t);
   }
-  const wantDef = sourceCat === 'def';
   if (sys === 'scandi') {
-    // Scandi DEF target = suffix-definite (NO 'en/ett/ei' prefix).
-    // Scandi INDEF/BARE target = 'en/ett/ei' prefix.
-    return wantDef ? !SCANDI_INDEF.test(t) : SCANDI_INDEF.test(t);
+    return SCANDI_INDEF.test(t);
   }
-  // articled native
-  const pat = wantDef ? DEF_PREFIX[native] : INDEF_PREFIX[native];
+  const pat = INDEF_PREFIX[native];
   return pat ? pat.test(t) : true;
 }
 
@@ -502,39 +486,22 @@ function kpis(dump: PipelineDump): Kpi[] {
     }
   }
 
-  // #13/14/15 — Matrix-Regel v2 sensors. Inactive (0 / N/A) for v1 dumps
-  // since source_cat is stripped there; meaningful for v2 dumps only.
+  // #13 — Pure-INDEF translation-target match rate (Rule 47 revised).
+  // Measures the fraction of extracted nouns whose translation carries
+  // the expected INDEFINITE shape per native convention. Lexeme-
+  // independent (prefix/suffix-only).
   let totalNouns = 0;
-  let nounsWithSourceCat = 0;
-  let nounsMatchingMatrix = 0;
-  let scandiDefNouns = 0;
-  let scandiDefSuffixHits = 0;
+  let nounsMatchingIndef = 0;
   for (const r of results) {
     for (const v of r.vocab ?? []) {
       if (v.type !== 'noun') continue;
       totalNouns++;
-      if (!v.source_cat) continue;
-      nounsWithSourceCat++;
-      if (translationMatchesMatrix(v.source_cat, r.native, v.translation)) {
-        nounsMatchingMatrix++;
-      }
-      // Scandi def-suffix recognition: did the LLM recognise a suffix-def
-      // form in the source text and tag it source_cat='def'? Heuristic:
-      // Scandi learning lang + source_cat='def' + lemma ends with a
-      // recognised definite suffix (-en common, -et neuter, -a feminine-def,
-      // -ene/-na plural-def). Acceptable proxy for the full article-category
-      // match (which would need the original HTML to verify).
-      if (SCANDI.has(r.lang) && v.source_cat === 'def') {
-        scandiDefNouns++;
-        // Use the same suffix-def detector as hasArticle() (Slice 7b.1),
-        // now including genitive-def patterns so "demokratins" counts.
-        if (SCANDI_DEF_SUFFIX.test(v.original.trim())) scandiDefSuffixHits++;
+      if (translationMatchesIndef(r.native, v.translation)) {
+        nounsMatchingIndef++;
       }
     }
   }
-  const sourceCatCoverage = totalNouns > 0 ? nounsWithSourceCat / totalNouns : 0;
-  const matrixMatchRate = nounsWithSourceCat > 0 ? nounsMatchingMatrix / nounsWithSourceCat : 0;
-  const scandiDefSuffixRate = scandiDefNouns > 0 ? scandiDefSuffixHits / scandiDefNouns : 0;
+  const indefMatchRate = totalNouns > 0 ? nounsMatchingIndef / totalNouns : 0;
 
   return [
     {
@@ -641,31 +608,14 @@ function kpis(dump: PipelineDump): Kpi[] {
       higherIsBetter: false,
       target: '<5',
     },
-    // Matrix-Regel v2 sensors (Slice 6/7). 0% in v1 dumps (source_cat
-    // absent); meaningful only when the dump was produced with --prompt=v2.
+    // Pure-INDEF translation-target match rate (Rule 47 revised).
     {
-      key: 'sourceCatCoverage',
-      label: 'Source-Cat Coverage (v2 only)',
-      value: sourceCatCoverage,
+      key: 'indefMatchRate',
+      label: 'Translation-Target Match Rate (pure-INDEF)',
+      value: indefMatchRate,
       unit: '%',
       higherIsBetter: true,
-      target: '≥95% in v2',
-    },
-    {
-      key: 'matrixMatchRate',
-      label: 'Translation-Target Match Rate (v2 only)',
-      value: matrixMatchRate,
-      unit: '%',
-      higherIsBetter: true,
-      target: '≥92% in v2',
-    },
-    {
-      key: 'scandiDefSuffix',
-      label: 'Scandi Def-Suffix Recognition (v2 only)',
-      value: scandiDefSuffixRate,
-      unit: '%',
-      higherIsBetter: true,
-      target: '≥85% in v2',
+      target: '≥92%',
     },
   ];
 }

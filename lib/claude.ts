@@ -7,8 +7,7 @@
  *
  * Module layout:
  *   lib/claude/
- *     types.ts                — PromptVersion, ArticleCategory, ExtractedVocab,
- *                               TranslateSingleWordResult, LangExamples,
+ *     types.ts                — ExtractedVocab, TranslateSingleWordResult, LangExamples,
  *                               ClaudeMessage, ClaudeContentBlock, ClaudeResponse
  *     transport.ts            — callClaude + callClaudeOnce + retry + ClaudeAPIError
  *     chunk.ts                — chunkText (sentence-boundary splitter)
@@ -23,13 +22,8 @@
 export { callClaude, ClaudeAPIError } from './claude/transport';
 export { chunkText } from './claude/chunk';
 export { detectLanguage } from './claude/detectLanguage';
-export type {
-  ExtractedVocab,
-  TranslateSingleWordResult,
-  ArticleCategory,
-  LangExamples,
-} from './claude/types';
-export { buildVocabSystemPrompt, matrixTranslationTarget } from './claude/prompt';
+export type { ExtractedVocab, TranslateSingleWordResult, LangExamples } from './claude/types';
+export { buildVocabSystemPrompt, nativeIndefTarget } from './claude/prompt';
 export { extractVocabulary } from './claude/extract';
 export { translateText } from './claude/translateText';
 export { translateSingleWord } from './claude/translateSingleWord';

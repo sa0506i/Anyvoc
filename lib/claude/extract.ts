@@ -114,7 +114,17 @@ export async function extractVocabulary(
           runKey = key;
         }
       }
-      allVocabs.push(...parsed);
+      // Explicit field pick — strips any legacy source_cat the LLM may
+      // still emit, keeping the runtime shape aligned with ExtractedVocab.
+      for (const raw of parsed as Array<Partial<ExtractedVocab>>) {
+        allVocabs.push({
+          original: raw.original ?? '',
+          translation: raw.translation ?? '',
+          level: raw.level ?? '',
+          type: (raw.type ?? 'other') as ExtractedVocab['type'],
+          source_forms: raw.source_forms ?? [],
+        });
+      }
     }
   }
 

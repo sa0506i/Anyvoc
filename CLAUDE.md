@@ -450,41 +450,58 @@ Rule 27 / Rule 38 / Rule 39 / Rule 40 architecture tests validate
 that each builder emits the required structural vocabulary
 (article / infinitive / reflexive / type-enum coverage).
 
-**Rule 47 (2026-04-23 — Matrix-Regel canonical prompt)** enforces the
-source-preserving extraction + matrix translation targets that the
-user approved via the two 12×12 matrices of 2026-04-23. This is now
-the single production prompt; the pre-Matrix-Regel baseline (briefly
-carried as "v1") and the Slice-7b re-balanced-type-emphasis variant
-(briefly carried as "v3") have been removed from source. See the
-historical reports under `docs/superpowers/specs/` for the A/B data
-that led to this decision.
+**Rule 47 (2026-04-24 — pure-INDEF extraction, revised)** replaces the
+prior Matrix-Regel (source-preserving extraction + `matrixTranslation-
+Target(sourceCat, nativeCode)`) with a single deterministic rule:
+every noun is extracted in its **indefinite form** and translated to
+the native's **indefinite form**. Polish/Czech remain bare on both
+sides. `source_cat` as a concept — field, prompt mention, LLM output,
+sweep metric input — has been removed.
 
-**What the Matrix-Regel mandates:**
+**Why we moved off the Matrix-Regel.** Manual testing showed that
+letting the LLM classify each noun's source-article category (def /
+indef / bare) introduced per-language variance into the prompt that
+compounded with the prompt-dilution pattern already logged in Rule 41's
+regression history. Each new per-lang rule had to be re-anchored with
+gegenbeispiele across neighbouring families, and the three-branch
+taxonomy doubled the surface area for regressions. Collapsing to
+"always INDEF" removes an entire axis of variance and shortens the
+prompt substantially. Pedagogically the indefinite form is also the
+clearest gender marker (`ein` / `eine`, `un` / `une`, `en` / `ett`
+/ `ei` carry grammatical gender directly).
 
-1. **Source-preserving noun extraction.** Each noun is extracted with
-   the article category matching its **first occurrence in the source
-   text** — suffix-definite Scandi `hunden` stays `hunden`, English
-   `a dog` stays `a dog`, German `ein Hund` stays `ein Hund`. Bare
-   occurrences default to indefinite (prefix `en`/`ett`/`ei`/`et` for
-   Scandi, `a`/`an` for English, `ein`/`une`/… for other articled
-   langs). All other article-form occurrences of the same lexeme go
-   into `source_forms`.
-2. **Matrix translation target.** `matrixTranslationTarget(sourceCat,
-   nativeCode)` maps each extracted noun's `source_cat` to the
-   translation target: articleless natives (pl/cs) always receive the
-   bare form; DEF-source → native's `nounDef` (articled natives use
-   `nounLemma`, Scandi natives use the `nounDef` field carrying the
-   suffix-definite form `hunden`); INDEF-source or BARE-source →
-   native's indefinite form (`nounIndef` for articled, `nounLemma` for
-   Scandi). BARE mirrors to INDEF per the user's matrix comment.
-3. **`source_cat` metadata.** The JSON schema carries a per-entry
-   `source_cat: "def"|"indef"|"bare"` field. Pipeline-only — not
-   persisted to SQLite. Consumed by the Translation-Target Match Rate
-   metric in sweep reports.
+**What pure-INDEF mandates:**
+
+1. **Learn-side extraction.** Regardless of how a noun appears in the
+   source text (`der Hund`, `hunden`, `the dog`, bare `Dog`, `un
+   chien`), the `original` field emits the indefinite form of the
+   lemma: `ein Hund`, `en hund`, `a dog`, `ein Hund`, `un chien`.
+   Polish/Czech emit bare (`pies`, `pes`) since those languages have
+   no articles at all. Every other surface form in the source text
+   goes into `source_forms`, which retains its role as the
+   highlight-layer anchor.
+2. **Translation target.** `nativeIndefTarget(nativeCode)` (replaces
+   `matrixTranslationTarget`) returns the native language's
+   indefinite form: articleless (pl/cs) → bare; Scandi (sv/no/da) →
+   `nounLemma` (the INDEF-prefix lemma "en hund"); articled
+   (de/fr/es/it/pt/nl/en) → `nounIndef` ("ein Hund", "un chien",
+   "a dog"). No branching on source category.
+3. **No `source_cat` round-trip.** Neither the bulk-extraction nor the
+   single-word-translate prompt mentions `source_cat`; the
+   `ExtractedVocab` / `TranslateSingleWordResult` types drop the
+   field; `extract.ts` explicitly strips it from parsed LLM output
+   (in case the model emits it by habit).
+
+**Existing DB vocabulary is not migrated.** Rows written under the
+Matrix-Regel (e.g. `der Hund`, `hunden`, `the dog`) remain in place
+with their Leitner progress intact. New extractions follow the
+pure-INDEF rule; the vocabulary list tolerates the mix. This is a
+deliberate "keine Migration" (option 1) decision made during the
+2026-04-24 brainstorm.
 
 **Module layout** (`lib/claude/`):
 
-- `prompt/shared.ts` — `matrixTranslationTarget`, `buildNounShapeRule`,
+- `prompt/shared.ts` — `nativeIndefTarget`, `buildNounShapeRule`,
   `buildAdjRule`.
 - `prompt/builders.ts` — `SCANDINAVIAN_NOUN_RULE`, `SLAVIC_NOUN_RULE`,
   `ENGLISH_NOUN_RULE`, `CRITICAL_NOUN_RULE_BY_LANG`,
@@ -495,27 +512,32 @@ that led to this decision.
 - `extract.ts`, `translateText.ts`, `translateSingleWord.ts` —
   orchestrators that call the prompt builders and post-process.
 
-**Scandi `nounDef` field:** sv/no/da profiles carry `nounDef: 'hunden'`
-(suffix-definite common-gender form). Used by `matrixTranslationTarget`
-when a Scandi native receives a DEF-source translation. The existing
-`nounLemma: 'en hund'` (INDEF-prefix) stays as the canonical dictionary
-lemma in the Scandi article system. Neutrum (`ett språk` / `språket`)
-and feminine (no `ei bok` / `boka`) forms are not currently encoded —
-empirically the LLM handles gender on its own at acceptable rates.
+**Per-language enforcement.** `SCANDINAVIAN_NOUN_RULE` mandates
+INDEFINITE prefix per gender (`en`/`ett`/`ei`/`et`) regardless of
+source-form — the prior 3-branch (suffix-definite / indef-prefix / bare)
+language is gone. `ENGLISH_NOUN_RULE` mandates `a`/`an` unconditionally;
+`the dog` appears only as a negative counter-example. `SLAVIC_NOUN_RULE`
+is unchanged (no articles; bare singular nominative).
 
-**Rule 47 architecture sensor** locks the single-path shape:
-`matrixTranslationTarget` is exported with the 3-valued `sourceCat`
-signature; `SCANDINAVIAN_NOUN_RULE` and `ENGLISH_NOUN_RULE` cover all
-three source categories and do NOT carry any "ALWAYS prepend"
-wording; `CRITICAL_NOUN_RULE_BY_LANG` maps sv/no/da to
-`SCANDINAVIAN_NOUN_RULE`, en to `ENGLISH_NOUN_RULE`, pl/cs to
-`SLAVIC_NOUN_RULE`; `buildVocabSystemPrompt` has no `version`
-parameter; `ExtractedVocab` carries optional `source_cat`; sv/no/da
-profiles carry `nounDef`. Additional guard: legacy suffixed names
-(`SCANDINAVIAN_NOUN_RULE_V2`, `buildVocabSystemPromptV1`, …) must not
-re-appear — a regression to the A/B-era coexistence pattern would be
-caught by the "legacy v1/v3 prompt symbols and PromptVersion type are
-gone" assertion.
+**Scandi `nounDef` field retained.** sv/no/da profiles still carry
+`nounDef: 'hunden'` even though `nativeIndefTarget` no longer reads it.
+The field is kept for potential future highlight-layer features that
+may want to recognise suffix-definite forms in source text. Removing
+it would be a separate, unrelated change.
+
+**Rule 47 architecture sensor (revised)** locks the pure-INDEF shape.
+It asserts: `nativeIndefTarget(nativeCode) → string` is exported;
+`matrixTranslationTarget` / `ArticleCategory` / `source_cat` appear
+nowhere in `lib/claude/**`; `ExtractedVocab` has no `source_cat` field;
+`SCANDINAVIAN_NOUN_RULE` contains `"INDEFINITE prefix"` and does not
+contain `SUFFIX-DEFINITE` or `source_cat`; `ENGLISH_NOUN_RULE` contains
+`"a dog"` as the positive target and does not carry the three-branch
+`DEF source` / `INDEF source` / `BARE source` language; a runtime
+sweep across all 132 non-diagonal (learn × native) pairs verifies no
+prompt output mentions `source_cat` or `SUFFIX-DEFINITE`. Additional
+guard: legacy symbols (`matrixTranslationTarget`, `ArticleCategory`,
+`SCANDINAVIAN_NOUN_RULE_V2`, `buildVocabSystemPromptV1`, …) must not
+re-appear — reintroduction would signal a silent rollback.
 
 ## Leitner System
 

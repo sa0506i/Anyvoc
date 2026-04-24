@@ -31,26 +31,26 @@ export async function translateSingleWord(
     temperature: 0,
   });
 
-  let parsed: {
-    original: string;
-    translation: string;
-    level: string;
-    type: string;
-    source_cat?: 'def' | 'indef' | 'bare';
-  } = {
-    original: word,
-    translation: '',
-    level: 'B1',
-    type: 'other',
-  };
+  let raw: {
+    original?: string;
+    translation?: string;
+    level?: string;
+    type?: string;
+  } = {};
   try {
     const jsonMatch = result.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      parsed = JSON.parse(jsonMatch[0]);
+      raw = JSON.parse(jsonMatch[0]);
     }
   } catch {
-    // fallback to default above
+    // fallback handled below
   }
+  const parsed = {
+    original: raw.original ?? word,
+    translation: raw.translation ?? '',
+    level: raw.level ?? 'B1',
+    type: raw.type ?? 'other',
+  };
 
   // Post-processing: drop abbreviations / proper nouns and apply German
   // capitalisation when target is German. Architecture rule 21 enforces

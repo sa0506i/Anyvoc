@@ -1,48 +1,70 @@
 /**
- * Prompt-builder behavioural tests — locked shape of the canonical
- * Matrix-Regel prompt after the v1/v3 cleanup (2026-04-23).
+ * Prompt-builder behavioural tests — pure-INDEF extraction shape
+ * (Rule 47, revised 2026-04-24).
  */
 import { buildVocabSystemPrompt } from '../claude';
 
-describe('buildVocabSystemPrompt — canonical Matrix-Regel prompt shape', () => {
-  describe('articled learn code (de) — source-preserving extraction', () => {
+const LANGS = ['de', 'fr', 'es', 'it', 'pt', 'nl', 'en', 'sv', 'no', 'da', 'pl', 'cs'] as const;
+
+const NAMES: Record<string, string> = {
+  de: 'German',
+  fr: 'French',
+  es: 'Spanish',
+  it: 'Italian',
+  pt: 'Portuguese',
+  nl: 'Dutch',
+  en: 'English',
+  sv: 'Swedish',
+  no: 'Norwegian',
+  da: 'Danish',
+  pl: 'Polish',
+  cs: 'Czech',
+};
+
+describe('buildVocabSystemPrompt — pure-INDEF extraction shape', () => {
+  describe('articled learn code (de) — INDEF-only', () => {
     const p = buildVocabSystemPrompt('English', 'German', 'de', 'en');
 
-    it('mentions the "first occurrence" tiebreaker rule', () => {
-      expect(p).toMatch(/first occurrence/i);
-    });
-
-    it('does not carry the legacy "ALWAYS DEFINITE" v1 wording', () => {
-      expect(p).not.toMatch(/ALWAYS include the DEFINITE article/);
-    });
-
-    it('shows both DEF and INDEF noun examples in the learn language', () => {
-      expect(p).toContain('der Hund');
+    it('shows the INDEF form as canonical', () => {
       expect(p).toContain('ein Hund');
+    });
+
+    it('mentions "der Hund" only as a negative counter-example, not as a target', () => {
+      // The builder emits: 'For German: "ein Hund" (not "der Hund")'. Any
+      // occurrence of "der Hund" must be paired with "not" nearby.
+      const badContexts = p
+        .split('\n')
+        .filter((line) => line.includes('der Hund'))
+        .filter((line) => !/not\s+"der Hund"/.test(line));
+      expect(badContexts).toEqual([]);
+    });
+
+    it('does not carry the legacy source_cat field', () => {
+      expect(p).not.toMatch(/source_cat/);
     });
   });
 
-  describe('Scandi learn code (sv) — source-category preservation', () => {
+  describe('Scandi learn code (sv) — always INDEF prefix', () => {
     const p = buildVocabSystemPrompt('German', 'Swedish', 'sv', 'de');
 
-    it('does not carry the legacy "ALWAYS prepend INDEFINITE" wording', () => {
-      expect(p).not.toMatch(/ALWAYS prepend the INDEFINITE article/);
+    it('mentions the INDEFINITE prefix policy', () => {
+      expect(p).toMatch(/INDEFINITE prefix/i);
     });
 
-    it('mentions the suffix-definite form (hunden) as a valid extraction', () => {
-      expect(p).toContain('hunden');
-    });
-
-    it('mentions the indefinite-prefix form (en hund) as a valid extraction', () => {
+    it('shows the indef-prefix form (en hund) as canonical', () => {
       expect(p).toContain('en hund');
     });
 
-    it('tells the LLM how to handle bare Scandi nouns', () => {
-      expect(p).toMatch(/bare/i);
+    it('does not carry the legacy SUFFIX-DEFINITE taxonomy keyword (uppercase)', () => {
+      // Case-sensitive — the prompt may still use lowercase "suffix-definite"
+      // as a grammatical descriptor in a negative counter-example ("as
+      // 'hunden' (suffix-definite), …"). The forbidden form is the
+      // taxonomy category label the Matrix-Regel used as a bullet.
+      expect(p).not.toMatch(/SUFFIX-DEFINITE/);
     });
   });
 
-  describe('articleless learn code (pl) — bare extraction', () => {
+  describe('articleless learn code (pl) — bare', () => {
     const p = buildVocabSystemPrompt('English', 'Polish', 'pl', 'en');
 
     it('emits the bare singular nominative as canonical form', () => {
@@ -54,34 +76,61 @@ describe('buildVocabSystemPrompt — canonical Matrix-Regel prompt shape', () =>
     });
   });
 
-  describe('translation rule — matrix-accurate for every native category', () => {
-    it('articled native (de): shows both DEF-source→der Hund and INDEF-source→ein Hund', () => {
+  describe('translation rule — always native INDEF (or bare for pl/cs)', () => {
+    it('articled native (de): translates to ein Hund, never der Hund', () => {
       const p = buildVocabSystemPrompt('German', 'French', 'fr', 'de');
-      expect(p).toContain('der Hund');
       expect(p).toContain('ein Hund');
+      // "der Hund" must not appear anywhere in a de-native prompt whose
+      // learn lang is French (there is no DE counter-example to emit there).
+      expect(p).not.toContain('der Hund');
     });
 
-    it('scandi native (sv): shows DEF-source→hunden and INDEF-source→en hund', () => {
+    it('scandi native (sv): translates to en hund, never hunden', () => {
       const p = buildVocabSystemPrompt('Swedish', 'German', 'de', 'sv');
-      expect(p).toContain('hunden');
       expect(p).toContain('en hund');
+      expect(p).not.toContain('hunden');
     });
 
-    it('articleless native (pl): shows bare pies as target regardless of source', () => {
+    it('articleless native (pl): translates bare, never with any article', () => {
       const p = buildVocabSystemPrompt('Polish', 'German', 'de', 'pl');
       expect(p).toContain('pies');
     });
+
+    it('english native: translates to "a dog", never "the dog"', () => {
+      const p = buildVocabSystemPrompt('English', 'German', 'de', 'en');
+      expect(p).toContain('a dog');
+      // "the dog" must not appear in any en-native prompt where en is native.
+      // (The only way "the dog" could appear is if en were the learn lang,
+      // and it'd be in a counter-example — but native-only here.)
+      expect(p).not.toContain('the dog');
+    });
   });
 
-  describe('JSON example — source_cat field present', () => {
-    it('JSON example includes a "source_cat" field', () => {
+  describe('JSON example — no source_cat field', () => {
+    it('JSON example does NOT include a "source_cat" field', () => {
       const p = buildVocabSystemPrompt('English', 'German', 'de', 'en');
-      expect(p).toMatch(/"source_cat"/);
+      expect(p).not.toMatch(/"source_cat"/);
     });
+  });
 
-    it('JSON example enumerates valid source_cat values (def|indef|bare)', () => {
-      const p = buildVocabSystemPrompt('English', 'German', 'de', 'en');
-      expect(p).toMatch(/def.*indef.*bare|indef.*bare.*def|bare.*def.*indef/);
-    });
+  // 144 (learn × native) combos — forbidden-token sweep. Catches any
+  // regression that would reintroduce source_cat / suffix-definite /
+  // three-category branching anywhere in the prompt for any pair.
+  describe('144-combo forbidden-token sweep', () => {
+    for (const learn of LANGS) {
+      for (const native of LANGS) {
+        if (learn === native) continue;
+        it(`${learn}→${native} — no source_cat / SUFFIX-DEFINITE / ALWAYS-DEF wording`, () => {
+          const p = buildVocabSystemPrompt(NAMES[native]!, NAMES[learn]!, learn, native);
+          expect(p).not.toMatch(/source_cat/);
+          // Case-sensitive: uppercase SUFFIX-DEFINITE was the Matrix-Regel
+          // taxonomy bullet. Lowercase "suffix-definite" is allowed as a
+          // grammatical descriptor in counter-examples.
+          expect(p).not.toMatch(/SUFFIX-DEFINITE/);
+          expect(p).not.toMatch(/ALWAYS include the DEFINITE article/);
+          expect(p).not.toMatch(/ALWAYS prepend the definite article/);
+        });
+      }
+    }
   });
 });

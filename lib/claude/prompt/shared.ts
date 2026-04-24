@@ -3,13 +3,12 @@
  * both the bulk-extraction prompt (`index.ts`) and the fragment
  * builders (`builders.ts`).
  *
- * Post-cleanup (2026-04-23): what lived here during the Matrix-Regel
- * A/B (v1/v2/v3 variants) has been trimmed to the three utilities
- * the single production prompt still needs:
- * matrixTranslationTarget, buildNounShapeRule, buildAdjRule.
+ * Pure-INDEF extraction (Rule 47, revised 2026-04-24): the three-way
+ * source-article branching collapsed to a single native-indef target.
+ * The prior per-entry article-category metadata has been removed from
+ * the prompt, the LLM output, and the sweep metric input.
  */
 import { getLangExamples } from '../langs';
-import type { ArticleCategory } from '../types';
 
 /** Builds the "one content word after the article" noun-shape rule
  *  using only the learn-lang counter-example. */
@@ -35,32 +34,18 @@ export function buildAdjRule(learnCode: string): string {
   return `- Adjectives: emit the SINGLE dictionary base form only${counter}. Never pair an adjective with its inflected form — ${ex.name} does NOT inflect adjectives by gender in the dictionary entry.`;
 }
 
-/** Translation-target lookup per the user-approved 2026-04-23 matrix.
+/** Translation-target lookup under pure-INDEF extraction (Rule 47 revised).
  *
- *  Given the article category of the source-language occurrence of a noun
- *  (`'def' | 'indef' | 'bare'`), return the translation target in the
- *  native language that matches that category's convention.
- *
- *  Rule (see `lib/__tests__/matrix-rule.test.ts` for the 12×3 ground truth):
- *   - Articleless native (pl/cs): always `nounBare` — these languages have
- *     no articles at all, so the native target is bare regardless of source.
- *   - DEF source → native's definite form. For articled natives this is
- *     `nounLemma` (which carries the DEF article in those profiles, e.g.
- *     "der Hund"); for Scandi natives this is `nounDef` (the suffix-definite
- *     form "hunden") which differs from their INDEF-prefix `nounLemma`.
- *   - INDEF or BARE source → native's indefinite form. For articled natives
- *     this is `nounIndef` ("ein Hund"); for Scandi natives this is
- *     `nounLemma` (already the INDEF-prefix lemma "en hund"). BARE mirrors
- *     to INDEF per the user comment attached to the matrix ("Fuer BARE
- *     (pl,cs), wird immer auf indef uebersetzt").
+ *  Returns the native language's indefinite form for the noun example:
+ *   - Articleless native (pl/cs): `nounBare` — articleless all the way.
+ *   - Scandi native (sv/no/da): `nounLemma` — this IS the INDEF-prefix
+ *     lemma "en hund" in those profiles.
+ *   - Articled native (de/fr/es/it/pt/nl/en): `nounIndef` — "ein Hund" /
+ *     "un chien" / "a dog" / etc.
  */
-export function matrixTranslationTarget(sourceCat: ArticleCategory, nativeCode: string): string {
+export function nativeIndefTarget(nativeCode: string): string {
   const n = getLangExamples(nativeCode);
-  if (n.artCat === 'bare') return n.nounBare; // articleless native
-  if (sourceCat === 'def') {
-    // Scandi natives use the suffix-definite form; articled natives' lemma IS def.
-    return n.artCat === 'indef' ? n.nounDef! : n.nounLemma;
-  }
-  // INDEF or BARE source → native's indefinite form.
-  return n.artCat === 'indef' ? n.nounLemma : n.nounIndef!;
+  if (n.artCat === 'bare') return n.nounBare;
+  if (n.artCat === 'indef') return n.nounLemma; // Scandi INDEF-prefix lemma
+  return n.nounIndef!; // articled native
 }
