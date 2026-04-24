@@ -27,9 +27,14 @@ eslint.config.mjs
 lib/__tests__/
 .maestro/
 
-# CNG / Prebuild — force EAS to regenerate iOS from app.json on every
-# build instead of reusing a stale committed folder. Recommended by
-# expo-doctor when app.json has plugins but the ios/ folder is absent
-# from the repo (our current state).
+# CNG / Prebuild — force EAS to regenerate the native folders from
+# app.json on every build instead of reusing the committed snapshots.
+# Without these entries, expo-doctor flags the project as a mixed-CNG
+# state ("This project contains native project folders but also has
+# native configuration properties in app.json"), and EAS silently
+# skips syncing app.json plugin changes for the platform whose folder
+# exists. The committed android/ stays as a local-dev cache for
+# `npx expo run:android` only — EAS ignores it and prebuilds fresh.
 # https://docs.expo.dev/workflow/prebuild/#usage-with-eas-build
 /ios
+/android

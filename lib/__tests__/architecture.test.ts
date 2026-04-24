@@ -750,30 +750,32 @@ describe('Architecture: package.json excludes google-signin from Expo autolinkin
   });
 });
 
-// ─── Rule 17: .easignore must contain /ios for CNG builds ────────────
+// ─── Rule 17: .easignore must contain /ios AND /android for CNG ──────
 // CLAUDE.md "Authentication": the project has android/ committed but
 // not ios/. expo-doctor flags this as a mixed CNG state — EAS skips
 // syncing app.json plugins on the platform whose folder exists. Adding
-// /ios to .easignore tells EAS to always prebuild iOS from scratch,
-// picking up current app.json plugins every build.
-describe('Architecture: .easignore forces CNG prebuild for iOS', () => {
-  it('.easignore exists and lists /ios', () => {
-    const easignorePath = path.join(ROOT, '.easignore');
+// BOTH /ios and /android to .easignore tells EAS to always prebuild
+// from scratch, picking up current app.json plugins every build.
+// Without /android, expo-doctor warns: "This project contains native
+// project folders but also has native configuration properties in
+// app.json"; with it, the warning clears (17/17 checks).
+describe('Architecture: .easignore forces CNG prebuild for both platforms', () => {
+  const easignorePath = path.join(ROOT, '.easignore');
+
+  it('.easignore exists', () => {
     expect(fs.existsSync(easignorePath)).toBe(true);
+  });
 
-    if (!fs.existsSync(easignorePath)) {
-      throw new Error(
-        '.easignore is missing. EAS needs it to know which files should\n' +
-          'be excluded from the upload and (for /ios) which folders to\n' +
-          'regenerate via prebuild.',
-      );
-    }
+  // Match `/ios` or `/android` on its own line (not part of a longer
+  // path like `/ios-legacy/`). Optional leading slash + optional
+  // trailing slash both accepted.
+  const hasEntry = (content: string, name: string) =>
+    new RegExp(`^\\s*\\/?${name}\\/?\\s*$`, 'm').test(content);
 
+  it('.easignore lists /ios', () => {
+    if (!fs.existsSync(easignorePath)) return;
     const content = fs.readFileSync(easignorePath, 'utf8');
-    // Match /ios on its own line (not part of a longer path like /ios-legacy/).
-    const hasIos = /^\s*\/?ios\/?\s*$/m.test(content);
-
-    if (!hasIos) {
+    if (!hasEntry(content, 'ios')) {
       throw new Error(
         `.easignore must list "/ios" to force EAS to prebuild the iOS\n` +
           `folder on every build instead of trying to reuse stale state.\n` +
@@ -783,7 +785,25 @@ describe('Architecture: .easignore forces CNG prebuild for iOS', () => {
           `See CLAUDE.md "Authentication" section.`,
       );
     }
-    expect(hasIos).toBe(true);
+    expect(hasEntry(content, 'ios')).toBe(true);
+  });
+
+  it('.easignore lists /android', () => {
+    if (!fs.existsSync(easignorePath)) return;
+    const content = fs.readFileSync(easignorePath, 'utf8');
+    if (!hasEntry(content, 'android')) {
+      throw new Error(
+        `.easignore must list "/android" to force EAS to prebuild the\n` +
+          `Android folder on every build, the same as we do for iOS.\n` +
+          `Without it, expo-doctor warns about a mixed-CNG state\n` +
+          `("This project contains native project folders but also has\n` +
+          `native configuration properties in app.json"), and EAS may\n` +
+          `silently skip syncing app.json plugin / permission changes\n` +
+          `to the committed android/ snapshot.\n` +
+          `Add "/android" as its own line in .easignore.`,
+      );
+    }
+    expect(hasEntry(content, 'android')).toBe(true);
   });
 });
 
