@@ -2455,6 +2455,32 @@ describe('Architecture: Rule 47 — pure-INDEF extraction canonical prompt shape
     }
   });
 
+  it('ensureIndefArticle exists and is wired into both orchestrators', () => {
+    // Added 2026-04-24 after the PT medical-narrative regression: the
+    // prompt's INDEF rule, though stated three times, does not hold on
+    // certain text registers. A deterministic post-processing step adds
+    // the article when the LLM returned bare/DEF — see CLAUDE.md Rule 47.
+    const enforcerPath = path.join(ROOT, 'lib', 'articleEnforcer.ts');
+    expect(fs.existsSync(enforcerPath)).toBe(true);
+    const enforcerSrc = fs.readFileSync(enforcerPath, 'utf8');
+    expect(/export function ensureIndefArticle\b/.test(enforcerSrc)).toBe(true);
+
+    // Must be called from both orchestrators (bulk + single-word) — the
+    // user-visible extraction paths.
+    const extractSrc = fs.readFileSync(path.join(ROOT, 'lib', 'claude', 'extract.ts'), 'utf8');
+    const singleWordSrc = fs.readFileSync(
+      path.join(ROOT, 'lib', 'claude', 'translateSingleWord.ts'),
+      'utf8',
+    );
+    expect(/ensureIndefArticle\s*\(/.test(extractSrc)).toBe(true);
+    expect(/ensureIndefArticle\s*\(/.test(singleWordSrc)).toBe(true);
+
+    // Module must stay pure — no imports of expo-*, fetch, DB, etc.
+    expect(/from\s+['"]expo-/.test(enforcerSrc)).toBe(false);
+    expect(/from\s+['"]@anthropic-ai/.test(enforcerSrc)).toBe(false);
+    expect(/global\.fetch|await fetch\(/.test(enforcerSrc)).toBe(false);
+  });
+
   it('legacy prompt-version and matrix symbols are gone', () => {
     expect(/SCANDINAVIAN_NOUN_RULE_V[123]\b/.test(src)).toBe(false);
     expect(/ENGLISH_NOUN_RULE_V[123]\b/.test(src)).toBe(false);

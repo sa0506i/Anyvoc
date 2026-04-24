@@ -58,9 +58,15 @@ export function buildNounVerbRules(learnCode: string): string {
   const ex = getLangExamples(learnCode);
   const lines: string[] = [];
   if (ex.artCat === 'def' && ex.nounIndef) {
-    // Articled learn lang: enforce INDEF article, name DEF form as counter.
+    // Articled learn lang: enforce INDEF article. The rule must spell out
+    // the CONVERSION from source form — source DEF and source BARE both
+    // normalise to INDEF. Without explicit before→after pairs the small
+    // model treats "never DEF" as "drop the article" and emits bare nouns,
+    // especially in texts where the source consistently uses DEF
+    // (personal narratives, medical/first-person prose). Discovered via
+    // failing extraction on a PT medical-narrative photo 2026-04-24.
     lines.push(
-      `- Nouns: extract each noun in singular form with the INDEFINITE article. For ${ex.name}: "${ex.nounIndef}" (not "${ex.nounLemma}"). If a distinct feminine form exists, add it after a comma.`,
+      `- Nouns: extract each noun in singular form with the INDEFINITE article. ALWAYS add the article regardless of the source form — this is a normalization, not a copy. For ${ex.name}: source "${ex.nounLemma}" (definite) → "${ex.nounIndef}"; source bare "${ex.nounBare}" → "${ex.nounIndef}"; source "${ex.nounIndef}" → "${ex.nounIndef}" (already correct). Never emit the definite form and never emit a bare noun. If a distinct feminine form exists, add it after a comma.`,
     );
   }
   if (learnCode !== 'de') {

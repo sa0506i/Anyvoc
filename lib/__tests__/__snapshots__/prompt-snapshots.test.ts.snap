@@ -15,7 +15,7 @@ Rules:
 - "original" field: the word in German. "translation" field: the translation in English.
 - For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For German: write "die Gewalt" not "die öffentliche Gewalt" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
 
-- Nouns: extract each noun in singular form with the INDEFINITE article. For German: "ein Hund" (not "der Hund"). If a distinct feminine form exists, add it after a comma.
+- Nouns: extract each noun in singular form with the INDEFINITE article. ALWAYS add the article regardless of the source form — this is a normalization, not a copy. For German: source "der Hund" (definite) → "ein Hund"; source bare "Hund" → "ein Hund"; source "ein Hund" → "ein Hund" (already correct). Never emit the definite form and never emit a bare noun. If a distinct feminine form exists, add it after a comma.
 - Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
 - Verbs: always the infinitive form — never conjugated, never a past participle. For German: "laufen" (not "lief"). Reflexive verbs carry the pronoun: "sich erinnern".
 - Adjectives: emit the SINGLE dictionary base form only (e.g. "klein" not "klein, kleine"). Never pair an adjective with its inflected form — German does NOT inflect adjectives by gender in the dictionary entry.
@@ -50,7 +50,7 @@ Rules:
 - "original" field: the word in French. "translation" field: the translation in Norwegian.
 - For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For French: write "la cité" not "la cité médiévale" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
 
-- Nouns: extract each noun in singular form with the INDEFINITE article. For French: "un chien" (not "le chien"). If a distinct feminine form exists, add it after a comma.
+- Nouns: extract each noun in singular form with the INDEFINITE article. ALWAYS add the article regardless of the source form — this is a normalization, not a copy. For French: source "le chien" (definite) → "un chien"; source bare "chien" → "un chien"; source "un chien" → "un chien" (already correct). Never emit the definite form and never emit a bare noun. If a distinct feminine form exists, add it after a comma.
 - Write nouns in lowercase consistently, even if they were capitalised in the source text (e.g. at the start of a sentence).
 - Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
 - Verbs: always the infinitive form — never conjugated, never a past participle. For French: "courir" (not "couru"). Reflexive verbs carry the pronoun: "se souvenir".
@@ -121,7 +121,7 @@ Rules:
 - "original" field: the word in German. "translation" field: the translation in Polish.
 - For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For German: write "die Gewalt" not "die öffentliche Gewalt" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
 
-- Nouns: extract each noun in singular form with the INDEFINITE article. For German: "ein Hund" (not "der Hund"). If a distinct feminine form exists, add it after a comma.
+- Nouns: extract each noun in singular form with the INDEFINITE article. ALWAYS add the article regardless of the source form — this is a normalization, not a copy. For German: source "der Hund" (definite) → "ein Hund"; source bare "Hund" → "ein Hund"; source "ein Hund" → "ein Hund" (already correct). Never emit the definite form and never emit a bare noun. If a distinct feminine form exists, add it after a comma.
 - Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
 - Verbs: always the infinitive form — never conjugated, never a past participle. For German: "laufen" (not "lief"). Reflexive verbs carry the pronoun: "sich erinnern".
 - Adjectives: emit the SINGLE dictionary base form only (e.g. "klein" not "klein, kleine"). Never pair an adjective with its inflected form — German does NOT inflect adjectives by gender in the dictionary entry.
@@ -156,7 +156,7 @@ Rules:
 - "original" field: the word in German. "translation" field: the translation in Swedish.
 - For NOUN entries, "original" must be exactly "article + singular-noun" — a single content word after the article. For German: write "die Gewalt" not "die öffentliche Gewalt" (list the adjective as a separate entry if relevant). Multi-word proper nouns (club names, organisation names, broadcaster names) are proper nouns and MUST be omitted entirely.
 
-- Nouns: extract each noun in singular form with the INDEFINITE article. For German: "ein Hund" (not "der Hund"). If a distinct feminine form exists, add it after a comma.
+- Nouns: extract each noun in singular form with the INDEFINITE article. ALWAYS add the article regardless of the source form — this is a normalization, not a copy. For German: source "der Hund" (definite) → "ein Hund"; source bare "Hund" → "ein Hund"; source "ein Hund" → "ein Hund" (already correct). Never emit the definite form and never emit a bare noun. If a distinct feminine form exists, add it after a comma.
 - Remove hyphens that come from line breaks (e.g. "Wort-\\ntrennung" → "Worttrennung").
 - Verbs: always the infinitive form — never conjugated, never a past participle. For German: "laufen" (not "lief"). Reflexive verbs carry the pronoun: "sich erinnern".
 - Adjectives: emit the SINGLE dictionary base form only (e.g. "klein" not "klein, kleine"). Never pair an adjective with its inflected form — German does NOT inflect adjectives by gender in the dictionary entry.

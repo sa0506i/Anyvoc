@@ -10,6 +10,7 @@
  */
 import { classifyWord, type SupportedLanguage } from '../classifier';
 import { postProcessExtractedVocab } from '../vocabFilters';
+import { ensureIndefArticle } from '../articleEnforcer';
 import { callClaude } from './transport';
 import { chunkText } from './chunk';
 import { buildVocabSystemPrompt } from './prompt';
@@ -138,6 +139,25 @@ export async function extractVocabulary(
   );
   allVocabs.length = 0;
   allVocabs.push(...filtered);
+
+  // Pure-INDEF safety net (Rule 47, 2026-04-24): add/normalise the INDEF
+  // article on noun entries when the LLM returned bare or DEF forms. The
+  // prompt enforces INDEF three times but mistral-small occasionally drops
+  // the article for first-person / medical / OCR-photo text. Deterministic,
+  // offline, ~zero cost. See lib/articleEnforcer.ts.
+  for (const vocab of allVocabs) {
+    if (vocab.type !== 'noun') continue;
+    vocab.original = ensureIndefArticle(
+      vocab.original,
+      vocab.source_forms,
+      text,
+      learningLanguageCode,
+    );
+    // Symmetric normalisation on the translation side (native lang).
+    if (nativeLanguageCode) {
+      vocab.translation = ensureIndefArticle(vocab.translation, [], '', nativeLanguageCode);
+    }
+  }
 
   // Deterministic CEFR classification via lib/classifier — the LLM no longer
   // assigns levels. High/medium-confidence words resolve synchronously.

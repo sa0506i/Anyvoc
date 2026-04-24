@@ -29,12 +29,15 @@ describe('buildVocabSystemPrompt — pure-INDEF extraction shape', () => {
       expect(p).toContain('ein Hund');
     });
 
-    it('mentions "der Hund" only as a negative counter-example, not as a target', () => {
-      // The builder emits: 'For German: "ein Hund" (not "der Hund")'. Any
-      // occurrence of "der Hund" must be paired with "not" nearby.
+    it('mentions "der Hund" only in DEF→INDEF-conversion contexts, not as a target', () => {
+      // The noun rule now shows conversion pairs: 'source "der Hund" → "ein Hund"'
+      // (2026-04-24 hardening). Every "der Hund" occurrence must be either:
+      //   (a) in a "→ ein Hund" arrow context (conversion example), or
+      //   (b) after "not "  / "(not" (negative counter-example)
       const badContexts = p
         .split('\n')
         .filter((line) => line.includes('der Hund'))
+        .filter((line) => !/"der Hund"\s*(?:\(definite\))?\s*→\s*"ein Hund"/.test(line))
         .filter((line) => !/not\s+"der Hund"/.test(line));
       expect(badContexts).toEqual([]);
     });

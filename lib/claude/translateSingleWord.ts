@@ -6,6 +6,7 @@
  */
 import { classifyWord, type SupportedLanguage } from '../classifier';
 import { postProcessExtractedVocab } from '../vocabFilters';
+import { ensureIndefArticle } from '../articleEnforcer';
 import { callClaude } from './transport';
 import { buildTranslateSingleWordPrompt } from './prompt';
 import type { TranslateSingleWordResult } from './types';
@@ -67,6 +68,17 @@ export async function translateSingleWord(
     // user explicitly confirms.
   } else {
     parsed.translation = post[0].translation;
+  }
+
+  // Pure-INDEF safety net (Rule 47): add/normalise the INDEF article on
+  // both sides for noun entries. No source-text context here (single-word
+  // flow), so we rely on DEF detection + ending heuristics. See
+  // lib/articleEnforcer.ts.
+  if (parsed.type === 'noun') {
+    parsed.original = ensureIndefArticle(parsed.original, [word], word, fromLanguageCode);
+    if (toLanguageCode) {
+      parsed.translation = ensureIndefArticle(parsed.translation, [], '', toLanguageCode);
+    }
   }
 
   // Local deterministic CEFR assignment.

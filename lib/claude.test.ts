@@ -245,10 +245,11 @@ describe('extractVocabulary', () => {
       },
     ]);
     global.fetch = mockFetchOk(vocabJson);
-    const result = await extractVocabulary('Der Hund ist groß.', 'English', 'German', 'de');
+    const result = await extractVocabulary('Der Hund ist groß.', 'English', 'German', 'de', 'en');
     expect(result).toHaveLength(1);
-    expect(result[0].original).toBe('der Hund');
-    expect(result[0].translation).toBe('the dog');
+    // Pure-INDEF (Rule 47): LLM emits "der Hund" → normalised to "ein Hund".
+    expect(result[0].original).toBe('ein Hund');
+    expect(result[0].translation).toBe('a dog');
     // classifyWord mock returns B1
     expect(result[0].level).toBe('B1');
   });
@@ -267,9 +268,11 @@ describe('extractVocabulary', () => {
       ]) +
       '\n```';
     global.fetch = mockFetchOk(vocabJson);
-    const result = await extractVocabulary('Le chat dort.', 'German', 'French', 'fr');
+    const result = await extractVocabulary('Le chat dort.', 'German', 'French', 'fr', 'de');
     expect(result).toHaveLength(1);
-    expect(result[0].original).toBe('le chat');
+    // Pure-INDEF: "le chat" → "un chat", "die Katze" → "eine Katze".
+    expect(result[0].original).toBe('un chat');
+    expect(result[0].translation).toBe('eine Katze');
   });
 
   it('repairs truncated JSON (missing closing bracket)', async () => {
@@ -342,9 +345,10 @@ describe('translateSingleWord', () => {
       type: 'noun',
     });
     global.fetch = mockFetchOk(json);
-    const result = await translateSingleWord('Hund', 'German', 'English', 'de');
-    expect(result.original).toBe('der Hund');
-    expect(result.translation).toBe('the dog');
+    const result = await translateSingleWord('Hund', 'German', 'English', 'de', 'en');
+    // Pure-INDEF: "der Hund" → "ein Hund", "the dog" → "a dog".
+    expect(result.original).toBe('ein Hund');
+    expect(result.translation).toBe('a dog');
     expect(result.type).toBe('noun');
     expect(result.level).toBe('B1'); // from mocked classifyWord
   });

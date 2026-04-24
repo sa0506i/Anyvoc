@@ -525,6 +525,60 @@ The field is kept for potential future highlight-layer features that
 may want to recognise suffix-definite forms in source text. Removing
 it would be a separate, unrelated change.
 
+**`ensureIndefArticle` safety net** ([lib/articleEnforcer.ts](lib/articleEnforcer.ts)).
+The prompt enforces INDEF three times (CRITICAL header, noun rule,
+translation rule) but `mistral-small-2506` occasionally ignores the
+rule for certain text registers — first-person narratives, medical
+prose, Romance texts with many contracted prepositions (`na/da/ao`),
+and photo-OCR of informal text. The 2026-04-24 PT medical-narrative
+regression showed 12 of 13 nouns emitted bare despite the prompt.
+Rather than pile on more prompt text (prompt-dilution risk per Rule
+41), we normalise in code: for each `type: 'noun'` entry returned by
+the LLM, `ensureIndefArticle(original, sourceForms, sourceText,
+learnLang)` runs three stages:
+
+1. Already carries a valid INDEF article/prefix → pass through.
+2. Carries a DEF article (`o cão`, `die Freiheit`, `the dog`) → strip,
+   derive gender from the DEF form, prepend the matching INDEF.
+3. Bare → (a) scan `sourceText` for any `source_forms` variant
+   preceded by a known article / contraction token and derive gender
+   from the article; (b) fallback to a per-language ending heuristic
+   (PT `-ção/-são/-dade` → fem, `-ma` Greek-origin → masc, etc.);
+   (c) if neither yields a confident gender, leave bare (safety).
+
+Called from both [lib/claude/extract.ts](lib/claude/extract.ts) (bulk)
+and [lib/claude/translateSingleWord.ts](lib/claude/translateSingleWord.ts)
+(Pro long-press). Runs symmetrically on the native-language
+translation field so the German `Taubheit` bare output becomes
+`eine Taubheit`. Pure, offline, ~zero cost.
+
+**Per-language coverage:**
+
+- **pt, es, it**: full support — DEF→INDEF, source-scan via contractions
+  (PT `na/da/ao/pelo…`, ES `al/del`, IT `dello/nella…`), ending
+  heuristic with Greek-origin `-ma` / set-phrase exceptions. Romance
+  `un'` elision handled for IT.
+- **fr**: DEF→INDEF, source-scan via `du/au`. Ending heuristic is
+  conservative (ambiguous `-e` nouns stay bare rather than guess) —
+  FR gender is too irregular to default safely.
+- **de**: DEF→INDEF and source-scan via `der/die/das/den/dem/eine/einer`.
+  No ending heuristic — DE gender is irregular enough that guessing
+  would misfire more than it helps. Bare nouns stay bare when the
+  source carries no detectable article.
+- **nl**: trivial — `een` is ungendered, so any bare noun gets `een`.
+- **en**: `a`/`an` by phonetics (`an apple`, `an ancestor`, `a dog`,
+  `a university`, `an hour`). Special-cases silent-h (`hour`,
+  `honest`) and u-as-consonant (`university`, `uniform`, `one`).
+- **sv/no/da**: INDEF-prefix `en/ett/ei/et`. Source-scan recovers
+  neuter from `ett`/`et` context; bare fallback is `en` (common
+  gender, ~70–80% correct statistically).
+- **pl/cs**: no-op — those languages have no articles; bare is
+  correct.
+
+Comma-separated m/f pairs (`der Arzt, die Ärztin`, `le médecin, la
+médecin`) are split and each part processed independently, so Romance
+masculine/feminine legitimate pairs survive untouched.
+
 **Rule 47 architecture sensor (revised)** locks the pure-INDEF shape.
 It asserts: `nativeIndefTarget(nativeCode) → string` is exported;
 `matrixTranslationTarget` / `ArticleCategory` / `source_cat` appear

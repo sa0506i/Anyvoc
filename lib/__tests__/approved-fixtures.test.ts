@@ -72,11 +72,13 @@ describe('Approved Fixtures: extractVocabulary', () => {
   it('parses clean JSON array with multiple word types', async () => {
     const fixture = loadFixture('vocab-clean.json');
     mockFetchOk(fixture);
-    const result = await extractVocabulary('test text', 'English', 'German', 'de');
+    const result = await extractVocabulary('test text', 'English', 'German', 'de', 'en');
 
     expect(result).toHaveLength(4);
-    expect(result[0].original).toBe('der Hund, die Hündin');
-    expect(result[0].translation).toBe('the dog');
+    // Pure-INDEF (Rule 47): LLM fixture emits DEF "der Hund, die Hündin";
+    // ensureIndefArticle normalises to INDEF on both sides.
+    expect(result[0].original).toBe('ein Hund, eine Hündin');
+    expect(result[0].translation).toBe('a dog');
     expect(result[0].type).toBe('noun');
     expect(result[0].source_forms).toEqual(['Hunde', 'Hunden']);
     // classifyWord mock returns B1 for all
@@ -92,7 +94,8 @@ describe('Approved Fixtures: extractVocabulary', () => {
     const result = await extractVocabulary('test text', 'German', 'French', 'fr');
 
     expect(result).toHaveLength(2);
-    expect(result[0].original).toBe('le médecin, la médecin');
+    // LLM fixture: "le médecin, la médecin" → pure-INDEF: "un médecin, une médecin"
+    expect(result[0].original).toBe('un médecin, une médecin');
     expect(result[1].original).toBe('se souvenir');
     expect(result[1].type).toBe('verb');
   });
@@ -104,7 +107,8 @@ describe('Approved Fixtures: extractVocabulary', () => {
 
     // Should recover the 2 complete objects before the truncated third
     expect(result.length).toBeGreaterThanOrEqual(2);
-    expect(result[0].original).toBe('o passaporte');
+    // LLM fixture: "o passaporte" → pure-INDEF: "um passaporte"
+    expect(result[0].original).toBe('um passaporte');
     expect(result[1].original).toBe('acordar-se');
   });
 
@@ -115,8 +119,9 @@ describe('Approved Fixtures: extractVocabulary', () => {
 
     // Should recover at least the 2 complete objects
     expect(result.length).toBeGreaterThanOrEqual(2);
-    expect(result[0].original).toBe('die Straßenbahn');
-    expect(result[1].original).toBe('die Sehenswürdigkeit');
+    // LLM fixture: "die Straßenbahn" → pure-INDEF: "eine Straßenbahn"
+    expect(result[0].original).toBe('eine Straßenbahn');
+    expect(result[1].original).toBe('eine Sehenswürdigkeit');
   });
 
   it('extracts JSON array after conversational preamble', async () => {
@@ -125,7 +130,8 @@ describe('Approved Fixtures: extractVocabulary', () => {
     const result = await extractVocabulary('test text', 'English', 'Spanish', 'es');
 
     expect(result).toHaveLength(2);
-    expect(result[0].original).toBe('el libro');
+    // LLM fixture: "el libro" → pure-INDEF: "un libro"
+    expect(result[0].original).toBe('un libro');
     expect(result[1].original).toBe('escribir');
   });
 
@@ -135,8 +141,11 @@ describe('Approved Fixtures: extractVocabulary', () => {
     const result = await extractVocabulary('test text', 'English', 'French', 'fr');
 
     expect(result).toHaveLength(4);
+    // FR enforcer can't recognise German "die" as DEF article, so it
+    // falls through unchanged (FR defaultGender=null keeps it bare).
     expect(result[0].original).toBe('die Gemütlichkeit');
     expect(result[1].original).toBe('naïf, naïve');
+    // l' is gender-ambiguous in FR — preserved as-is.
     expect(result[2].original).toBe("l'après-midi");
     expect(result[3].original).toBe('açúcar');
   });
@@ -169,10 +178,11 @@ describe('Approved Fixtures: translateSingleWord', () => {
   it('parses clean JSON object', async () => {
     const fixture = loadFixture('translate-clean.json');
     mockFetchOk(fixture);
-    const result = await translateSingleWord('Arzt', 'German', 'English', 'de');
+    const result = await translateSingleWord('Arzt', 'German', 'English', 'de', 'en');
 
-    expect(result.original).toBe('der Arzt, die Ärztin');
-    expect(result.translation).toBe('the doctor');
+    // LLM fixture: "der Arzt, die Ärztin" / "the doctor" → pure-INDEF
+    expect(result.original).toBe('ein Arzt, eine Ärztin');
+    expect(result.translation).toBe('a doctor');
     expect(result.type).toBe('noun');
     expect(result.level).toBe('B1');
   });
@@ -202,7 +212,8 @@ describe('Approved Fixtures: translateSingleWord', () => {
     mockFetchOk(fixture);
     const result = await translateSingleWord('Lehrer', 'German', 'English', 'de');
 
-    expect(result.original).toBe('der Lehrer, die Lehrerin');
+    // LLM fixture "der Lehrer, die Lehrerin" → pure-INDEF "ein Lehrer, eine Lehrerin"
+    expect(result.original).toBe('ein Lehrer, eine Lehrerin');
     expect(result.type).toBe('noun');
   });
 
