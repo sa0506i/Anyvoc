@@ -2469,3 +2469,76 @@ describe('Architecture: Rule 47 — pure-INDEF extraction canonical prompt shape
     expect(/matrixTranslationTarget/.test(src)).toBe(false);
   });
 });
+
+// ─── Rule 48: OCR garbage filter wired into extractTextFromImageLocal ─
+// CLAUDE.md "OCR pipeline" — after ML Kit returns the raw text, we run
+// it through `dropGarbageLines` (lib/ocrCleaning.ts) BEFORE handing it
+// to processSharedText. Without this step, logo / icon fragments like
+// "1RABUsoupoA" / "PORTUCUTSA" reach the LLM extraction prompt and
+// pollute the vocabulary list. A future refactor of lib/ocr.ts MUST
+// keep this wiring; this rule is the deterministic guard.
+describe('Architecture: OCR garbage filter is wired into the pipeline', () => {
+  const ocrPath = path.join(ROOT, 'lib', 'ocr.ts');
+  const cleaningPath = path.join(ROOT, 'lib', 'ocrCleaning.ts');
+
+  it('lib/ocrCleaning.ts exists and exports dropGarbageLines', () => {
+    if (!fs.existsSync(cleaningPath)) {
+      throw new Error(
+        'lib/ocrCleaning.ts is missing. The OCR garbage filter (drops\n' +
+          'logo/icon fragments like "1RABUsoupoA" before they reach the\n' +
+          'LLM extraction prompt) lives there. Restore the file from\n' +
+          'history or recreate it with the dropGarbageLines export.',
+      );
+    }
+    const content = fs.readFileSync(cleaningPath, 'utf8');
+    if (!/export\s+function\s+dropGarbageLines\s*\(/.test(content)) {
+      throw new Error(
+        'lib/ocrCleaning.ts must export `dropGarbageLines(text: string): string`.\n' +
+          'It is the public entry point used by lib/ocr.ts to strip OCR\n' +
+          'garbage lines after ML Kit recognition.',
+      );
+    }
+    expect(true).toBe(true);
+  });
+
+  it('lib/ocr.ts imports dropGarbageLines from ./ocrCleaning', () => {
+    const content = fs.readFileSync(ocrPath, 'utf8');
+    const importsIt =
+      /import\s*\{[^}]*\bdropGarbageLines\b[^}]*\}\s*from\s*['"]\.\/ocrCleaning['"]/.test(content);
+    if (!importsIt) {
+      throw new Error(
+        'lib/ocr.ts must import `dropGarbageLines` from `./ocrCleaning`.\n' +
+          'Without it, the post-OCR garbage filter is bypassed and logo /\n' +
+          'icon fragments (e.g. "1RABUsoupoA", "PORTUCUTSA") flow into\n' +
+          'extractVocabulary, polluting the vocabulary list.\n' +
+          'Add: import { dropGarbageLines } from "./ocrCleaning";',
+      );
+    }
+    expect(importsIt).toBe(true);
+  });
+
+  it('extractTextFromImageLocal calls dropGarbageLines', () => {
+    const content = fs.readFileSync(ocrPath, 'utf8');
+    // Locate the function body and check it references dropGarbageLines.
+    const fnMatch = content.match(
+      /export\s+async\s+function\s+extractTextFromImageLocal[\s\S]*?\n\}/,
+    );
+    if (!fnMatch) {
+      throw new Error(
+        'Could not find `export async function extractTextFromImageLocal`\n' +
+          'in lib/ocr.ts. The function may have been renamed — update this\n' +
+          'architecture rule to match the new name.',
+      );
+    }
+    const callsIt = /\bdropGarbageLines\s*\(/.test(fnMatch[0]);
+    if (!callsIt) {
+      throw new Error(
+        'extractTextFromImageLocal must call `dropGarbageLines(...)` in its\n' +
+          'body, after `cleanOcrText` and before the return. Without the\n' +
+          'call, the import alone does nothing and OCR garbage reaches the\n' +
+          'LLM extraction prompt.',
+      );
+    }
+    expect(callsIt).toBe(true);
+  });
+});

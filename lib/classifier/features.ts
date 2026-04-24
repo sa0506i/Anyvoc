@@ -12,7 +12,7 @@
  * lib/classifier/TODO.md, "Concreteness feature dropped" for the rationale.
  */
 
-import type { SupportedLanguage } from './index';
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './index';
 
 // Metro requires static, literal require() paths — no template strings.
 // Each frequency JSON has shape { __corpus, __attribution, keys: string[],
@@ -234,6 +234,25 @@ function normaliseLookupKey(word: string): string {
   // 27 FR entries with curly apostrophes that bypassed this strip and
   // hit zero-zipf. See 2026-04-20 sweep analysis I.9 + Rule 36.
   return afterWhitespaceArticle.replace(/^[a-zà-ÿ][\u2019']/i, '');
+}
+
+/**
+ * Cross-language frequency lookup. True if `word` appears in the
+ * Leipzig corpus of any of the 12 supported languages. Used by the
+ * OCR garbage filter (lib/ocrCleaning.ts) to distinguish a real but
+ * rare word ("Volkswagen", "Lisboa") from a logo-fragment artefact
+ * ("PORTUCUTSA", "1RABUsoupoA").
+ *
+ * Cheap: per-language Map lookups against the already-memoised caches.
+ * Lazy: only loads a language's freq table on first hit, same as
+ * extractFeatures.
+ */
+export function isKnownInAnyLeipzigCorpus(word: string): boolean {
+  const key = word.toLowerCase();
+  for (const lang of SUPPORTED_LANGUAGES) {
+    if (getFreq(lang).has(key)) return true;
+  }
+  return false;
 }
 
 export interface Features {

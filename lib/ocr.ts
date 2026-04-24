@@ -1,4 +1,5 @@
 import { recognizeText as mlkitRecognizeText } from '@infinitered/react-native-mlkit-text-recognition';
+import { dropGarbageLines } from './ocrCleaning';
 
 // Validation thresholds
 const MIN_TEXT_LENGTH = 20;
@@ -111,5 +112,10 @@ export async function extractTextFromImageLocal(imageUri: string): Promise<strin
     throw new Error(validation.reason || 'The image does not contain usable text.');
   }
 
-  return cleanOcrText(rawText);
+  // Two-step cleaning: line-level structural cleanup first (drops single
+  // chars, pure-symbol lines, collapses whitespace), then garbage-line
+  // detection that removes logo/icon fragments like "1RABUsoupoA",
+  // "PORTUCUTSA". See lib/ocrCleaning.ts for the heuristics.
+  const cleaned = cleanOcrText(rawText);
+  return dropGarbageLines(cleaned);
 }

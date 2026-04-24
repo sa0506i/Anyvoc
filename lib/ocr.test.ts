@@ -2,7 +2,10 @@ jest.mock('@infinitered/react-native-mlkit-text-recognition', () => ({
   recognizeText: jest.fn(),
 }));
 
-import { validateOcrText, cleanOcrText } from './ocr';
+import { recognizeText as mlkitRecognizeText } from '@infinitered/react-native-mlkit-text-recognition';
+import { validateOcrText, cleanOcrText, extractTextFromImageLocal } from './ocr';
+
+const mockedRecognize = mlkitRecognizeText as jest.MockedFunction<typeof mlkitRecognizeText>;
 
 describe('validateOcrText', () => {
   it('accepts valid multi-sentence text', () => {
@@ -87,5 +90,60 @@ describe('cleanOcrText', () => {
 
   it('handles empty input', () => {
     expect(cleanOcrText('')).toBe('');
+  });
+});
+
+describe('extractTextFromImageLocal — integration', () => {
+  beforeEach(() => {
+    mockedRecognize.mockReset();
+  });
+
+  it('strips OCR garbage lines (logo / icon fragments) from the result', async () => {
+    // Simulates the user's Portuguese-newspaper screenshot: real article
+    // text followed by trailing logo fragments that ML Kit hallucinates
+    // off stylised letters. The post-OCR filter (lib/ocrCleaning.ts)
+    // should drop the trailing fragments before returning.
+    mockedRecognize.mockResolvedValue({
+      blocks: [],
+      text: [
+        'EXCLUSIVO',
+        'LEGISLAÇÃO LABORAL',
+        'Governo e UGT deixam acordo para a reforma laboral num beco sem saída.',
+        'A UGT rejeitou por unanimidade a última versão do pacote laboral.',
+        '24 de Abril de 2026',
+        '1RABUsoupoA',
+        'tsaLNA SOA',
+        'PORTUCUTSA',
+      ].join('\n'),
+    });
+
+    const out = await extractTextFromImageLocal('file:///fake.jpg');
+
+    // Real article body kept
+    expect(out).toContain('Governo e UGT deixam acordo');
+    expect(out).toContain('A UGT rejeitou');
+    expect(out).toContain('LEGISLAÇÃO LABORAL');
+
+    // Garbage gone
+    expect(out).not.toContain('1RABUsoupoA');
+    expect(out).not.toContain('tsaLNA');
+    expect(out).not.toContain('PORTUCUTSA');
+  });
+
+  it('does not strip valid all-caps headlines (corpus-known)', async () => {
+    mockedRecognize.mockResolvedValue({
+      blocks: [],
+      text: [
+        'PORTUGAL EXCLUSIVO',
+        'O presidente declarou hoje que a reforma laboral seguirá adiante.',
+        'A oposição respondeu com críticas duras à proposta governamental.',
+      ].join('\n'),
+    });
+
+    const out = await extractTextFromImageLocal('file:///fake.jpg');
+
+    expect(out).toContain('PORTUGAL EXCLUSIVO');
+    expect(out).toContain('O presidente');
+    expect(out).toContain('A oposição');
   });
 });
