@@ -179,77 +179,86 @@ export default function ContentDetailScreen() {
     return ranges;
   }, [content, vocabulary]);
 
-  const handleRemoveHighlight = (vocabId: string) => {
-    deleteVocabulary(db, vocabId);
-    setVocabulary((prev) => prev.filter((v) => v.id !== vocabId));
-  };
+  const handleRemoveHighlight = useCallback(
+    (vocabId: string) => {
+      deleteVocabulary(db, vocabId);
+      setVocabulary((prev) => prev.filter((v) => v.id !== vocabId));
+    },
+    [db],
+  );
 
-  const handleAddWord = (word: string) => {
-    confirm(
-      'Add Vocabulary',
-      `Add "${word}" to your vocabulary list?`,
-      () => addWordToVocabulary(word),
-      {
-        confirmLabel: 'Add',
-      },
-    );
-  };
+  const addWordToVocabulary = useCallback(
+    async (word: string) => {
+      setLoading(true);
+      try {
+        const nativeName = getLanguageEnglishName(nativeLanguage);
+        const learningName = getLanguageEnglishName(learningLanguage);
+        const result = await translateSingleWord(
+          word,
+          learningName,
+          nativeName,
+          learningLanguage as SupportedLanguage,
+          nativeLanguage,
+        );
 
-  const addWordToVocabulary = async (word: string) => {
-    setLoading(true);
-    try {
-      const nativeName = getLanguageEnglishName(nativeLanguage);
-      const learningName = getLanguageEnglishName(learningLanguage);
-      const result = await translateSingleWord(
-        word,
-        learningName,
-        nativeName,
-        learningLanguage as SupportedLanguage,
-        nativeLanguage,
+        if (!result.translation) {
+          alert('Error', 'Translation could not be determined.');
+          return;
+        }
+
+        if (vocabularyExists(db, result.original)) {
+          alert('Already exists', `"${result.original}" is already in your vocabulary list.`);
+          return;
+        }
+
+        const newVocab: Vocabulary = {
+          id: generateUUID(),
+          content_id: id!,
+          original: result.original,
+          translation: result.translation,
+          level: result.level,
+          word_type: result.type as Vocabulary['word_type'],
+          source_forms: JSON.stringify([word]),
+          leitner_box: 1,
+          last_reviewed: null,
+          correct_count: 0,
+          incorrect_count: 0,
+          // User explicitly picked this word via long-press — bypass the
+          // CEFR level filter in vocab views (CLAUDE.md "Vocabulary
+          // post-processing" → user_added bypass, Rule 20).
+          user_added: 1,
+          created_at: Date.now(),
+        };
+
+        insertVocabulary(db, newVocab);
+        setVocabulary((prev) => [...prev, newVocab]);
+        alert('Added', `"${result.original}" → "${result.translation}"`);
+      } catch (error) {
+        if (error instanceof ClaudeAPIError) {
+          alert('API Error', error.message);
+        } else {
+          alert('Error', 'Could not add word.');
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [alert, db, id, learningLanguage, nativeLanguage],
+  );
+
+  const handleAddWord = useCallback(
+    (word: string) => {
+      confirm(
+        'Add Vocabulary',
+        `Add "${word}" to your vocabulary list?`,
+        () => addWordToVocabulary(word),
+        {
+          confirmLabel: 'Add',
+        },
       );
-
-      if (!result.translation) {
-        alert('Error', 'Translation could not be determined.');
-        return;
-      }
-
-      if (vocabularyExists(db, result.original)) {
-        alert('Already exists', `"${result.original}" is already in your vocabulary list.`);
-        return;
-      }
-
-      const newVocab: Vocabulary = {
-        id: generateUUID(),
-        content_id: id!,
-        original: result.original,
-        translation: result.translation,
-        level: result.level,
-        word_type: result.type as Vocabulary['word_type'],
-        source_forms: JSON.stringify([word]),
-        leitner_box: 1,
-        last_reviewed: null,
-        correct_count: 0,
-        incorrect_count: 0,
-        // User explicitly picked this word via long-press — bypass the
-        // CEFR level filter in vocab views (CLAUDE.md "Vocabulary
-        // post-processing" → user_added bypass, Rule 20).
-        user_added: 1,
-        created_at: Date.now(),
-      };
-
-      insertVocabulary(db, newVocab);
-      setVocabulary((prev) => [...prev, newVocab]);
-      alert('Added', `"${result.original}" → "${result.translation}"`);
-    } catch (error) {
-      if (error instanceof ClaudeAPIError) {
-        alert('API Error', error.message);
-      } else {
-        alert('Error', 'Could not add word.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [addWordToVocabulary, confirm],
+  );
 
   const handleDeleteVocab = useCallback(
     (vocab: Vocabulary) => {
