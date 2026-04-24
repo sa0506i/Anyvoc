@@ -56,3 +56,11 @@ tmp/
 
 # EAS build logs (local artifact of eas build --platform … | tee)
 eas-*.log
+
+# Local build / prebuild logs (artefacts of `npx expo run:android | tee`
+# and `npx expo prebuild --clean | tee`).
+expo.log
+prebuild.log
+
+# Claude Code scheduled-tasks lockfile (per-session harness state)
+.claude/scheduled_tasks.lock
