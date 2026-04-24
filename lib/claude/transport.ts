@@ -31,17 +31,23 @@ export class ClaudeAPIError extends Error {
   }
 }
 
-// Retry policy for transient upstream failures (5xx + generic network
-// errors). 4xx status codes and AbortError (timeout) are NOT retried —
+// Retry policy for transient upstream failures (5xx, 429, generic network
+// errors). Other 4xx status codes and AbortError (timeout) are NOT retried —
 // they're caller/config problems or user-visible timeouts. Backoff is
-// jittered exponentially. Zeroed in tests so the existing suite stays
-// fast without needing fake timers.
+// jittered exponentially. 429 uses a doubled backoff base so retries step
+// out of the rate-limit window rather than colliding with the same edge.
+// Zeroed in tests so the existing suite stays fast without fake timers.
 const MAX_RETRIES = 2; // 3 total attempts
 const RETRY_BASE_MS = process.env.NODE_ENV === 'test' ? 0 : 400;
 
 function isRetryable(err: unknown): boolean {
   if (err instanceof ClaudeAPIError) {
-    return err.statusCode !== undefined && err.statusCode >= 500;
+    if (err.statusCode === undefined) return false;
+    // 5xx = transient upstream failure. 429 = rate limit — retry with a
+    // longer delay so we land outside the proxy's 60s window. Parallel
+    // chunk extraction (Pro Mode) relies on this: without 429 retry a
+    // single bursted-too-fast request would abort the whole Promise.all.
+    return err.statusCode >= 500 || err.statusCode === 429;
   }
   // Non-ClaudeAPIError errors reach us only as network failures —
   // AbortError is wrapped into a ClaudeAPIError above, so anything
@@ -49,9 +55,14 @@ function isRetryable(err: unknown): boolean {
   return err instanceof Error;
 }
 
-function retryDelayMs(attempt: number): number {
+function retryDelayMs(attempt: number, err: unknown): number {
   if (RETRY_BASE_MS === 0) return 0;
-  const base = RETRY_BASE_MS * Math.pow(2, attempt);
+  // 429 → double the base so we retry at 0.8s / 1.6s / 3.2s instead of
+  // 0.4s / 0.8s / 1.6s. The proxy's rate-limit window is 60s and most
+  // spikes are short; a longer delay materially improves success odds.
+  const is429 = err instanceof ClaudeAPIError && err.statusCode === 429;
+  const factor = is429 ? 2 : 1;
+  const base = RETRY_BASE_MS * factor * Math.pow(2, attempt);
   const jitter = Math.floor(Math.random() * 100);
   return base + jitter;
 }
@@ -69,7 +80,7 @@ export async function callClaude(
     } catch (err) {
       lastErr = err;
       if (attempt === MAX_RETRIES || !isRetryable(err)) throw err;
-      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt)));
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt, err)));
     }
   }
   throw lastErr;
