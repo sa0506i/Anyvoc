@@ -96,6 +96,26 @@ export function cleanOcrText(text: string): string {
 }
 
 /**
+ * Join intra-paragraph line wraps into spaces. ML Kit emits one line
+ * per visual row of the source page, which splits sentences mid-clause
+ * ("…acordo para a\nreforma laboral…"). Joining those single newlines
+ * back into spaces lets the LLM see continuous prose. Paragraph breaks
+ * — encoded as DOUBLE newlines after `cleanOcrText` collapses 3+ blanks
+ * to 2 — are preserved so the stored "Original" view stays readable.
+ *
+ * Must run AFTER `dropGarbageLines`, which is line-based and would lose
+ * its handle on per-line garbage detection if newlines were collapsed
+ * first.
+ */
+export function joinLineWraps(text: string): string {
+  return text
+    .replace(/\r\n/g, '\n') // normalise Windows line endings
+    .replace(/(?<!\n)\n(?!\n)/g, ' ') // single newline → space
+    .replace(/ {2,}/g, ' ') // collapse double-spaces created by trailing whitespace
+    .trim();
+}
+
+/**
  * Full pipeline: OCR via on-device ML Kit, validate text quality, clean, and return.
  * Throws an Error with a user-facing message if validation fails.
  * This saves the expensive vocabulary extraction call for bad/empty images.
@@ -112,10 +132,19 @@ export async function extractTextFromImageLocal(imageUri: string): Promise<strin
     throw new Error(validation.reason || 'The image does not contain usable text.');
   }
 
-  // Two-step cleaning: line-level structural cleanup first (drops single
-  // chars, pure-symbol lines, collapses whitespace), then garbage-line
-  // detection that removes logo/icon fragments like "1RABUsoupoA",
-  // "PORTUCUTSA". See lib/ocrCleaning.ts for the heuristics.
-  const cleaned = cleanOcrText(rawText);
-  return dropGarbageLines(cleaned);
+  // Three-step cleaning:
+  //   1. cleanOcrText  — drops single chars, pure-symbol lines, collapses
+  //                      blanks. Per-line.
+  //   2. dropGarbageLines — removes logo/icon fragments like
+  //                      "1RABUsoupoA", "PORTUCUTSA". Also per-line —
+  //                      relies on the line structure for its heuristic.
+  //   3. joinLineWraps — collapses single newlines into spaces so that
+  //                      ML Kit's one-line-per-visual-row output reads
+  //                      as continuous prose. Paragraph breaks (\n\n)
+  //                      survive. MUST run last — joining first would
+  //                      break dropGarbageLines' line-based detection.
+  let cleaned = cleanOcrText(rawText);
+  cleaned = dropGarbageLines(cleaned);
+  cleaned = joinLineWraps(cleaned);
+  return cleaned;
 }

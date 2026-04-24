@@ -3,7 +3,7 @@ jest.mock('@infinitered/react-native-mlkit-text-recognition', () => ({
 }));
 
 import { recognizeText as mlkitRecognizeText } from '@infinitered/react-native-mlkit-text-recognition';
-import { validateOcrText, cleanOcrText, extractTextFromImageLocal } from './ocr';
+import { validateOcrText, cleanOcrText, joinLineWraps, extractTextFromImageLocal } from './ocr';
 
 const mockedRecognize = mlkitRecognizeText as jest.MockedFunction<typeof mlkitRecognizeText>;
 
@@ -93,6 +93,45 @@ describe('cleanOcrText', () => {
   });
 });
 
+describe('joinLineWraps', () => {
+  it('joins single newlines into spaces', () => {
+    const input = 'Governo e UGT deixam acordo para a\nreforma laboral num beco sem saída';
+    expect(joinLineWraps(input)).toBe(
+      'Governo e UGT deixam acordo para a reforma laboral num beco sem saída',
+    );
+  });
+
+  it('preserves paragraph breaks (\\n\\n)', () => {
+    const input = 'Paragraph one wraps\nlike this.\n\nParagraph two also wraps\nlike this.';
+    expect(joinLineWraps(input)).toBe(
+      'Paragraph one wraps like this.\n\nParagraph two also wraps like this.',
+    );
+  });
+
+  it('normalises Windows line endings (\\r\\n) before joining', () => {
+    const input = 'first line\r\nsecond line';
+    expect(joinLineWraps(input)).toBe('first line second line');
+  });
+
+  it('collapses double-spaces created by trailing whitespace before the newline', () => {
+    const input = 'first line  \nsecond line';
+    expect(joinLineWraps(input)).toBe('first line second line');
+  });
+
+  it('does nothing to already-flat text', () => {
+    const input = 'A single sentence with no newlines.';
+    expect(joinLineWraps(input)).toBe('A single sentence with no newlines.');
+  });
+
+  it('handles empty input', () => {
+    expect(joinLineWraps('')).toBe('');
+  });
+
+  it('trims leading and trailing whitespace from the result', () => {
+    expect(joinLineWraps('  hello\nworld  ')).toBe('hello world');
+  });
+});
+
 describe('extractTextFromImageLocal — integration', () => {
   beforeEach(() => {
     mockedRecognize.mockReset();
@@ -128,6 +167,28 @@ describe('extractTextFromImageLocal — integration', () => {
     expect(out).not.toContain('1RABUsoupoA');
     expect(out).not.toContain('tsaLNA');
     expect(out).not.toContain('PORTUCUTSA');
+  });
+
+  it('joins ML Kit per-visual-row line wraps into continuous prose', async () => {
+    // Real ML Kit output splits on EVERY visual row of the source page,
+    // even mid-sentence. Without joining, the LLM sees fragmented
+    // clauses. With joining (joinLineWraps), the survivors flow as one
+    // sentence. ≥ 3 lines so dropGarbageLines actually evaluates.
+    mockedRecognize.mockResolvedValue({
+      blocks: [],
+      text: [
+        'Governo e UGT deixam acordo para a',
+        'reforma laboral num beco sem saída',
+        'A UGT rejeitou por unanimidade a última versão',
+      ].join('\n'),
+    });
+
+    const out = await extractTextFromImageLocal('file:///fake.jpg');
+
+    // Sentence reassembled as one continuous string
+    expect(out).toContain('Governo e UGT deixam acordo para a reforma laboral');
+    // No stray newlines mid-sentence
+    expect(out).not.toContain('para a\nreforma');
   });
 
   it('does not strip valid all-caps headlines (corpus-known)', async () => {

@@ -2,9 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useShareIntentContext } from 'expo-share-intent';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { parseShareIntent } from '../lib/shareHandler';
 import { processSharedText, type ShareProgressEvent } from '../lib/shareProcessing';
 import { fetchArticleContent } from '../lib/urlExtractor';
+import { extractTextFromImageLocal } from '../lib/ocr';
 import { ClaudeAPIError } from '../lib/claude';
 import { useSettingsStore } from '../hooks/useSettings';
 import { useShareProcessingStore } from '../hooks/useShareProcessingStore';
@@ -13,6 +15,7 @@ import { useAlert } from './ConfirmDialog';
 import {
   INTRO,
   FETCH_ROTATION,
+  OCR_PHASES,
   LLM_PHASES_PRO,
   LLM_PHASES_BASIC,
   SAVING,
@@ -55,13 +58,6 @@ export default function ShareIntentHandler() {
       return;
     }
 
-    // Image shares are not supported via the global handler (the existing
-    // content.tsx flow handles user-picked images with its own pipeline).
-    if (parsed.type === 'image') {
-      resetShareIntent();
-      return;
-    }
-
     processingRef.current = true;
 
     const run = async () => {
@@ -81,7 +77,7 @@ export default function ShareIntentHandler() {
       try {
         let text: string;
         let title: string;
-        let sourceType: 'text' | 'link';
+        let sourceType: 'text' | 'link' | 'image';
         let sourceUrl: string | undefined;
 
         if (parsed.type === 'link' && parsed.url) {
@@ -98,6 +94,24 @@ export default function ShareIntentHandler() {
           text = parsed.text;
           title = '';
           sourceType = 'text';
+        } else if (parsed.type === 'image' && parsed.imageUri) {
+          // Mirrors the camera / gallery pipeline in app/(tabs)/content.tsx —
+          // resize for OCR speed, then go through extractTextFromImageLocal
+          // (which runs the full cleanOcrText → dropGarbageLines →
+          // joinLineWraps cleanup). Share intent does not give us the
+          // original dimensions, so we always resize to MAX_DIMENSION
+          // width — minimal cost on already-small images.
+          shareStore.start(INTRO.image);
+          shareStore.setRotatingPools(OCR_PHASES);
+          const MAX_DIMENSION = 1024;
+          const manipulated = await manipulateAsync(
+            parsed.imageUri,
+            [{ resize: { width: MAX_DIMENSION } }],
+            { format: SaveFormat.JPEG, compress: 0.6 },
+          );
+          text = await extractTextFromImageLocal(manipulated.uri);
+          title = text.split(/\s+/).slice(0, 5).join(' ') + '…';
+          sourceType = 'image';
         } else {
           shareStore.stop();
           resetShareIntent();
