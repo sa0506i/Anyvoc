@@ -36,15 +36,12 @@ name: "Add text content flow"
     id: "menu-enter-text"
 - waitForAnimationToEnd
 
-# Type content in text area (has autoFocus), then title
+# Type content in text area (has autoFocus). Title is auto-derived
+# from the first chars of the text — no separate title field exists.
 - tapOn:
     id: "text-input"
 - waitForAnimationToEnd
 - inputText: "Der Hund spielt im Garten und die Katze schlaeft auf dem Sofa"
-- tapOn:
-    id: "title-input"
-- waitForAnimationToEnd
-- inputText: "Maestro Test"
 
 # Save and wait for processing + dismiss Done dialog
 - tapOn:
@@ -58,5 +55,5 @@ name: "Add text content flow"
     optional: true
 - waitForAnimationToEnd
 
-# Verify content appears in list
-- assertVisible: "Maestro Test"
+# Verify content appears in list — title is auto-derived from text prefix
+- assertVisible: "Der Hund spielt"

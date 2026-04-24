@@ -1,6 +1,16 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { displayLevel } from '../../constants/levels';
-import { View, Text, FlatList, Pressable, Modal, TextInput, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  Pressable,
+  Modal,
+  TextInput,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -14,7 +24,7 @@ import {
   BASIC_MODE_DAILY_CONTENT_LIMIT,
   type Content,
 } from '../../lib/database';
-import { BASIC_MODE_CHAR_LIMIT } from '../../lib/truncate';
+import { BASIC_MODE_CHAR_LIMIT, PRO_MODE_CHAR_LIMIT } from '../../lib/truncate';
 import SwipeToDelete from '../../components/SwipeToDelete';
 import EmptyState from '../../components/EmptyState';
 import { ClaudeAPIError } from '../../lib/claude';
@@ -25,6 +35,7 @@ import { useSettingsStore } from '../../hooks/useSettings';
 import { useShareProcessingStore } from '../../hooks/useShareProcessingStore';
 import { useTheme } from '../../hooks/useTheme';
 import { useUIStore } from '../../hooks/useUIStore';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlert } from '../../components/ConfirmDialog';
 import {
   INTRO,
@@ -52,6 +63,7 @@ export default function ContentsScreen() {
   const level = useSettingsStore((s) => s.level);
   const proMode = useSettingsStore((s) => s.proMode);
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { alert, confirm, AlertDialog } = useAlert();
 
@@ -65,7 +77,6 @@ export default function ContentsScreen() {
   const [showTextModal, setShowTextModal] = useState(false);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [textInput, setTextInput] = useState('');
-  const [titleInput, setTitleInput] = useState('');
   const [linkInput, setLinkInput] = useState('');
 
   // All loading UI goes through the global overlay. No local loading state.
@@ -154,9 +165,17 @@ export default function ContentsScreen() {
     if (!textInput.trim()) return;
     setShowTextModal(false);
     shareStore.start(INTRO.text);
-    processText(textInput.trim(), titleInput.trim(), 'text');
+    // Title is derived from the first chars of the text — see
+    // shareProcessing.ts ~line 117 for the fallback.
+    processText(textInput.trim(), '', 'text');
     setTextInput('');
-    setTitleInput('');
+  };
+
+  // Cancel must also clear, otherwise the next open of the modal would
+  // re-show whatever the user typed before. Save already clears on success.
+  const handleCancelText = () => {
+    setShowTextModal(false);
+    setTextInput('');
   };
 
   const handleAddImage = async () => {
@@ -214,6 +233,73 @@ export default function ContentsScreen() {
             : String(error);
       alert('Image Error', msg);
     }
+  };
+
+  const handleTakePhoto = async () => {
+    setShowAddMenu(false);
+
+    // Same iOS modal-tear-down delay as handleAddImage — our Modal must
+    // close before we push another native screen on iOS.
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    try {
+      // Camera needs its own runtime permission, distinct from the
+      // media-library permission used by handleAddImage.
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        alert(
+          'Permission Required',
+          'Camera access is required to take a photo. Please enable it in device settings.',
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.7,
+      });
+
+      if (result.canceled || !result.assets?.[0]) return;
+
+      const asset = result.assets[0];
+
+      shareStore.start(INTRO.image);
+      shareStore.setRotatingPools(OCR_PHASES);
+
+      // Resize large images to stay within backend payload limits
+      const MAX_DIMENSION = 1024;
+      const needsResize =
+        (asset.width && asset.width > MAX_DIMENSION) ||
+        (asset.height && asset.height > MAX_DIMENSION);
+
+      const manipulated = await manipulateAsync(
+        asset.uri,
+        needsResize ? [{ resize: { width: MAX_DIMENSION } }] : [],
+        { format: SaveFormat.JPEG, compress: 0.6 },
+      );
+
+      const extractedText = await extractTextFromImageLocal(manipulated.uri);
+
+      const title = extractedText.split(/\s+/).slice(0, 5).join(' ') + '…';
+      // processText takes over from here — it drives the overlay via
+      // handleProgressEvent and owns the final stop() in its finally block.
+      await processText(extractedText, title, 'image');
+      return;
+    } catch (error) {
+      shareStore.stop();
+      const msg =
+        error instanceof ClaudeAPIError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      alert('Camera Error', msg);
+    }
+  };
+
+  const handleCancelLink = () => {
+    setShowLinkModal(false);
+    setLinkInput('');
   };
 
   const handleAddLink = async () => {
@@ -323,7 +409,7 @@ export default function ContentsScreen() {
               }}
             >
               <Ionicons name="create-outline" size={24} color={colors.text} />
-              <Text style={styles.menuItemText}>Enter Text</Text>
+              <Text style={styles.menuItemText}>Type it</Text>
             </Pressable>
             <Pressable
               testID="menu-choose-image"
@@ -336,7 +422,20 @@ export default function ContentsScreen() {
               onPress={handleAddImage}
             >
               <Ionicons name="image-outline" size={24} color={colors.text} />
-              <Text style={styles.menuItemText}>Choose Image</Text>
+              <Text style={styles.menuItemText}>Choose an Image</Text>
+            </Pressable>
+            <Pressable
+              testID="menu-take-photo"
+              disabled={overDailyLimit}
+              style={({ pressed }) => [
+                styles.menuItem,
+                overDailyLimit && styles.menuItemDisabled,
+                pressed && !overDailyLimit && styles.pressed,
+              ]}
+              onPress={handleTakePhoto}
+            >
+              <Ionicons name="camera-outline" size={24} color={colors.text} />
+              <Text style={styles.menuItemText}>Snap a Photo</Text>
             </Pressable>
             <Pressable
               testID="menu-add-link"
@@ -352,7 +451,7 @@ export default function ContentsScreen() {
               }}
             >
               <Ionicons name="link-outline" size={24} color={colors.text} />
-              <Text style={styles.menuItemText}>Add Link</Text>
+              <Text style={styles.menuItemText}>Add a Link</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -362,7 +461,7 @@ export default function ContentsScreen() {
       <Modal visible={showTextModal} animationType="slide">
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Pressable onPress={() => setShowTextModal(false)}>
+            <Pressable onPress={handleCancelText}>
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
             <Text style={styles.modalTitle}>Enter Text</Text>
@@ -370,71 +469,95 @@ export default function ContentsScreen() {
               <Text style={[styles.saveText, !textInput.trim() && { opacity: 0.5 }]}>Save</Text>
             </Pressable>
           </View>
-          <TextInput
-            testID="title-input"
-            style={styles.titleInputField}
-            placeholder="Title (optional)"
-            placeholderTextColor={colors.textSecondary}
-            value={titleInput}
-            onChangeText={setTitleInput}
-          />
-          <TextInput
-            testID="text-input"
-            style={styles.textInputField}
-            placeholder={
-              proMode
-                ? 'Enter text here...'
-                : `Enter text here... (Basic Mode: max ${BASIC_MODE_CHAR_LIMIT} characters)`
-            }
-            placeholderTextColor={colors.textSecondary}
-            value={textInput}
-            onChangeText={setTextInput}
-            maxLength={proMode ? undefined : BASIC_MODE_CHAR_LIMIT}
-            multiline
-            textAlignVertical="top"
-            autoFocus
-          />
-          {!proMode && (
-            <Text testID="char-counter" style={styles.charCounter}>
-              {textInput.length} / {BASIC_MODE_CHAR_LIMIT}
-            </Text>
-          )}
-        </View>
-      </Modal>
-
-      {/* Link Input Modal */}
-      <Modal visible={showLinkModal} animationType="slide">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Pressable onPress={() => setShowLinkModal(false)}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </Pressable>
-            <Text style={styles.modalTitle}>Add Link</Text>
-            <Pressable onPress={handleAddLink} disabled={!linkInput.trim()}>
-              <Text style={[styles.saveText, !linkInput.trim() && { opacity: 0.5 }]}>Save</Text>
-            </Pressable>
-          </View>
-          <TextInput
-            style={styles.titleInputField}
-            placeholder="https://..."
-            placeholderTextColor={colors.textSecondary}
-            value={linkInput}
-            onChangeText={setLinkInput}
-            keyboardType="url"
-            autoCapitalize="none"
-            autoFocus
-          />
           <Pressable
+            testID="paste-text-btn"
             style={styles.pasteButton}
             onPress={async () => {
               const clip = await Clipboard.getStringAsync();
-              if (clip) setLinkInput(clip);
+              if (!clip) return;
+              // maxLength only clips user-typed input — programmatic
+              // setValue bypasses it, so we clip on paste ourselves.
+              const limit = proMode ? PRO_MODE_CHAR_LIMIT : BASIC_MODE_CHAR_LIMIT;
+              setTextInput(clip.slice(0, limit));
             }}
           >
             <Ionicons name="clipboard-outline" size={18} color={colors.primary} />
             <Text style={styles.pasteButtonText}>Paste from clipboard</Text>
           </Pressable>
+          <TextInput
+            testID="text-input"
+            style={styles.textInputField}
+            placeholder="Copy/paste or enter text here ..."
+            placeholderTextColor={colors.textSecondary}
+            value={textInput}
+            onChangeText={setTextInput}
+            maxLength={proMode ? PRO_MODE_CHAR_LIMIT : BASIC_MODE_CHAR_LIMIT}
+            multiline
+            textAlignVertical="top"
+            autoFocus
+          />
+          <Text
+            testID="char-counter"
+            style={[styles.charCounter, { paddingBottom: insets.bottom + spacing.sm }]}
+          >
+            {proMode ? 'Pro Mode' : 'Basic Mode'}: {textInput.length} /{' '}
+            {proMode ? PRO_MODE_CHAR_LIMIT : BASIC_MODE_CHAR_LIMIT}
+          </Text>
         </View>
+      </Modal>
+
+      {/* Link Input Modal — centered card, not full-screen.
+          Pattern mirrors components/EditVocabModal.tsx. */}
+      <Modal
+        visible={showLinkModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelLink}
+      >
+        <KeyboardAvoidingView
+          style={styles.linkModalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Pressable style={styles.linkModalBackdrop} onPress={handleCancelLink} />
+          <View style={styles.linkModalCard}>
+            <Text style={styles.linkModalTitle}>Add a Link</Text>
+            <TextInput
+              style={styles.linkModalInput}
+              placeholder="https://..."
+              placeholderTextColor={colors.textSecondary}
+              value={linkInput}
+              onChangeText={setLinkInput}
+              keyboardType="url"
+              autoCapitalize="none"
+              autoFocus
+            />
+            <Pressable
+              style={styles.pasteButton}
+              onPress={async () => {
+                const clip = await Clipboard.getStringAsync();
+                if (clip) setLinkInput(clip);
+              }}
+            >
+              <Ionicons name="clipboard-outline" size={18} color={colors.primary} />
+              <Text style={styles.pasteButtonText}>Paste from clipboard</Text>
+            </Pressable>
+            <View style={styles.linkModalActions}>
+              <Pressable style={styles.linkModalCancelBtn} onPress={handleCancelLink}>
+                <Text style={styles.linkModalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.linkModalSaveBtn,
+                  !linkInput.trim() && styles.linkModalSaveBtnDisabled,
+                ]}
+                onPress={handleAddLink}
+                disabled={!linkInput.trim()}
+              >
+                <Text style={styles.linkModalSaveText}>Save</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Loading is rendered by GlobalLoadingOverlay (mounted in _layout.tsx)
@@ -550,17 +673,6 @@ const createStyles = (c: ThemeColors) =>
       color: c.primary,
       fontWeight: '600',
     },
-    titleInputField: {
-      backgroundColor: c.glass,
-      borderWidth: 1,
-      borderColor: c.glassBorder,
-      marginHorizontal: spacing.md,
-      marginTop: spacing.md,
-      padding: spacing.md,
-      borderRadius: borderRadius.md,
-      fontSize: fontSize.md,
-      color: c.text,
-    },
     pasteButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -590,12 +702,12 @@ const createStyles = (c: ThemeColors) =>
       color: c.text,
     },
     charCounter: {
-      fontSize: fontSize.xs,
-      color: c.textSecondary,
-      fontWeight: '300',
+      fontSize: fontSize.sm,
+      color: c.text,
+      fontWeight: '500',
       textAlign: 'right',
       paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
+      paddingTop: spacing.xs,
     },
     pressed: {
       transform: [{ scale: 0.97 }],
@@ -611,5 +723,75 @@ const createStyles = (c: ThemeColors) =>
     },
     menuItemDisabled: {
       opacity: 0.4,
+    },
+    // Link modal — centered card pattern, mirrors EditVocabModal.tsx
+    linkModalOverlay: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    linkModalBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: c.overlay,
+    },
+    linkModalCard: {
+      width: '85%',
+      backgroundColor: c.backgroundMid,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      borderRadius: borderRadius.md,
+      padding: spacing.lg,
+      gap: spacing.sm,
+    },
+    linkModalTitle: {
+      fontSize: fontSize.lg,
+      fontWeight: '600',
+      color: c.text,
+      marginBottom: spacing.xs,
+    },
+    linkModalInput: {
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      borderRadius: borderRadius.sm,
+      padding: spacing.sm,
+      paddingHorizontal: spacing.md,
+      fontSize: fontSize.md,
+      fontWeight: '300',
+      color: c.text,
+    },
+    linkModalActions: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginTop: spacing.sm,
+    },
+    linkModalCancelBtn: {
+      flex: 1,
+      backgroundColor: c.glass,
+      borderWidth: 1,
+      borderColor: c.glassBorder,
+      borderRadius: borderRadius.full,
+      padding: spacing.md,
+      alignItems: 'center',
+    },
+    linkModalCancelText: {
+      fontSize: fontSize.md,
+      color: c.textSecondary,
+      fontWeight: '300',
+    },
+    linkModalSaveBtn: {
+      flex: 1,
+      backgroundColor: c.primary,
+      borderRadius: borderRadius.full,
+      padding: spacing.md,
+      alignItems: 'center',
+    },
+    linkModalSaveBtnDisabled: {
+      opacity: 0.4,
+    },
+    linkModalSaveText: {
+      fontSize: fontSize.md,
+      color: c.textOnColor,
+      fontWeight: '600',
     },
   });

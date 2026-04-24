@@ -36,15 +36,11 @@ name: "Content detail tabs flow"
     id: "menu-enter-text"
 - waitForAnimationToEnd
 
-# Type content then title
+# Type content. Title is auto-derived from the first chars of the text.
 - tapOn:
     id: "text-input"
 - waitForAnimationToEnd
 - inputText: "Der Hund spielt im Garten und die Katze schlaeft auf dem Sofa"
-- tapOn:
-    id: "title-input"
-- waitForAnimationToEnd
-- inputText: "Detail Test"
 
 # Save and wait for API processing
 - tapOn:
@@ -60,11 +56,11 @@ name: "Content detail tabs flow"
     optional: true
 - waitForAnimationToEnd
 
-# The content should be in the list
-- assertVisible: "Detail Test"
+# The content should be in the list — title is the text prefix
+- assertVisible: "Der Hund spielt"
 
 # Open the content detail
-- tapOn: "Detail Test"
+- tapOn: "Der Hund spielt"
 - waitForAnimationToEnd
 
 # Verify Original tab is shown by default

@@ -1,4 +1,9 @@
-import { truncateAtSentence, applyBasicLimit, BASIC_MODE_CHAR_LIMIT } from './truncate';
+import {
+  truncateAtSentence,
+  applyBasicLimit,
+  BASIC_MODE_CHAR_LIMIT,
+  PRO_MODE_CHAR_LIMIT,
+} from './truncate';
 
 describe('truncateAtSentence', () => {
   it('returns unchanged text when shorter than limit', () => {
@@ -64,15 +69,31 @@ describe('truncateAtSentence', () => {
 });
 
 describe('applyBasicLimit', () => {
-  it('bypasses truncation when proMode is true', () => {
-    const text = 'x'.repeat(5000);
+  it('PRO_MODE_CHAR_LIMIT is 5000', () => {
+    expect(PRO_MODE_CHAR_LIMIT).toBe(5000);
+  });
+
+  it('does not truncate Pro-mode text at or below PRO_MODE_CHAR_LIMIT', () => {
+    const text = 'x'.repeat(PRO_MODE_CHAR_LIMIT);
     expect(applyBasicLimit(text, true)).toEqual({ text, truncated: false });
+  });
+
+  it('truncates Pro-mode text that exceeds PRO_MODE_CHAR_LIMIT', () => {
+    // 6000 chars, well above the 5000 Pro limit but within Basic'd refusal
+    const text = 'A sentence. '.repeat(500);
+    const result = applyBasicLimit(text, true);
+    expect(result.truncated).toBe(true);
+    expect(result.text.length).toBeLessThanOrEqual(PRO_MODE_CHAR_LIMIT);
   });
 
   it('applies truncation when proMode is false', () => {
     const text = 'A sentence. '.repeat(300); // 3600 chars
     const result = applyBasicLimit(text, false);
     expect(result.truncated).toBe(true);
-    expect(result.text.length).toBeLessThanOrEqual(2000);
+    expect(result.text.length).toBeLessThanOrEqual(BASIC_MODE_CHAR_LIMIT);
+  });
+
+  it('Pro limit is strictly higher than Basic limit', () => {
+    expect(PRO_MODE_CHAR_LIMIT).toBeGreaterThan(BASIC_MODE_CHAR_LIMIT);
   });
 });

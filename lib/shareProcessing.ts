@@ -44,10 +44,11 @@ export type ShareProgressEvent = 'llm-start' | 'saving';
  * content and vocab into the database. Progress strings are reported via
  * onProgress.
  *
- * proMode controls three Basic-mode gates:
- *   - daily-limit: rejects immediately if 3+ contents added today
- *   - truncation: limits text to BASIC_MODE_CHAR_LIMIT chars
- *   - skip translation: translateText is not called in Basic mode
+ * proMode controls three gates:
+ *   - daily-limit (Basic only): rejects immediately if 3+ contents added today
+ *   - truncation: limits text to BASIC_MODE_CHAR_LIMIT (2000) in Basic mode
+ *     and PRO_MODE_CHAR_LIMIT (5000) in Pro mode — see applyBasicLimit
+ *   - skip translation (Basic only): translateText is not called in Basic mode
  *
  * Throws on errors (including ClaudeAPIError and language mismatch). The
  * caller is responsible for handling errors and showing alerts.

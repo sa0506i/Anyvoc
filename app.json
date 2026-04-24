@@ -18,7 +18,8 @@
       "bundleIdentifier": "com.anyvoc.app",
       "buildNumber": "24",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Anyvoc needs camera access to capture photos for on-device text recognition."
       }
     },
     "android": {
@@ -28,7 +29,8 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA"
       ],
       "package": "com.anonymous.Anyvoc"
     },

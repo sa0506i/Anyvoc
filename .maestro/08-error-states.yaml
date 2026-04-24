@@ -39,10 +39,8 @@ name: "Empty states and edge cases"
     id: "menu-enter-text"
 - waitForAnimationToEnd
 
-# Fill title only, leave text empty — Save should be disabled
-- tapOn:
-    id: "title-input"
-- inputText: "Empty Test"
+# Leave text empty — Save should be disabled (there's no longer a
+# separate title field; title is auto-derived from the text).
 - hideKeyboard
 
 # Tap save — nothing should happen since button is disabled
@@ -51,4 +49,4 @@ name: "Empty states and edge cases"
 
 # We should still be on the text modal (not navigated away)
 - assertVisible:
-    id: "title-input"
+    id: "text-input"
